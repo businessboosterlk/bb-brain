@@ -27,10 +27,12 @@ input{font-family:inherit}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#1c2536;border-radius:99px;border:2px solid var(--bg)}::-webkit-scrollbar-track{background:transparent}
 
 /* ── top bar ── */
-.top{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(150%) blur(12px)}
-.brand{font-family:'Poppins',sans-serif;font-weight:800;font-size:16px}
-.brand em{color:var(--blue);font-style:normal}
-.gen{font-size:11px;color:var(--text-3)}
+.top{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(150%) blur(12px)}
+.brandbox{display:flex;align-items:center;gap:12px}
+.brandbox img{height:30px;width:auto;display:block}
+.brandbox .bt{font-family:'Poppins',sans-serif;font-weight:800;font-size:14px;line-height:1.15}
+.brandbox .bt em{color:var(--blue);font-style:normal}
+.gen{font-size:10.5px;color:var(--text-3)}
 .seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;gap:3px;margin-left:auto}
 .seg button{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-2);transition:background .15s var(--ease),color .15s}
 .seg button.on{background:var(--surface-2);color:var(--text);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.4)}
@@ -43,41 +45,60 @@ input{font-family:inherit}
 .tbtn kbd{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10.5px;margin-left:6px;font-family:inherit}
 
 /* ── this week strip ── */
-.week{display:flex;align-items:center;gap:18px;padding:12px 22px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
+.week{display:flex;align-items:center;gap:18px;padding:11px 22px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
 .week b{color:var(--text);font-weight:700}
 .week .chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:11.5px}
 .week .dot{width:7px;height:7px;border-radius:50%}
 .week .lbl{font-weight:700;color:var(--text-3);font-size:11px}
 
 /* ── layout + canvas ── */
-.wrap{display:flex;min-height:calc(100vh - 110px)}
-.stage{flex:1;min-width:0;position:relative;
+.wrap{display:flex;min-height:calc(100vh - 150px)}
+.stage{flex:1;min-width:0;position:relative;overflow:hidden;
   background:radial-gradient(ellipse 62% 55% at 50% 46%, rgba(24,38,66,.55), transparent 72%)}
-svg.brain{display:block;width:100%;height:auto}
+svg.brain{display:block;width:100%;height:auto;cursor:grab;touch-action:none}
+svg.brain.panning{cursor:grabbing}
 .node{cursor:pointer}
 .node circle.core{transition:transform .18s var(--ease)}
-.node:hover circle.core{transform:scale(1.28)}
-.node.quiet{opacity:.4}
-.node.fade{opacity:.1;pointer-events:none}
+.node:hover circle.core{transform:scale(1.25)}
 .node.hit circle.core{stroke:#fff;stroke-width:1.5}
-.hublabel{font-size:11.5px;fill:var(--text-2);font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+.node.quiet{opacity:.45}
+.hublabel{font-size:12px;fill:var(--text-2);font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 .hublabel:hover{fill:var(--text)}
-.hublabel.fade{opacity:.15}
 .hubcount{font-size:9.5px;fill:var(--text-3)}
-.syn{pointer-events:none}
+.nlabel{font-size:6.8px;fill:var(--text-2);text-anchor:middle;opacity:0;pointer-events:none;transition:opacity .4s var(--ease)}
+.cgroup{transition:opacity .5s var(--ease)}
+.cgroup.dim{opacity:.10}
+.cgroup.focus .nlabel{opacity:1}
+.ilinks{transition:opacity .5s var(--ease)}
+.ilinks.dim{opacity:.14}
+.stars{transition:opacity .5s var(--ease)}
+svg.focused .stars{opacity:.35}
+.node.fade{opacity:.1;pointer-events:none}
+.hublabel.fade,.hubcount.fade{opacity:.12}
 @media(prefers-reduced-motion:no-preference){
   .node{opacity:0;animation:arrive .7s var(--ease) forwards}
   .node.quiet{animation:arriveQ .7s var(--ease) forwards}
   @keyframes arrive{to{opacity:1}}
-  @keyframes arriveQ{to{opacity:.4}}
+  @keyframes arriveQ{to{opacity:.45}}
   .node circle.pulse{animation:pulse 3.8s var(--ease) infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.74}}
+  .selring{animation:ringpulse 2.2s var(--ease) infinite}
+  @keyframes ringpulse{0%,100%{stroke-opacity:.55}50%{stroke-opacity:.15}}
 }
-/* legend */
-.legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:4px 18px 16px}
-.legend button{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:99px;padding:5px 12px;transition:all .15s}
-.legend button:hover{color:var(--text);border-color:var(--line-2);background:var(--surface)}
-.legend .dot{width:8px;height:8px;border-radius:50%}
+/* stage overlays */
+.backbtn{position:absolute;top:14px;left:14px;z-index:20;display:none;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--text-2);background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-2);border-radius:99px;padding:8px 15px;transition:color .15s}
+.backbtn:hover{color:var(--text)}
+.backbtn.show{display:inline-flex}
+.sector-title{position:absolute;top:58px;left:18px;z-index:19;display:none;pointer-events:none}
+.sector-title.show{display:block;animation:stin .5s var(--ease)}
+@keyframes stin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.sector-title h2{font-size:clamp(18px,2.4vw,26px)}
+.sector-title .st-sub{font-size:12px;color:var(--text-2);margin-top:2px}
+.zoomctl{position:absolute;left:14px;bottom:16px;z-index:20;display:flex;flex-direction:column;gap:6px}
+.zoomctl button{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-2);color:var(--text-2);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:color .15s}
+.zoomctl button:hover{color:var(--text)}
+.demo-hint{position:absolute;bottom:16px;right:16px;z-index:20;font-size:11px;color:var(--text-3);background:color-mix(in srgb,var(--surface) 80%,transparent);border:1px solid var(--line);border-radius:99px;padding:6px 13px;display:none}
+body.present .demo-hint{display:block}
 /* hover mini-card */
 .tip{position:absolute;pointer-events:none;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:10px 13px;box-shadow:var(--shadow-lg);font-size:12px;max-width:250px;opacity:0;transition:opacity .12s;z-index:40}
 .tip.show{opacity:1}
@@ -86,8 +107,20 @@ svg.brain{display:block;width:100%;height:auto}
 .tip .t-desc{color:var(--text-2);font-size:11.5px;line-height:1.45}
 .tip .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
 
+/* legend */
+.legend{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:6px 18px 12px}
+.legend button{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:99px;padding:5px 12px;transition:all .15s}
+.legend button:hover{color:var(--text);border-color:var(--line-2);background:var(--surface)}
+.legend .dot{width:8px;height:8px;border-radius:50%}
+/* bottom stats bar */
+.stats{display:flex;gap:0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.stats .st{flex:1;min-width:150px;padding:13px 20px;border-right:1px solid var(--line)}
+.stats .st:last-child{border-right:none}
+.stats .st b{display:block;font-family:'Poppins',sans-serif;font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
+.stats .st span{font-size:11px;color:var(--text-3)}
+
 /* ── side panel ── */
-.panel{width:360px;flex-shrink:0;border-left:1px solid var(--line);padding:20px;overflow-y:auto;max-height:calc(100vh - 110px);position:sticky;top:110px;display:none;background:linear-gradient(180deg,var(--surface),transparent 140px)}
+.panel{width:360px;flex-shrink:0;border-left:1px solid var(--line);padding:20px;overflow-y:auto;max-height:calc(100vh - 150px);position:sticky;top:150px;display:none;background:linear-gradient(180deg,var(--surface),transparent 140px)}
 .panel.open{display:block;animation:slidein .25s var(--ease)}
 @keyframes slidein{from{transform:translateX(14px);opacity:0}to{transform:none;opacity:1}}
 .panel h2{font-size:17px;margin-bottom:4px;word-break:break-word;padding-right:28px}
@@ -98,7 +131,7 @@ svg.brain{display:block;width:100%;height:auto}
 .depth-hero span{font-size:12px;color:var(--text-2);font-weight:600}
 .panel .desc{color:var(--text-2);font-size:13px;margin:12px 0}
 .panel .sec{font-size:11px;font-weight:700;color:var(--text-3);margin:16px 0 6px}
-.trigger{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 12px 12px;font-size:12.5px;color:var(--text);position:relative;padding-right:64px}
+.trigger{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;font-size:12.5px;color:var(--text);position:relative;padding-right:64px}
 .copy{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:var(--blue);border:1px solid var(--line-2);border-radius:6px;padding:4px 10px;background:var(--surface-2);transition:background .15s}
 .copy:hover{background:#1a2438}
 .latest{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 12px;font-size:12.5px;color:var(--text-2)}
@@ -153,16 +186,17 @@ svg.brain{display:block;width:100%;height:auto}
 .btn-p:active{transform:scale(.97)}
 
 /* ── present mode ── */
-body.present .top,.present .week,.present .gap,.present .panel,.present .tl,.present .legend{display:none!important}
+body.present .top,.present .week,.present .gap,.present .panel,.present .tl,.present .legend,.present .stats{display:none!important}
 .hero{display:none}
-body.present .hero{display:block;text-align:center;padding:40px 20px 6px}
-.hero h1{font-size:clamp(26px,4.5vw,44px)}
-.hero p{color:var(--text-2);font-size:15px;margin-top:8px}
-.hero .nums{display:flex;gap:38px;justify-content:center;margin-top:26px;flex-wrap:wrap}
-.hero .num b{display:block;font-family:'Poppins',sans-serif;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
-.hero .num span{font-size:12px;color:var(--text-2)}
-.hero .esc{font-size:11px;color:var(--text-3);margin-top:20px}
-body.present .stage{max-width:1150px;margin:0 auto}
+body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
+.hero img{height:40px;margin:0 auto 14px;display:block}
+.hero h1{font-size:clamp(22px,3.6vw,36px)}
+.hero p{color:var(--text-2);font-size:14px;margin-top:6px}
+.hero .nums{display:flex;gap:34px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.hero .num b{display:block;font-family:'Poppins',sans-serif;font-size:28px;font-weight:800;font-variant-numeric:tabular-nums}
+.hero .num span{font-size:11.5px;color:var(--text-2)}
+body.present .stage{max-width:1200px;margin:0 auto;width:100%}
+body.present .wrap{min-height:calc(100vh - 210px)}
 
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 18px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
 .toast.show{opacity:1}
@@ -174,16 +208,18 @@ body.present .stage{max-width:1150px;margin:0 auto}
   .gbar{grid-template-columns:120px 1fr 40px}
   .seg{margin-left:0}
   .tip{display:none}
+  .stats .st{min-width:46%}
+  .sector-title{top:60px}
 }
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.06s!important}.node{opacity:1}.node.quiet{opacity:.4}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.06s!important}.node{opacity:1}.node.quiet{opacity:.45}}
 </style>
 </head>
 <body>
 
 <header class="top">
-  <div>
-    <div class="brand">BB <em>Digital Brain</em></div>
-    <div class="gen" id="gen"></div>
+  <div class="brandbox">
+    <img src="bb-logo.png" alt="Business Booster">
+    <div><div class="bt">Digital <em>Brain</em></div><div class="gen" id="gen"></div></div>
   </div>
   <div class="seg" role="tablist">
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
@@ -197,20 +233,29 @@ body.present .stage{max-width:1150px;margin:0 auto}
 <div class="week" id="week"></div>
 
 <section class="hero" id="hero">
+  <img src="bb-logo.png" alt="Business Booster">
   <h1>The Business Booster Digital Brain</h1>
   <p>A marketing machine that learns from every client and compounds.</p>
   <div class="nums" id="hero-nums"></div>
-  <div class="esc">Press Esc to exit</div>
 </section>
 
 <div class="wrap" id="brain-view">
-  <div class="stage">
-    <svg class="brain" id="svg" viewBox="0 0 1200 720" role="img" aria-label="Constellation of Business Booster skills grouped into eight capability clusters"></svg>
+  <div class="stage" id="stage">
+    <svg class="brain" id="svg" viewBox="0 0 1200 720" role="img" aria-label="Interactive constellation of Business Booster skills grouped into eight capability clusters"></svg>
+    <button class="backbtn" id="backbtn" onclick="unfocus()">← Back to full brain</button>
+    <div class="sector-title" id="sector-title"></div>
+    <div class="zoomctl">
+      <button onclick="zoomBtn(0.8)" aria-label="Zoom in">+</button>
+      <button onclick="zoomBtn(1.25)" aria-label="Zoom out">−</button>
+      <button onclick="unfocus()" aria-label="Reset view" style="font-size:13px">⤢</button>
+    </div>
+    <div class="demo-hint">Auto-touring the brain · click or press Esc to take control</div>
     <div class="tip" id="tip"></div>
   </div>
   <aside class="panel" id="panel"></aside>
 </div>
 <div class="legend" id="legend"></div>
+<div class="stats" id="stats"></div>
 
 <div class="tl" id="tl-view" style="display:none">
   <div class="tl-filters" id="tl-filters"></div>
@@ -240,10 +285,13 @@ const BUCKETS = [[0,'New capability'],[1,'Tested'],[3,'Practiced'],[6,'Sharp'],[
 const bucket = d => { let b=BUCKETS[0][1]; for(const [min,l] of BUCKETS) if(d>=min) b=l; return d===0?'New capability':b; };
 const DEPTH_TIP = 'Battle-tested depth = how many logged learning iterations this skill has. It measures real-world use, not capability quality. A new skill can be excellent and still read 0.';
 const SITE = 'https://businessboosterlk.github.io/bb-brain/';
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ORDER = ['content','web','sales','systems','strategy','intel','seo','ads'];
+const DEMO_SEQ = ['content','systems','web','sales','seo','ads'];
 
-document.getElementById('gen').textContent = 'Live from '+D.totals.skills+' scanned skill files · regenerated '+D.generated.slice(0,10);
+document.getElementById('gen').textContent = D.totals.skills+' skills · refreshed '+D.generated.slice(0,10);
 
-/* ═══ layout: two hemispheres around a central fissure ═══ */
+/* ═══ layout: two hemispheres ═══ */
 const HUBS = {
   web:[300,340], sales:[470,165], seo:[195,545], strategy:[470,500],
   systems:[880,340], content:[715,165], ads:[985,545], intel:[720,520],
@@ -259,57 +307,178 @@ const spiralMax = {};
     const [hx,hy] = HUBS[cid]||[600,360];
     let maxR = 0;
     list.forEach((s,i)=>{
-      const r = 16+13*Math.sqrt(i), a = i*GA;
+      const r = 20+13.5*Math.sqrt(i), a = i*GA;
       maxR = Math.max(maxR, r);
-      nodes.push({s, x:hx+r*Math.cos(a), y:hy+r*Math.sin(a)*0.86,
+      nodes.push({s, cid, x:hx+r*Math.cos(a), y:hy+r*Math.sin(a)*0.86,
         rad: s.depth===0?4:Math.min(19, 5.5+3.1*Math.log2(1+s.depth))});
     });
     spiralMax[cid] = maxR;
   }
 })();
 
+/* ═══ render ═══ */
+function shortName(n){ return n.replace(/^bb-/,'').slice(0,20); }
 function renderBrain(){
   const svg=document.getElementById('svg');
-  let g_syn='', g_nodes='', g_labels='';
-  for(const n of nodes){
-    const [hx,hy]=HUBS[n.s.cluster];
-    g_syn += `<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${C[n.s.cluster].color}" stroke-opacity="0.10" stroke-width="0.7"/>`;
+  let stars='';
+  for(let i=0;i<95;i++){
+    const x=(i*173.13)%1200, y=(i*97.7+31)%720, r=(0.5+((i*7)%9)/10).toFixed(2), o=(0.10+((i*13)%17)/100).toFixed(2);
+    stars+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#9cc6ff" opacity="${o}"/>`;
   }
-  // hemisphere links: within each lobe + one bridge (the corpus callosum)
   const LOBE_L=['sales','web','strategy','seo'], LOBE_R=['content','systems','intel','ads'];
-  const link=(a,b,o)=>{const[A,B]=[HUBS[a],HUBS[b]];return `<line x1="${A[0]}" y1="${A[1]}" x2="${B[0]}" y2="${B[1]}" stroke="#5B9DFF" stroke-opacity="${o}" stroke-width="1"/>`;};
-  for(const L of [LOBE_L,LOBE_R]) for(let i=0;i<L.length-1;i++) g_syn+=link(L[i],L[i+1],0.07);
-  g_syn+=link('web','systems',0.10)+link('strategy','intel',0.06);
-  let idx=0;
-  for(const n of nodes){
-    const col=C[n.s.cluster].color, deep=n.s.depth>=6;
-    const delay=(idx++%40)*22;
-    g_nodes += `<g class="node${n.s.quiet?' quiet':''}" data-skill="${esc(n.s.name)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})" style="animation-delay:${delay}ms">
-      ${deep?`<circle r="${(n.rad*1.9).toFixed(1)}" fill="${col}" fill-opacity="0.07"/>`:''}
-      <circle class="core${deep?' pulse':''}" r="${n.rad}" fill="${col}" fill-opacity="${n.s.depth===0?0.35:0.85}" ${deep?`style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}></circle>
+  const pairs=[];
+  for(const L of [LOBE_L,LOBE_R]) for(let i=0;i<L.length-1;i++) pairs.push([L[i],L[i+1]]);
+  pairs.push(['web','systems'],['strategy','intel'],['sales','content']);
+  let ilinks='', pulses='';
+  pairs.forEach((pr,i)=>{
+    const [a,b]=pr,[x1,y1]=HUBS[a],[x2,y2]=HUBS[b];
+    const mx=(x1+x2)/2, my=(y1+y2)/2, dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
+    const off=(i%2?1:-1)*Math.min(70,len*0.18);
+    const cx=mx-dy/len*off, cy=my+dx/len*off;
+    ilinks+=`<path id="il${i}" d="M ${x1} ${y1} Q ${cx.toFixed(0)} ${cy.toFixed(0)} ${x2} ${y2}" fill="none" stroke="#5B9DFF" stroke-opacity="0.10" stroke-width="1.1"/>`;
+    if(!REDUCED) pulses+=`<circle r="2" fill="#bcd7ff" opacity="0.7"><animateMotion dur="${(6+i*0.9).toFixed(1)}s" begin="${(i*0.7).toFixed(1)}s" repeatCount="indefinite"><mpath href="#il${i}"/></animateMotion></circle>`;
+  });
+  let groups='';
+  for(const cid of Object.keys(HUBS)){
+    const [hx,hy]=HUBS[cid]; const col=C[cid].color;
+    const cn=nodes.filter(n=>n.cid===cid);
+    let spokes='', ns='', labels='';
+    let idx=0;
+    for(const n of cn){
+      spokes+=`<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${col}" stroke-opacity="0.14" stroke-width="0.8"/>`;
+      const deep=n.s.depth>=6, delay=(idx++%40)*22;
+      ns+=`<g class="node${n.s.quiet?' quiet':''}" data-skill="${esc(n.s.name)}" data-c="${cid}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})" style="animation-delay:${delay}ms">
+        ${deep?`<circle r="${(n.rad*1.9).toFixed(1)}" fill="${col}" fill-opacity="0.07"/>`:''}
+        <circle class="core${deep?' pulse':''}" r="${n.rad}" fill="${col}" fill-opacity="${n.s.depth===0?0.4:0.88}" ${deep?`style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}></circle>
+      </g>`;
+      labels+=`<text class="nlabel" x="${n.x.toFixed(1)}" y="${(n.y+n.rad+8).toFixed(1)}">${esc(shortName(n.s.name))}</text>`;
+    }
+    const num=ORDER.indexOf(cid)+1;
+    const total=D.totals.depthByCluster[cid], count=cn.length;
+    const off=30+(spiralMax[cid]||40)*0.92;
+    groups+=`<g class="cgroup" data-c="${cid}">
+      ${spokes}
+      <circle cx="${hx}" cy="${hy}" r="7" fill="${col}" style="filter:drop-shadow(0 0 10px ${col})"/>
+      <circle cx="${hx}" cy="${hy}" r="2.4" fill="#fff" opacity=".9"/>
+      ${ns}${labels}
+      <text class="hublabel" data-cluster="${cid}" x="${hx}" y="${hy-off}" text-anchor="middle"><tspan fill="${col}">${num}.</tspan> ${esc(C[cid].name)}</text>
+      <text class="hubcount" data-cluster="${cid}" x="${hx}" y="${hy-off+14}" text-anchor="middle">${count} skills · depth ${total}</text>
     </g>`;
   }
-  for(const [cid,[x,y]] of Object.entries(HUBS)){
-    const total = D.totals.depthByCluster[cid], count = D.skills.filter(s=>s.cluster===cid).length;
-    const off = 26 + (spiralMax[cid]||40)*0.92;
-    g_labels += `<text class="hublabel" data-cluster="${cid}" x="${x}" y="${y-off}" text-anchor="middle">${esc(C[cid].name)}</text>
-      <text class="hubcount" x="${x}" y="${y-off+14}" text-anchor="middle">${count} skills · depth ${total}</text>`;
-  }
-  svg.innerHTML = `<g class="syn">${g_syn}</g><g>${g_nodes}</g><g>${g_labels}</g>`;
+  svg.innerHTML=`<g class="stars">${stars}</g><g class="ilinks" id="ilinks">${ilinks}${pulses}</g>${groups}<g id="fxlayer"></g>`;
   svg.querySelectorAll('.node').forEach(el=>{
-    el.addEventListener('click',()=>openSkill(el.dataset.skill));
-    el.addEventListener('mouseenter',e=>showTip(el.dataset.skill,el));
+    el.addEventListener('click',e=>{e.stopPropagation(); const cid=el.dataset.c;
+      if(FOCUS===cid) openSkill(el.dataset.skill); else focusCluster(cid); });
+    el.addEventListener('mouseenter',()=>showTip(el.dataset.skill,el));
     el.addEventListener('mouseleave',hideTip);
   });
-  svg.querySelectorAll('.hublabel').forEach(el=>el.addEventListener('click',()=>openCluster(el.dataset.cluster)));
-  document.getElementById('legend').innerHTML = D.clusters.map(c=>
-    `<button onclick="openCluster('${c.id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span style="color:var(--text-3)">· ${D.totals.depthByCluster[c.id]}</span></button>`).join('');
+  svg.querySelectorAll('.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();focusCluster(el.dataset.cluster);}));
+  document.getElementById('legend').innerHTML = ORDER.map(id=>{const c=C[id];return `<button onclick="focusCluster('${id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span style="color:var(--text-3)">· ${D.totals.depthByCluster[id]}</span></button>`;}).join('');
 }
+
+/* ═══ camera: animated viewBox, wheel zoom, drag pan ═══ */
+const HOME={x:0,y:0,w:1200,h:720};
+let VB={...HOME}, camRaf=null;
+const svgEl=()=>document.getElementById('svg');
+function applyCam(){ svgEl().setAttribute('viewBox',`${VB.x} ${VB.y} ${VB.w} ${VB.h}`); }
+function animateCam(t,dur=950,cb){
+  if(camRaf)cancelAnimationFrame(camRaf);
+  if(REDUCED){VB={...t};applyCam();if(cb)cb();return;}
+  const s={...VB}, t0=performance.now();
+  const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
+  (function step(now){
+    const p=Math.min(1,(now-t0)/dur), e=ease(p);
+    VB={x:s.x+(t.x-s.x)*e, y:s.y+(t.y-s.y)*e, w:s.w+(t.w-s.w)*e, h:s.h+(t.h-s.h)*e};
+    applyCam();
+    if(p<1)camRaf=requestAnimationFrame(step); else {camRaf=null;if(cb)cb();}
+  })(t0);
+}
+function svgPoint(cx,cy){ const r=svgEl().getBoundingClientRect(); return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]; }
+function zoomAt(px,py,f){
+  const w=Math.max(150,Math.min(2600,VB.w*f)); const h=w*(720/1200);
+  VB={x:px-(px-VB.x)*(w/VB.w), y:py-(py-VB.y)*(h/VB.h), w, h}; applyCam();
+}
+function zoomBtn(f){ stopDemo(); zoomAt(VB.x+VB.w/2, VB.y+VB.h/2, f); }
+function wireCamera(){
+  const svg=svgEl(), stage=document.getElementById('stage');
+  stage.addEventListener('wheel',e=>{e.preventDefault();stopDemo();const [px,py]=svgPoint(e.clientX,e.clientY);zoomAt(px,py,e.deltaY>0?1.13:0.885);},{passive:false});
+  let drag=null;
+  svg.addEventListener('pointerdown',e=>{ if(e.target.closest('.node,.hublabel'))return;
+    drag={cx:e.clientX,cy:e.clientY,vb:{...VB},moved:false}; try{svg.setPointerCapture(e.pointerId);}catch(_){}});
+  svg.addEventListener('pointermove',e=>{ if(!drag)return;
+    const r=svg.getBoundingClientRect();
+    if(Math.abs(e.clientX-drag.cx)+Math.abs(e.clientY-drag.cy)>5){drag.moved=true;stopDemo();svg.classList.add('panning');}
+    if(drag.moved){
+      const dx=(e.clientX-drag.cx)/r.width*drag.vb.w, dy=(e.clientY-drag.cy)/r.height*drag.vb.h;
+      VB={...drag.vb,x:drag.vb.x-dx,y:drag.vb.y-dy}; applyCam(); } });
+  const end=()=>{ svg.classList.remove('panning'); drag=null; };
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+  svg.addEventListener('dblclick',e=>{ const n=e.target.closest('.node,.hublabel');
+    if(n){focusCluster(n.dataset.c||n.dataset.cluster);} else if(FOCUS){unfocus();} });
+}
+
+/* ═══ sector focus ═══ */
+let FOCUS=null;
+function clusterBox(cid){
+  const cn=nodes.filter(n=>n.cid===cid);
+  let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+  for(const n of cn){x1=Math.min(x1,n.x-30);y1=Math.min(y1,n.y-30);x2=Math.max(x2,n.x+30);y2=Math.max(y2,n.y+40);}
+  y1-=70;
+  let w=x2-x1,h=y2-y1; const AR=1200/720;
+  if(w/h<AR){const nw=h*AR;x1-=(nw-w)/2;w=nw;} else {const nh=w/AR;y1-=(nh-h)/2;h=nh;}
+  return {x:x1-w*0.06,y:y1-h*0.06,w:w*1.12,h:h*1.12};
+}
+function focusCluster(cid){
+  if(!C[cid])return;
+  hideTip(); FOCUS=cid;
+  const svg=svgEl(); svg.classList.add('focused');
+  svg.querySelectorAll('.cgroup').forEach(g=>{
+    g.classList.toggle('dim', g.dataset.c!==cid);
+    g.classList.toggle('focus', g.dataset.c===cid);
+  });
+  document.getElementById('ilinks').classList.add('dim');
+  const [hx,hy]=HUBS[cid], col=C[cid].color, R=(spiralMax[cid]||60)+26;
+  document.getElementById('fxlayer').innerHTML=
+    `<circle cx="${hx}" cy="${hy}" r="${R}" fill="${col}" fill-opacity="0.045"/>
+     <circle cx="${hx}" cy="${hy}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  animateCam(clusterBox(cid),1000);
+  const num=ORDER.indexOf(cid)+1, cn=nodes.filter(n=>n.cid===cid).length;
+  const st=document.getElementById('sector-title');
+  st.innerHTML=`<h2><span style="color:${col}">${num}.</span> ${esc(C[cid].name)}</h2><div class="st-sub">${cn} skills · depth ${D.totals.depthByCluster[cid]} · click any node for its details</div>`;
+  st.classList.add('show');
+  document.getElementById('backbtn').classList.add('show');
+  if(!document.body.classList.contains('present')) openCluster(cid);
+}
+function clearFocusDom(){
+  FOCUS=null;
+  const svg=svgEl(); svg.classList.remove('focused');
+  svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus'));
+  document.getElementById('ilinks').classList.remove('dim');
+  document.getElementById('fxlayer').innerHTML='';
+  document.getElementById('sector-title').classList.remove('show');
+  document.getElementById('backbtn').classList.remove('show');
+  animateCam(HOME,900);
+}
+function unfocus(){ stopDemo(); clearFocusDom(); }
+
+/* ═══ auto-demo tour (present mode) ═══ */
+let demoTimer=null, demoIdx=0, demoActive=false;
+function startDemo(){
+  demoActive=true; demoIdx=0;
+  const step=()=>{
+    if(!demoActive)return;
+    focusCluster(DEMO_SEQ[demoIdx%DEMO_SEQ.length]);
+    demoTimer=setTimeout(()=>{ if(!demoActive)return; clearFocusDom(); demoTimer=setTimeout(()=>{demoIdx++;step();},1150); },4100);
+  };
+  demoTimer=setTimeout(step,900);
+}
+function stopDemo(){ if(!demoActive)return; demoActive=false; clearTimeout(demoTimer); }
 
 /* ═══ hover mini-card ═══ */
 function showTip(name, el){
+  if(document.body.classList.contains('present'))return;
   const s=D.skills.find(x=>x.name===name); if(!s) return;
-  const tip=document.getElementById('tip'), stage=el.closest('.stage'), col=C[s.cluster].color;
+  const tip=document.getElementById('tip'), stage=document.getElementById('stage'), col=C[s.cluster].color;
   tip.innerHTML=`<div class="t-name">${esc(s.name)}</div>
     <div class="t-meta"><span class="dot" style="background:${col}"></span>${esc(C[s.cluster].name)} · ${s.depth} · ${bucket(s.depth)}</div>
     <div class="t-desc">${esc(s.desc.slice(0,110))}${s.desc.length>110?'…':''}</div>`;
@@ -345,7 +514,7 @@ function openSkill(name){
   p.innerHTML = `<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
     <h2>${esc(s.name)}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
-      <span class="pill" style="color:${col}"><span style="width:7px;height:7px;border-radius:50%;background:${col}"></span>${esc(C[s.cluster].name)}</span>
+      <span class="pill" style="color:${col};cursor:pointer" onclick="focusCluster('${s.cluster}')"><span style="width:7px;height:7px;border-radius:50%;background:${col}"></span>${esc(C[s.cluster].name)}</span>
       ${s.quiet?'<span class="pill quiet-tag" title="Latest learning is more than 60 days old">quiet lately</span>':''}
     </div>
     <div class="depth-hero" title="${esc(DEPTH_TIP)}"><b style="color:${col}">${s.depth}</b><span>${bucket(s.depth)}<br>battle-tested iterations</span></div>
@@ -385,7 +554,7 @@ function openCluster(cid){
 }
 function closePanel(){ document.getElementById('panel').classList.remove('open'); }
 
-/* ═══ clipboard ═══ */
+/* ═══ clipboard + toast ═══ */
 function copyText(text, msg){
   const done=()=>toast(msg||'Copied');
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
@@ -407,13 +576,13 @@ function doSearch(q){
     el.classList.remove('hit','fade');
     if(hits){ if(hits.includes(el.dataset.skill)) el.classList.add('hit'); else el.classList.add('fade'); }
   });
-  document.querySelectorAll('#svg .hublabel').forEach(el=>{
+  document.querySelectorAll('#svg .hublabel,#svg .hubcount').forEach(el=>{
     el.classList.toggle('fade', !!hits && !D.skills.some(s=>s.cluster===el.dataset.cluster&&hits.includes(s.name)));
   });
   if(hits&&hits.length===1) openSkill(hits[0]);
 }
 
-/* ═══ this week ═══ */
+/* ═══ this week + stats bar ═══ */
 function weekData(){
   const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
   const wk = D.timeline.filter(e=>new Date(e.date)>=monday);
@@ -432,6 +601,13 @@ function weekData(){
      ${grew.length?('<span>grew: '+grew.map(c=>`<span class="chip"><span class="dot" style="background:${C[c].color}"></span>${esc(C[c].name)}</span>`).join(' ')+'</span>'):'<span>no new entries yet this week</span>'}
      <span>newest capability: <b>${esc(newest.name)}</b> (${newest.mtime})</span>
      <span><b>${D.totals.clients.length}</b> clients teaching the brain</span>`;
+  const best=[...D.clusters].sort((a,b)=>D.totals.depthByCluster[b.id]-D.totals.depthByCluster[a.id])[0];
+  document.getElementById('stats').innerHTML=
+    `<div class="st"><b>${D.totals.skills}</b><span>Total skills</span></div>
+     <div class="st"><b>${D.totals.entries}</b><span>Lessons learned</span></div>
+     <div class="st"><b>${D.totals.clients.length}</b><span>Clients teaching it</span></div>
+     <div class="st"><b>${wk.length}</b><span>New lessons this week</span></div>
+     <div class="st"><b style="color:${best.color}">${esc(best.name)}</b><span>Most developed capability</span></div>`;
 })();
 
 /* ═══ weekly report ═══ */
@@ -465,9 +641,9 @@ function copyReport(){ copyText(document.getElementById('report-txt').textConten
   const zeroes=ranked.filter(r=>r.d===0).map(r=>r.name);
   const teach=D.totals.clients.slice(0,6).map(x=>`<b>${esc(x.c)}</b> ${x.n}`).join(' · ');
   document.getElementById('gap').innerHTML = `<h3>Where the depth is - and is not</h3>
-    ${D.totals.clients.length?`<p>Clients teaching the brain: ${teach}${D.totals.clients.length>6?' · +'+(D.totals.clients.length-6)+' more':''}. Attribution reads client names in entry titles - name the client when you log a lesson and this list grows on its own.</p>`:''}
+    ${D.totals.clients.length?`<p>Clients teaching the brain: ${teach}${D.totals.clients.length>6?' · +'+(D.totals.clients.length-6)+' more':''}. Attribution reads client names in entries - name the client when you log a lesson and this list grows on its own.</p>`:''}
     <p>Depth = logged learning iterations, not skill quality. ${zeroes.length? 'Plainly: <b>'+zeroes.join(', ')+'</b> have real capability but zero battle-testing on record - either the learning loops are missing there, or the skills are not being used on real work yet. Click a cluster name and copy its grow plan.':'Thinnest cluster: <b>'+esc(thin.name)+'</b>.'}</p>
-    <div class="gap-bars">${ranked.map(r=>`<div class="gbar"><span style="color:${r.color};font-weight:600;cursor:pointer" onclick="openCluster('${r.id}')">${esc(r.name)}</span><div class="track"><div class="fill" style="width:${Math.max(1.5,100*r.d/max)}%;background:${r.color}"></div></div><span class="n">${r.d}</span></div>`).join('')}</div>`;
+    <div class="gap-bars">${ranked.map(r=>`<div class="gbar"><span style="color:${r.color};font-weight:600;cursor:pointer" onclick="setView('brain');focusCluster('${r.id}')">${esc(r.name)}</span><div class="track"><div class="fill" style="width:${Math.max(1.5,100*r.d/max)}%;background:${r.color}"></div></div><span class="n">${r.d}</span></div>`).join('')}</div>`;
 })();
 
 /* ═══ timeline ═══ */
@@ -501,6 +677,7 @@ function renderTL(){
 function setView(v){
   document.getElementById('brain-view').style.display = v==='brain'?'flex':'none';
   document.getElementById('legend').style.display = v==='brain'?'flex':'none';
+  document.getElementById('stats').style.display = v==='brain'?'flex':'none';
   document.getElementById('gap').style.display = v==='brain'?'block':'none';
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
   document.getElementById('v-brain').classList.toggle('on',v==='brain');
@@ -512,23 +689,27 @@ function togglePresent(on){
   if(on){
     setView('brain'); closePanel(); doSearch(''); hideTip();
     document.getElementById('report-ov').classList.remove('open');
-    const earliest = D.timeline[D.timeline.length-1];
     document.getElementById('hero-nums').innerHTML =
       `<div class="num"><b>${D.totals.skills}</b><span>specialist skills</span></div>
        <div class="num"><b>${D.totals.entries}</b><span>lessons learned from real work</span></div>
        <div class="num"><b>${D.totals.chatEntries||0}</b><span>facts absorbed from conversations</span></div>
-       <div class="num"><b>${D.totals.clients.length}</b><span>clients it has learned from</span></div>
-       <div class="num"><b>${D.totals.clusters}</b><span>capability domains</span></div>
-       <div class="num"><b>${earliest?earliest.date.slice(0,7):''}</b><span>learning since</span></div>`;
-  }
+       <div class="num"><b>${D.totals.clients.length}</b><span>clients it has learned from</span></div>`;
+    startDemo();
+  } else { stopDemo(); clearFocusDom(); }
 }
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   if(e.key==='p'||e.key==='P') togglePresent(!document.body.classList.contains('present'));
-  if(e.key==='Escape'){ togglePresent(false); closePanel(); document.getElementById('report-ov').classList.remove('open'); }
+  if(e.key==='Escape'){
+    if(demoActive){stopDemo();return;}
+    if(document.body.classList.contains('present')){togglePresent(false);return;}
+    if(FOCUS){unfocus();return;}
+    closePanel(); document.getElementById('report-ov').classList.remove('open');
+  }
 });
+document.getElementById('stage').addEventListener('pointerdown',()=>{ if(demoActive)stopDemo(); },true);
 
-renderBrain();
+renderBrain(); wireCamera(); applyCam();
 </script>
 </body>
 </html>
