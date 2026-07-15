@@ -484,7 +484,7 @@ function renderTL(){
   for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
   document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
     Object.entries(groups).map(([d,es])=>`<div class="tl-date">${d}</div>`+es.map(e=>
-      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')}</span></div>`).join('')).join('')
+      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${e.via==='chat'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:var(--blue)">from chat</span>':''}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')}</span></div>`).join('')).join('')
     : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>';
   document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.';
   document.getElementById('tl-filters').innerHTML =
@@ -516,6 +516,7 @@ function togglePresent(on){
     document.getElementById('hero-nums').innerHTML =
       `<div class="num"><b>${D.totals.skills}</b><span>specialist skills</span></div>
        <div class="num"><b>${D.totals.entries}</b><span>lessons learned from real work</span></div>
+       <div class="num"><b>${D.totals.chatEntries||0}</b><span>facts absorbed from conversations</span></div>
        <div class="num"><b>${D.totals.clients.length}</b><span>clients it has learned from</span></div>
        <div class="num"><b>${D.totals.clusters}</b><span>capability domains</span></div>
        <div class="num"><b>${earliest?earliest.date.slice(0,7):''}</b><span>learning since</span></div>`;

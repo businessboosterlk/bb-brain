@@ -48,7 +48,7 @@ const CLIENT_ALIASES = {
   /* system/retainer clients without consultancy folders */
   'bswl': ['bswl', 'leon'], 'tt-mobile': ['tt mobile'], 'ummat': ['ummat'],
   'bellvantage': ['bellvantage'], 'cherry-fish': ['cherry fish'],
-  'cherry-kitchen': ['cherry kitchen'], 'excellent': ['excellent'],
+  'cherry-kitchen': ['cherry kitchen'], 'excellent-mobile': ['excellent mobile'],
   'square-1-ai': ['square 1'], 'crab-island': ['crab island'],
   'guiding-steps': ['guiding steps'], 'hire-panther': ['hire panther'],
   'puwakaramba': ['puwakaramba'], 'seekers': ['seekers'],
@@ -57,6 +57,7 @@ const DISPLAY_OVERRIDES = {
   'bswl': 'BSWL (Leon)', 'lgl': 'LGL', 'tt-mobile': 'TT Mobile', 'square-1-ai': 'Square 1 AI',
   'sastho-lk': 'Sastho', 'home-depot-lk': 'Home Depot', 'ceylon-carriers-travels': 'Ceylon Carriers',
   'show-car-detailers': 'Show Car Detailers', 'clove-beach-wadduwa': 'Clove Beach',
+  'excellent-mobile': 'Excellent Mobile',
 };
 function buildRoster() {
   const roster = {}; // key -> display name
@@ -64,7 +65,7 @@ function buildRoster() {
   const skipFolders = ['design-test'];
   if (fs.existsSync(cdir)) for (const d of fs.readdirSync(cdir)) {
     try {
-      if (skipFolders.includes(d) || !fs.statSync(path.join(cdir, d)).isDirectory()) continue;
+      if (d.startsWith('.') || skipFolders.includes(d) || !fs.statSync(path.join(cdir, d)).isDirectory()) continue;
       roster[d] = DISPLAY_OVERRIDES[d] || d.replace(/-lk$/, '').split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
     } catch (e) {}
   }
@@ -243,6 +244,27 @@ function parseLearnings(file) {
   return { entries, undated };
 }
 
+/* ── CHAT MEMORY: what Thulaib and Claude talk about distills into the auto-memory
+   folder (one fact per file, saved during real chat sessions). Each file becomes a
+   brain entry under bb-brain (Intelligence cluster): date = the file's real mtime,
+   summary = its description, clients extracted from the FULL body text. ── */
+const MEMORY_DIR = path.join(HOME, '.claude/projects/-Users-thulaibhassen-learn-claude-code/memory');
+function chatMemoryEntries() {
+  const entries = [];
+  if (!fs.existsSync(MEMORY_DIR)) return entries;
+  for (const f of fs.readdirSync(MEMORY_DIR)) {
+    if (!f.endsWith('.md') || f === 'MEMORY.md') continue;
+    try {
+      const full = path.join(MEMORY_DIR, f);
+      const raw = fs.readFileSync(full, 'utf8');
+      const dm = raw.match(/(?:^|\n)description:\s*([\s\S]*?)(?=\n[a-zA-Z_-]+:\s|\n---)/);
+      const summary = (dm ? dm[1] : f.replace('.md', '')).replace(/^\s*[>|][-+]?\s*/, '').replace(/\s+/g, ' ').trim().replace(/^["']|["']$/g, '').slice(0, 140);
+      entries.push({ date: fs.statSync(full).mtime.toISOString().slice(0, 10), summary, body: raw, via: 'chat' });
+    } catch (e) {}
+  }
+  return entries;
+}
+
 const learningsBySkill = {};
 let totalUndated = 0;
 const allFiles = [];
@@ -255,6 +277,8 @@ for (const { file, skill } of allFiles) {
   totalUndated += undated;
   (learningsBySkill[skill] = learningsBySkill[skill] || []).push(...entries);
 }
+const chatMem = chatMemoryEntries();
+if (chatMem.length) (learningsBySkill['bb-brain'] = learningsBySkill['bb-brain'] || []).push(...chatMem);
 
 /* ── assemble ── */
 const DAY = 86400000;
@@ -267,7 +291,7 @@ for (const s of skills) {
   const dated = entries.filter(e => e.date).sort((a, b) => b.date.localeCompare(a.date));
   const latest = dated[0] || null;
   const clientCount = {};
-  for (const e of entries) for (const c of clientsIn(e.summary)) clientCount[c] = (clientCount[c] || 0) + 1;
+  for (const e of entries) for (const c of clientsIn(e.body || e.summary)) clientCount[c] = (clientCount[c] || 0) + 1;
   out.skills.push({
     name: s.name, desc: s.desc.slice(0, 320), cluster, src: s.src, mtime: s.mtime,
     hasLoop: !!learningsBySkill[s.name],
@@ -277,7 +301,7 @@ for (const s of skills) {
     quiet: latest ? (now - new Date(latest.date)) / DAY > 60 : false,
     clients: Object.entries(clientCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ c, n })),
   });
-  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.summary) });
+  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.body || e.summary), via: e.via || 'file' });
 }
 out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -288,6 +312,7 @@ for (const s of out.skills) depthByCluster[s.cluster] += s.depth;
 const clientTotals = {};
 for (const s of out.skills) for (const { c, n } of s.clients) clientTotals[c] = (clientTotals[c] || 0) + n;
 out.totals = {
+  chatEntries: chatMem.length,
   skills: out.skills.length,
   entries: out.skills.reduce((n, s) => n + s.depth, 0),
   datedEntries: out.timeline.length,
