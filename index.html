@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>BB Digital Brain</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='34' fill='%235B9DFF'/></svg>">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b12; --surface:#0d1420; --surface-2:#121a29; --line:rgba(160,190,255,.09); --line-2:rgba(160,190,255,.18);
+  --text:#e9eef8; --text-2:#9aa8c0; --text-3:#5d6a83;
+  --blue:#5B9DFF;
+  --shadow:0 4px 14px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+  --r:16px; --r-md:12px; --r-sm:9px; --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.55;overflow-x:clip;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:'Poppins',sans-serif;letter-spacing:-.02em}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input{font-family:inherit}
+::selection{background:var(--blue);color:#fff}
+*:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(91,157,255,.35);border-radius:var(--r-sm)}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#1c2536;border-radius:99px;border:2px solid var(--bg)}::-webkit-scrollbar-track{background:transparent}
+
+/* ── top bar ── */
+.top{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(150%) blur(12px)}
+.brand{font-family:'Poppins',sans-serif;font-weight:800;font-size:16px}
+.brand em{color:var(--blue);font-style:normal}
+.gen{font-size:11px;color:var(--text-3)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:3px;gap:3px;margin-left:auto}
+.seg button{padding:7px 16px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--text-2);transition:background .15s var(--ease),color .15s}
+.seg button.on{background:var(--surface-2);color:var(--text);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.4)}
+.search{position:relative}
+.search input{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--text);padding:8px 12px 8px 32px;font-size:12.5px;width:210px;transition:border-color .15s}
+.search input:focus{border-color:var(--blue)}
+.search svg{position:absolute;left:10px;top:9px;width:15px;height:15px;stroke:var(--text-3)}
+.present-btn{font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 13px;transition:color .15s,border-color .15s}
+.present-btn:hover{color:var(--text);border-color:var(--line-2)}
+.present-btn kbd{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10.5px;margin-left:6px;font-family:inherit}
+
+/* ── this week strip ── */
+.week{display:flex;align-items:center;gap:18px;padding:12px 22px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);flex-wrap:wrap}
+.week b{color:var(--text);font-weight:700}
+.week .chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:11.5px}
+.week .dot{width:7px;height:7px;border-radius:50%}
+.week .lbl{font-weight:700;color:var(--text-3);font-size:11px}
+
+/* ── layout ── */
+.wrap{display:flex;min-height:calc(100vh - 110px)}
+.stage{flex:1;min-width:0;position:relative}
+svg.brain{display:block;width:100%;height:auto}
+.node{cursor:pointer;transition:opacity .2s}
+.node.quiet{opacity:.4}
+.node.fade{opacity:.12;pointer-events:none}
+.node.hit circle{stroke:#fff;stroke-width:1.5}
+.hublabel{font-size:11px;fill:var(--text-2);font-weight:600;cursor:pointer}
+.hublabel.fade{opacity:.15}
+.hubcount{font-size:9.5px;fill:var(--text-3)}
+.syn{pointer-events:none}
+@media(prefers-reduced-motion:no-preference){
+  .node circle.pulse{animation:pulse 3.4s var(--ease) infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.72}}
+}
+
+/* ── side panel ── */
+.panel{width:350px;flex-shrink:0;border-left:1px solid var(--line);padding:20px;overflow-y:auto;max-height:calc(100vh - 110px);position:sticky;top:110px;display:none}
+.panel.open{display:block}
+.panel h2{font-size:17px;margin-bottom:4px;word-break:break-word}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--line)}
+.depth-badge{font-family:'Poppins',sans-serif;font-weight:700;font-variant-numeric:tabular-nums}
+.panel .desc{color:var(--text-2);font-size:13px;margin:12px 0}
+.panel .sec{font-size:11px;font-weight:700;color:var(--text-3);margin:16px 0 6px}
+.trigger{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;font-size:12.5px;color:var(--text);position:relative}
+.copy{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:var(--blue);border:1px solid var(--line-2);border-radius:6px;padding:4px 10px;background:var(--surface-2);transition:background .15s}
+.copy:hover{background:#1a2438}
+.latest{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:11px 12px;font-size:12.5px;color:var(--text-2)}
+.latest b{color:var(--text)}
+.quiet-tag{color:#c9a15a;font-size:11.5px;font-weight:600}
+.skill-row{display:flex;align-items:center;gap:10px;padding:9px 6px;border-top:1px solid var(--line);cursor:pointer;border-radius:6px}
+.skill-row:hover{background:var(--surface)}
+.skill-row .nm{flex:1;font-size:12.5px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.close-p{position:absolute;top:14px;right:14px;color:var(--text-3);font-size:18px;padding:4px 8px}
+.close-p:hover{color:var(--text)}
+
+/* ── gap strip ── */
+.gap{padding:18px 22px;border-top:1px solid var(--line)}
+.gap h3{font-size:13px;margin-bottom:4px}
+.gap p{font-size:12.5px;color:var(--text-2);margin-bottom:12px}
+.gap-bars{display:grid;gap:7px}
+.gbar{display:grid;grid-template-columns:170px 1fr 46px;gap:10px;align-items:center;font-size:12px}
+.gbar .track{height:7px;background:var(--surface);border-radius:99px;overflow:hidden}
+.gbar .fill{height:100%;border-radius:99px}
+.gbar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--text-2);font-weight:600}
+
+/* ── timeline ── */
+.tl{max-width:860px;margin:0 auto;padding:22px}
+.tl-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+.fchip{font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:99px;padding:5px 13px;transition:all .15s}
+.fchip.on{color:var(--text);border-color:var(--line-2);background:var(--surface)}
+.fchip .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.tl-date{font-family:'Poppins',sans-serif;font-weight:700;font-size:13px;margin:20px 0 8px;color:var(--text-2)}
+.tl-item{display:flex;gap:12px;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:7px;background:var(--surface);align-items:baseline}
+.tl-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;position:relative;top:1px}
+.tl-item .sk{font-weight:700;font-size:12.5px;white-space:nowrap}
+.tl-item .sum{color:var(--text-2);font-size:12.5px;min-width:0}
+.tl-note{font-size:11.5px;color:var(--text-3);margin-top:16px}
+
+/* ── present mode ── */
+body.present .top,.present .week,.present .gap,.present .panel,.present .tl{display:none!important}
+.hero{display:none}
+body.present .hero{display:block;text-align:center;padding:40px 20px 6px}
+.hero h1{font-size:clamp(26px,4.5vw,44px)}
+.hero p{color:var(--text-2);font-size:15px;margin-top:8px}
+.hero .nums{display:flex;gap:38px;justify-content:center;margin-top:26px;flex-wrap:wrap}
+.hero .num b{display:block;font-family:'Poppins',sans-serif;font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
+.hero .num span{font-size:12px;color:var(--text-2)}
+.hero .esc{font-size:11px;color:var(--text-3);margin-top:20px}
+body.present .stage{max-width:1150px;margin:0 auto}
+
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 18px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
+.toast.show{opacity:1}
+
+@media(max-width:820px){
+  .wrap{flex-direction:column}
+  .panel{width:100%;position:fixed;left:0;right:0;bottom:0;top:auto;max-height:62vh;border-left:none;border-top:1px solid var(--line-2);background:var(--surface);border-radius:var(--r) var(--r) 0 0;box-shadow:var(--shadow-lg);z-index:80}
+  .search input{width:150px}
+  .gbar{grid-template-columns:120px 1fr 40px}
+  .seg{margin-left:0}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.06s!important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="brand">BB <em>Digital Brain</em></div>
+    <div class="gen" id="gen"></div>
+  </div>
+  <div class="seg" role="tablist">
+    <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
+    <button id="v-tl" onclick="setView('tl')">Timeline</button>
+  </div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Do we have something for..." oninput="doSearch(this.value)"></div>
+  <button class="present-btn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
+</header>
+
+<div class="week" id="week"></div>
+
+<section class="hero" id="hero">
+  <h1>The Business Booster Digital Brain</h1>
+  <p>A marketing machine that learns from every client and compounds.</p>
+  <div class="nums" id="hero-nums"></div>
+  <div class="esc">Press Esc to exit</div>
+</section>
+
+<div class="wrap" id="brain-view">
+  <div class="stage"><svg class="brain" id="svg" viewBox="0 0 1200 760" role="img" aria-label="Constellation of Business Booster skills grouped into eight capability clusters"></svg></div>
+  <aside class="panel" id="panel"></aside>
+</div>
+
+<div class="tl" id="tl-view" style="display:none">
+  <div class="tl-filters" id="tl-filters"></div>
+  <div id="tl-list"></div>
+  <div class="tl-note" id="tl-note"></div>
+</div>
+
+<div class="gap" id="gap"></div>
+<div class="toast" id="toast"></div>
+
+<script src="brain-data.js"></script>
+<script>
+const D = window.BRAIN_DATA;
+const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const BUCKETS = [[0,'New capability'],[1,'Tested'],[3,'Practiced'],[6,'Sharp'],[11,'Battle-hardened']];
+const bucket = d => { let b=BUCKETS[0][1]; for(const [min,l] of BUCKETS) if(d>=min) b=l; return d===0?'New capability':b; };
+const DEPTH_TIP = 'Battle-tested depth = how many logged learning iterations this skill has. It measures real-world use, not capability quality. A new skill can be excellent and still read 0.';
+
+document.getElementById('gen').textContent = 'Live from '+D.totals.skills+' scanned skill files · regenerated '+D.generated.slice(0,10);
+
+/* ═══ layout: 8 cluster hubs on a brain-ish oval, nodes on golden-angle spirals ═══ */
+const HUBS = { web:[275,255], seo:[195,455], sales:[490,170], strategy:[455,415], content:[725,175], ads:[935,265], systems:[745,455], intel:[960,480] };
+const GA = Math.PI*(3-Math.sqrt(5));
+const nodes = [];
+(function place(){
+  const byC = {};
+  for(const s of D.skills) (byC[s.cluster]=byC[s.cluster]||[]).push(s);
+  for(const [cid, list] of Object.entries(byC)){
+    list.sort((a,b)=>b.depth-a.depth); // deepest nearest the hub centre
+    const [hx,hy] = HUBS[cid]||[600,380];
+    list.forEach((s,i)=>{
+      const r = 16+13*Math.sqrt(i), a = i*GA;
+      nodes.push({s, x:hx+r*Math.cos(a), y:hy+r*Math.sin(a)*0.88,
+        rad: s.depth===0?4:Math.min(19, 5.5+3.1*Math.log2(1+s.depth))});
+    });
+  }
+})();
+
+function renderBrain(){
+  const NS='http://www.w3.org/2000/svg', svg=document.getElementById('svg');
+  let g_syn='', g_nodes='', g_labels='';
+  // faint synapse lines: node -> hub, plus a hub ring
+  for(const n of nodes){
+    const [hx,hy]=HUBS[n.s.cluster];
+    g_syn += `<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${C[n.s.cluster].color}" stroke-opacity="0.10" stroke-width="0.7"/>`;
+  }
+  const hubIds=Object.keys(HUBS);
+  for(let i=0;i<hubIds.length;i++){
+    const [x1,y1]=HUBS[hubIds[i]], [x2,y2]=HUBS[hubIds[(i+1)%hubIds.length]];
+    g_syn += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#5B9DFF" stroke-opacity="0.06" stroke-width="1"/>`;
+  }
+  for(const n of nodes){
+    const col=C[n.s.cluster].color, deep=n.s.depth>=6;
+    g_nodes += `<g class="node${n.s.quiet?' quiet':''}" data-skill="${esc(n.s.name)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+      <circle r="${n.rad}" fill="${col}" fill-opacity="${n.s.depth===0?0.35:0.85}" ${deep?`class="pulse" style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}>
+        <title>${esc(n.s.name)} · depth ${n.s.depth} (${bucket(n.s.depth)})</title>
+      </circle></g>`;
+  }
+  for(const [cid,[x,y]] of Object.entries(HUBS)){
+    const total = D.totals.depthByCluster[cid], count = D.skills.filter(s=>s.cluster===cid).length;
+    g_labels += `<text class="hublabel" data-cluster="${cid}" x="${x}" y="${y-  (cid==='web'?150:118)}" text-anchor="middle">${esc(C[cid].name)}</text>
+      <text class="hubcount" x="${x}" y="${y-(cid==='web'?150:118)+14}" text-anchor="middle">${count} skills · depth ${total}</text>`;
+  }
+  svg.innerHTML = `<g class="syn">${g_syn}</g><g>${g_nodes}</g><g>${g_labels}</g>`;
+  svg.querySelectorAll('.node').forEach(el=>el.addEventListener('click',()=>openSkill(el.dataset.skill)));
+  svg.querySelectorAll('.hublabel').forEach(el=>el.addEventListener('click',()=>openCluster(el.dataset.cluster)));
+}
+
+/* ═══ side panel ═══ */
+function openSkill(name){
+  const s = D.skills.find(x=>x.name===name); if(!s) return;
+  const col=C[s.cluster].color;
+  const p=document.getElementById('panel');
+  p.innerHTML = `<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
+    <h2>${esc(s.name)}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      <span class="pill" style="color:${col}"><span style="width:7px;height:7px;border-radius:50%;background:${col}"></span>${esc(C[s.cluster].name)}</span>
+      <span class="pill depth-badge" title="${esc(DEPTH_TIP)}">${s.depth} · ${bucket(s.depth)}</span>
+      ${s.quiet?'<span class="pill quiet-tag" title="Latest learning is more than 60 days old">quiet lately</span>':''}
+    </div>
+    <p class="desc">${esc(s.desc)}</p>
+    <div class="sec">Say this to use it</div>
+    <div class="trigger" id="trig">${s.trigger?esc(s.trigger):'Load the '+esc(s.name)+' skill'}<button class="copy" onclick="copyTrigger('${esc(s.name)}')">Copy</button></div>
+    ${s.latest?`<div class="sec">Latest learning</div><div class="latest"><b>${esc(s.latest.date)}</b> · ${esc(s.latest.summary)}</div>`
+      :`<div class="sec">Latest learning</div><div class="latest">No logged iterations yet. ${s.depth===0?'A new capability, not a weakness.':''}</div>`}
+    <div class="sec">Battle-tested depth</div>
+    <div class="latest" title="${esc(DEPTH_TIP)}">${s.depth} logged iteration${s.depth===1?'':'s'}. This counts real use, not quality.</div>`;
+  p.classList.add('open');
+}
+function openCluster(cid){
+  const list = D.skills.filter(s=>s.cluster===cid).sort((a,b)=>b.depth-a.depth);
+  const col=C[cid].color, p=document.getElementById('panel');
+  p.innerHTML = `<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
+    <h2 style="color:${col}">${esc(C[cid].name)}</h2>
+    <p class="desc">${list.length} skills · total depth ${D.totals.depthByCluster[cid]}</p>
+    ${list.map(s=>`<div class="skill-row" onclick="openSkill('${esc(s.name)}')">
+      <span style="width:8px;height:8px;border-radius:50%;background:${col};opacity:${s.depth?0.9:0.35};flex-shrink:0"></span>
+      <span class="nm">${esc(s.name)}</span>
+      <span class="pill depth-badge" title="${esc(DEPTH_TIP)}">${s.depth}</span></div>`).join('')}`;
+  p.classList.add('open');
+}
+function closePanel(){ document.getElementById('panel').classList.remove('open'); }
+function copyTrigger(name){
+  const s=D.skills.find(x=>x.name===name);
+  const text = s.trigger ? `Use the ${s.name} skill: ${s.trigger}` : `Load the ${s.name} skill`;
+  const done=()=>toast('Copied - paste it to Claude');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(()=>fallbackCopy(text,done));
+  else fallbackCopy(text,done);
+}
+function fallbackCopy(t,cb){ const ta=document.createElement('textarea');ta.value=t;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');cb();}catch(e){}ta.remove(); }
+let toastT;
+function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),1800); }
+
+/* ═══ search ═══ */
+function doSearch(q){
+  q=q.trim().toLowerCase();
+  const hits = q? D.skills.filter(s=>(s.name+' '+s.desc).toLowerCase().includes(q)).map(s=>s.name) : null;
+  document.querySelectorAll('#svg .node').forEach(el=>{
+    el.classList.remove('hit','fade');
+    if(hits){ if(hits.includes(el.dataset.skill)) el.classList.add('hit'); else el.classList.add('fade'); }
+  });
+  document.querySelectorAll('#svg .hublabel').forEach(el=>{
+    el.classList.toggle('fade', !!hits && !D.skills.some(s=>s.cluster===el.dataset.cluster&&hits.includes(s.name)));
+  });
+  if(hits&&hits.length===1) openSkill(hits[0]);
+}
+
+/* ═══ this week strip ═══ */
+(function week(){
+  const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
+  const wk = D.timeline.filter(e=>new Date(e.date)>=monday);
+  const grew = [...new Set(wk.map(e=>e.cluster))];
+  const newest = [...D.skills].sort((a,b)=>b.mtime.localeCompare(a.mtime))[0];
+  document.getElementById('week').innerHTML =
+    `<span class="lbl">This week in the brain</span>
+     <span><b>${wk.length}</b> learning entr${wk.length===1?'y':'ies'} added</span>
+     ${grew.length?('<span>grew: '+grew.map(c=>`<span class="chip"><span class="dot" style="background:${C[c].color}"></span>${esc(C[c].name)}</span>`).join(' ')+'</span>'):'<span>no new entries yet this week</span>'}
+     <span>newest capability: <b>${esc(newest.name)}</b> (${newest.mtime})</span>`;
+})();
+
+/* ═══ gap signal ═══ */
+(function gap(){
+  const ranked=[...D.clusters].map(c=>({...c,d:D.totals.depthByCluster[c.id]})).sort((a,b)=>b.d-a.d);
+  const max=Math.max(1,ranked[0].d);
+  const thin=ranked[ranked.length-1];
+  const zeroes=ranked.filter(r=>r.d===0).map(r=>r.name);
+  document.getElementById('gap').innerHTML = `<h3>Where the depth is - and is not</h3>
+    <p>Depth = logged learning iterations, not skill quality. ${zeroes.length? 'Plainly: <b>'+zeroes.join(', ')+'</b> have real capability but zero battle-testing on record - either the learning loops are missing there, or the skills are not being used on real work yet. That is a build-or-sell decision signal.':'Thinnest cluster: <b>'+esc(thin.name)+'</b>.'}</p>
+    <div class="gap-bars">${ranked.map(r=>`<div class="gbar"><span style="color:${r.color};font-weight:600">${esc(r.name)}</span><div class="track"><div class="fill" style="width:${Math.max(1.5,100*r.d/max)}%;background:${r.color}"></div></div><span class="n">${r.d}</span></div>`).join('')}</div>`;
+})();
+
+/* ═══ timeline ═══ */
+let tlRange='all', tlCluster='';
+function renderTL(){
+  const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
+  const today = now.toISOString().slice(0,10);
+  let list = D.timeline;
+  if(tlRange==='today') list=list.filter(e=>e.date===today);
+  if(tlRange==='week') list=list.filter(e=>new Date(e.date)>=monday);
+  if(tlCluster) list=list.filter(e=>e.cluster===tlCluster);
+  const groups={};
+  for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
+  document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
+    Object.entries(groups).map(([d,es])=>`<div class="tl-date">${d}</div>`+es.map(e=>
+      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}</span></div>`).join('')).join('')
+    : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>';
+  document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.';
+  document.getElementById('tl-filters').innerHTML =
+    [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
+    + '<span style="width:10px"></span>'
+    + `<button class="fchip${!tlCluster?' on':''}" onclick="tlCluster='';renderTL()">All clusters</button>`
+    + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlCluster='${c.id}';renderTL()"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('');
+}
+
+/* ═══ views + present mode ═══ */
+function setView(v){
+  document.getElementById('brain-view').style.display = v==='brain'?'flex':'none';
+  document.getElementById('gap').style.display = v==='brain'?'block':'none';
+  document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
+  document.getElementById('v-brain').classList.toggle('on',v==='brain');
+  document.getElementById('v-tl').classList.toggle('on',v==='tl');
+  if(v==='tl') renderTL();
+}
+function togglePresent(on){
+  document.body.classList.toggle('present',on);
+  if(on){
+    setView('brain'); closePanel(); doSearch('');
+    const earliest = D.timeline[D.timeline.length-1];
+    document.getElementById('hero-nums').innerHTML =
+      `<div class="num"><b>${D.totals.skills}</b><span>specialist skills</span></div>
+       <div class="num"><b>${D.totals.entries}</b><span>lessons learned from real work</span></div>
+       <div class="num"><b>${D.totals.clusters}</b><span>capability domains</span></div>
+       <div class="num"><b>${earliest?earliest.date.slice(0,7):''}</b><span>learning since</span></div>`;
+  }
+}
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key==='p'||e.key==='P') togglePresent(!document.body.classList.contains('present'));
+  if(e.key==='Escape'){ togglePresent(false); closePanel(); }
+});
+
+renderBrain();
+</script>
+</body>
+</html>
