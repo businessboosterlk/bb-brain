@@ -218,6 +218,7 @@ for (const s of skills) {
   const latest = dated[0] || null;
   out.skills.push({
     name: s.name, desc: s.desc.slice(0, 320), cluster, src: s.src, mtime: s.mtime,
+    hasLoop: !!learningsBySkill[s.name],
     depth: entries.length,
     latest: latest ? { date: latest.date, summary: latest.summary } : null,
     trigger: triggerFor(s.name, s.desc),
