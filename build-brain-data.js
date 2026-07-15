@@ -30,7 +30,57 @@ const LEARNINGS_MAP = {
 };
 const EXTRA_LEARNINGS = [
   { file: path.join(HOME, 'bb-systems/FORGE-LEARNINGS.md'), skill: 'bb-system-forge' },
+  /* the cross-client Mother Brain: every consultancy engagement's lessons */
+  { file: path.join(HOME, 'bb-consultancy/LEARNINGS.md'), skill: 'bb-mother-brain' },
 ];
+
+/* ── CLIENT ATTRIBUTION ──
+   Roster = real client folders in ~/bb-consultancy (a new folder auto-joins the roster)
+   + alias variants for how names actually appear inside learning entries.
+   Attribution is EXTRACTED from entry text - nothing is typed here except spelling variants. */
+const CLIENT_ALIASES = {
+  'auto-museum': ['auto museum'], 'ceylon-carriers-travels': ['ceylon carrier', 'cct'],
+  'clove-beach-wadduwa': ['clove'], 'fusion-media': ['fusion'],
+  'home-depot-lk': ['home depot', 'homedepot', 'hd quote'], 'lgl': ['lgl'],
+  'macson': ['macson'], 'playzone': ['playzone'], 'sapphire-trails': ['sapphire', 'saphire'],
+  'sastho-lk': ['sastho'], 'show-car-detailers': ['show car', 'scd', 'hussain'],
+  'waterman': ['waterman'], 'waverley': ['waverley'],
+  /* system/retainer clients without consultancy folders */
+  'bswl': ['bswl', 'leon'], 'tt-mobile': ['tt mobile'], 'ummat': ['ummat'],
+  'bellvantage': ['bellvantage'], 'cherry-fish': ['cherry fish'],
+  'cherry-kitchen': ['cherry kitchen'], 'excellent': ['excellent'],
+  'square-1-ai': ['square 1'], 'crab-island': ['crab island'],
+  'guiding-steps': ['guiding steps'], 'hire-panther': ['hire panther'],
+  'puwakaramba': ['puwakaramba'], 'seekers': ['seekers'],
+};
+const DISPLAY_OVERRIDES = {
+  'bswl': 'BSWL (Leon)', 'lgl': 'LGL', 'tt-mobile': 'TT Mobile', 'square-1-ai': 'Square 1 AI',
+  'sastho-lk': 'Sastho', 'home-depot-lk': 'Home Depot', 'ceylon-carriers-travels': 'Ceylon Carriers',
+  'show-car-detailers': 'Show Car Detailers', 'clove-beach-wadduwa': 'Clove Beach',
+};
+function buildRoster() {
+  const roster = {}; // key -> display name
+  const cdir = path.join(HOME, 'bb-consultancy');
+  const skipFolders = ['design-test'];
+  if (fs.existsSync(cdir)) for (const d of fs.readdirSync(cdir)) {
+    try {
+      if (skipFolders.includes(d) || !fs.statSync(path.join(cdir, d)).isDirectory()) continue;
+      roster[d] = DISPLAY_OVERRIDES[d] || d.replace(/-lk$/, '').split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+    } catch (e) {}
+  }
+  for (const k of Object.keys(CLIENT_ALIASES)) if (!roster[k])
+    roster[k] = DISPLAY_OVERRIDES[k] || k.split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+  return roster;
+}
+const ROSTER = buildRoster();
+function clientsIn(text) {
+  const t = (text || '').toLowerCase(); const hits = [];
+  for (const [key, display] of Object.entries(ROSTER)) {
+    const names = [display.toLowerCase(), ...(CLIENT_ALIASES[key] || [])];
+    if (names.some(n => t.includes(n))) hits.push(display);
+  }
+  return hits;
+}
 
 /* ── the 8 clusters ── */
 const CLUSTERS = [
@@ -122,8 +172,8 @@ function parseSkill(file, src) {
   const name = nameM[1].trim().replace(/^["']|["']$/g, '');
   // description: quoted single-line, or plain possibly wrapping until the next key
   let desc = '';
-  const dM = fm[1].match(/^description:\s*([\s\S]*?)(?=\n[a-zA-Z_-]+:|$)/m);
-  if (dM) desc = dM[1].replace(/\s+/g, ' ').trim().replace(/^["']|["']$/g, '');
+  const dM = fm[1].match(/(?:^|\n)description:\s*([\s\S]*?)(?=\n[a-zA-Z_-]+:\s|$)/);
+  if (dM) desc = dM[1].replace(/^\s*[>|][-+]?\s*/, '').replace(/\s+/g, ' ').trim().replace(/^["']|["']$/g, '');
   return { name, desc, src };
 }
 
@@ -216,6 +266,8 @@ for (const s of skills) {
   const entries = learningsBySkill[s.name] || [];
   const dated = entries.filter(e => e.date).sort((a, b) => b.date.localeCompare(a.date));
   const latest = dated[0] || null;
+  const clientCount = {};
+  for (const e of entries) for (const c of clientsIn(e.summary)) clientCount[c] = (clientCount[c] || 0) + 1;
   out.skills.push({
     name: s.name, desc: s.desc.slice(0, 320), cluster, src: s.src, mtime: s.mtime,
     hasLoop: !!learningsBySkill[s.name],
@@ -223,8 +275,9 @@ for (const s of skills) {
     latest: latest ? { date: latest.date, summary: latest.summary } : null,
     trigger: triggerFor(s.name, s.desc),
     quiet: latest ? (now - new Date(latest.date)) / DAY > 60 : false,
+    clients: Object.entries(clientCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ c, n })),
   });
-  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary });
+  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.summary) });
 }
 out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 
@@ -232,12 +285,15 @@ out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 const depthByCluster = {};
 for (const c of CLUSTERS) depthByCluster[c.id] = 0;
 for (const s of out.skills) depthByCluster[s.cluster] += s.depth;
+const clientTotals = {};
+for (const s of out.skills) for (const { c, n } of s.clients) clientTotals[c] = (clientTotals[c] || 0) + n;
 out.totals = {
   skills: out.skills.length,
   entries: out.skills.reduce((n, s) => n + s.depth, 0),
   datedEntries: out.timeline.length,
   clusters: CLUSTERS.length,
   depthByCluster,
+  clients: Object.entries(clientTotals).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ c, n })),
 };
 
 fs.writeFileSync(path.join(__dirname, 'brain-data.js'),

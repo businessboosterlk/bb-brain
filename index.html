@@ -324,8 +324,8 @@ function hideTip(){ document.getElementById('tip').classList.remove('show'); }
 function loopPrompt(name){
   const short=name.replace(/^bb-/,'');
   return `Install a learning loop on the ${name} skill.\n`+
-`1. Create ~/bb-${short}-learnings.md with a short header: read in full at the start of every ${name} session; at the end append one entry per lesson as "## YYYY-MM-DD - lesson title" (newest first, specific enough to act on cold).\n`+
-`2. Edit the skill's SKILL.md: add STEP 0 "read ~/bb-${short}-learnings.md first" and a closing rule "append what was learned before ending the session".\n`+
+`1. Create ~/bb-${short}-learnings.md with a short header: read in full at the start of every ${name} session; at the end append one entry per lesson as "## YYYY-MM-DD - [Client] lesson title" (newest first, NAME THE CLIENT in the title whenever the lesson came from client work - that is how the Digital Brain attributes learning to clients).\n`+
+`2. Edit the skill's SKILL.md: add STEP 0 "read ~/bb-${short}-learnings.md first" and a closing rule "append what was learned before ending the session, naming the client in the entry title".\n`+
 `3. Register it in the Digital Brain: add 'bb-${short}-learnings.md': '${name}' to LEARNINGS_MAP in ~/bb-brain/build-brain-data.js, run node ~/bb-brain/build-brain-data.js, commit and push ~/bb-brain.\n`+
 `Verify: the brain page shows ${name} with a learning loop and the new file parses.`;
 }
@@ -355,6 +355,7 @@ function openSkill(name){
     <div class="sec">Latest learning</div>
     ${s.latest?`<div class="latest"><b>${esc(s.latest.date)}</b> · ${esc(s.latest.summary)}</div>`
       :`<div class="latest">No logged iterations yet. ${s.depth===0?'A new capability, not a weakness.':''}</div>`}
+    ${s.clients&&s.clients.length?`<div class="sec">Used for</div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.clients.map(x=>`<span class="pill">${esc(x.c)} <span style="color:var(--text-3)">· ${x.n}</span></span>`).join('')}</div>`:''}
     <div class="sec">Learning loop</div>
     ${s.hasLoop
       ? '<div class="latest"><span class="loop-ok">Installed</span> - every session with this skill logs what it learned.</div>'
@@ -429,7 +430,8 @@ function weekData(){
     `<span class="lbl">This week in the brain</span>
      <span><b>${wk.length}</b> learning entr${wk.length===1?'y':'ies'} added</span>
      ${grew.length?('<span>grew: '+grew.map(c=>`<span class="chip"><span class="dot" style="background:${C[c].color}"></span>${esc(C[c].name)}</span>`).join(' ')+'</span>'):'<span>no new entries yet this week</span>'}
-     <span>newest capability: <b>${esc(newest.name)}</b> (${newest.mtime})</span>`;
+     <span>newest capability: <b>${esc(newest.name)}</b> (${newest.mtime})</span>
+     <span><b>${D.totals.clients.length}</b> clients teaching the brain</span>`;
 })();
 
 /* ═══ weekly report ═══ */
@@ -446,6 +448,7 @@ function openReport(){
 - Busiest skill: ${top?top[0]+' ('+top[1]+' entries)':'none yet'}
 - Newest capability: ${newest.name} (${newest.mtime})
 - Totals: ${D.totals.skills} skills, ${D.totals.entries} lessons, ${loops}/${D.totals.skills} skills have learning loops
+- Learning from ${D.totals.clients.length} clients (top: ${D.totals.clients.slice(0,3).map(x=>x.c).join(', ')||'none yet'})
 - Thinnest cluster: ${thin.name} (depth ${thin.d}) - decide: install loops there, or deprioritize it on purpose
 
 Open the brain: ${SITE}`;
@@ -460,13 +463,15 @@ function copyReport(){ copyText(document.getElementById('report-txt').textConten
   const max=Math.max(1,ranked[0].d);
   const thin=ranked[ranked.length-1];
   const zeroes=ranked.filter(r=>r.d===0).map(r=>r.name);
+  const teach=D.totals.clients.slice(0,6).map(x=>`<b>${esc(x.c)}</b> ${x.n}`).join(' · ');
   document.getElementById('gap').innerHTML = `<h3>Where the depth is - and is not</h3>
+    ${D.totals.clients.length?`<p>Clients teaching the brain: ${teach}${D.totals.clients.length>6?' · +'+(D.totals.clients.length-6)+' more':''}. Attribution reads client names in entry titles - name the client when you log a lesson and this list grows on its own.</p>`:''}
     <p>Depth = logged learning iterations, not skill quality. ${zeroes.length? 'Plainly: <b>'+zeroes.join(', ')+'</b> have real capability but zero battle-testing on record - either the learning loops are missing there, or the skills are not being used on real work yet. Click a cluster name and copy its grow plan.':'Thinnest cluster: <b>'+esc(thin.name)+'</b>.'}</p>
     <div class="gap-bars">${ranked.map(r=>`<div class="gbar"><span style="color:${r.color};font-weight:600;cursor:pointer" onclick="openCluster('${r.id}')">${esc(r.name)}</span><div class="track"><div class="fill" style="width:${Math.max(1.5,100*r.d/max)}%;background:${r.color}"></div></div><span class="n">${r.d}</span></div>`).join('')}</div>`;
 })();
 
 /* ═══ timeline ═══ */
-let tlRange='all', tlCluster='';
+let tlRange='all', tlCluster='', tlClient='';
 function renderTL(){
   const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
   const today = now.toISOString().slice(0,10);
@@ -474,18 +479,22 @@ function renderTL(){
   if(tlRange==='today') list=list.filter(e=>e.date===today);
   if(tlRange==='week') list=list.filter(e=>new Date(e.date)>=monday);
   if(tlCluster) list=list.filter(e=>e.cluster===tlCluster);
+  if(tlClient) list=list.filter(e=>(e.clients||[]).includes(tlClient));
   const groups={};
   for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
   document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
     Object.entries(groups).map(([d,es])=>`<div class="tl-date">${d}</div>`+es.map(e=>
-      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}</span></div>`).join('')).join('')
+      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')}</span></div>`).join('')).join('')
     : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>';
   document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.';
   document.getElementById('tl-filters').innerHTML =
     [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
     + '<span style="width:10px"></span>'
     + `<button class="fchip${!tlCluster?' on':''}" onclick="tlCluster='';renderTL()">All clusters</button>`
-    + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlCluster='${c.id}';renderTL()"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('');
+    + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlCluster='${c.id}';renderTL()"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')
+    + '<span style="width:10px"></span>'
+    + `<button class="fchip${!tlClient?' on':''}" onclick="tlClient='';renderTL()">All clients</button>`
+    + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlClient='${esc(x.c)}';renderTL()">${esc(x.c)} · ${x.n}</button>`).join('');
 }
 
 /* ═══ views + present mode ═══ */
@@ -507,6 +516,7 @@ function togglePresent(on){
     document.getElementById('hero-nums').innerHTML =
       `<div class="num"><b>${D.totals.skills}</b><span>specialist skills</span></div>
        <div class="num"><b>${D.totals.entries}</b><span>lessons learned from real work</span></div>
+       <div class="num"><b>${D.totals.clients.length}</b><span>clients it has learned from</span></div>
        <div class="num"><b>${D.totals.clusters}</b><span>capability domains</span></div>
        <div class="num"><b>${earliest?earliest.date.slice(0,7):''}</b><span>learning since</span></div>`;
   }
