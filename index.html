@@ -219,6 +219,63 @@ body.present .wrap{min-height:calc(100vh - 210px)}
   .sector-title{top:60px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition-duration:.06s!important}.node{opacity:1}.node.quiet{opacity:.45}}
+
+/* ══════════ BRANDED REPORT (HD-quality, light, print-ready) ══════════ */
+.rov{position:fixed;inset:0;z-index:95;background:#5b6b86;display:none;flex-direction:column}
+.rov.open{display:flex}
+.rov-bar{flex-shrink:0;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:#0d1420;border-bottom:1px solid var(--line)}
+.rbtn{font-size:12.5px;font-weight:700;color:#fff;background:linear-gradient(180deg,#6fa8ff,#3d7de0);border-radius:8px;padding:9px 16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.rbtn.ghost{background:transparent;border:1px solid var(--line-2);color:var(--text-2)}
+.rov-scroll{flex:1;overflow:auto;display:flex;justify-content:center;padding:26px 16px 60px}
+.rdoc{width:820px;max-width:100%;background:#fff;color:#1a2233;box-shadow:0 24px 70px rgba(0,0,0,.5);font-family:'Inter',sans-serif}
+.rdoc *{box-sizing:border-box}
+.r-head{background:#0e1830;color:#fff;padding:30px 40px;position:relative;overflow:hidden}
+.r-head::after{content:"";position:absolute;top:0;bottom:0;right:0;width:200px;background:linear-gradient(120deg,transparent,rgba(91,157,255,.35));transform:skewX(-18deg) translateX(60px)}
+.r-head img{height:30px;margin-bottom:14px;display:block;filter:brightness(0) invert(1)}
+.r-head h1{font-family:'Poppins';font-size:24px;font-weight:800;letter-spacing:-.01em}
+.r-head .sub{font-size:13px;color:rgba(255,255,255,.7);margin-top:4px}
+.r-body{padding:26px 40px 34px}
+.r-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
+.r-kpi{border:1px solid #e7eaf0;border-left:3px solid #3d7de0;border-radius:10px;padding:14px 16px}
+.r-kpi .k{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8a93a6}
+.r-kpi .v{font-family:'Poppins';font-size:23px;font-weight:800;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums}
+.r-kpi .d{font-size:11px;font-weight:600;margin-top:5px;color:#1a9d5a}
+.r-kpi .d.flat{color:#8a93a6}
+.r-grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px}
+.r-card{border:1px solid #e7eaf0;border-radius:12px;padding:18px}
+.r-card h3{font-size:14px;font-weight:800;margin-bottom:2px;font-family:'Poppins'}
+.r-card .cap{font-size:11px;color:#8a93a6;margin-bottom:14px}
+.r-bar{display:grid;grid-template-columns:130px 1fr 40px;gap:10px;align-items:center;font-size:12px;margin-bottom:9px}
+.r-bar .lb{color:#3a4457;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.r-bar .tr{height:9px;background:#eef1f6;border-radius:99px;overflow:hidden}
+.r-bar .fl{height:100%;border-radius:99px}
+.r-bar .n{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:#1a2233}
+.r-spark{width:100%;height:150px}
+.r-sec{font-family:'Poppins';font-size:15px;font-weight:800;margin:6px 0 12px}
+table.r-tbl{width:100%;border-collapse:collapse;margin-bottom:26px}
+table.r-tbl th{text-align:left;font-size:9.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#8a93a6;padding:0 10px 10px;border-bottom:1.5px solid #eef1f6}
+table.r-tbl th.r,table.r-tbl td.r{text-align:right}
+table.r-tbl td{padding:11px 10px;font-size:12.5px;color:#2a3444;border-bottom:1px solid #f2f4f8}
+table.r-tbl td b{color:#0e1830}
+.r-insights{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.r-ins{border:1px solid #e7eaf0;border-radius:12px;padding:18px}
+.r-ins li{list-style:none;font-size:12.5px;color:#3a4457;line-height:1.5;padding-left:14px;position:relative;margin-bottom:10px}
+.r-ins li::before{content:"";position:absolute;left:0;top:5px;width:3px;height:13px;border-radius:2px;background:#3d7de0}
+.r-ins.act li::before{background:#1a9d5a}
+.r-foot{display:flex;align-items:center;justify-content:space-between;padding:20px 40px;border-top:1px solid #eef1f6;margin-top:6px}
+.r-foot img{height:26px;filter:brightness(0)}
+.r-foot .rf-r{text-align:right;font-size:10.5px;color:#8a93a6}
+@media print{
+  @page{size:A4;margin:0}
+  body *{visibility:hidden!important}
+  #report-ov,#report-ov *{visibility:visible!important}
+  #report-ov{position:absolute;inset:auto;background:#fff}
+  .rov-bar{display:none!important}
+  .rov-scroll{overflow:visible;padding:0}
+  .rdoc{box-shadow:none;width:100%}
+  .r-head,.r-kpi,.r-bar .fl,.r-ins li::before,.r-foot img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media(max-width:720px){.r-kpis{grid-template-columns:1fr 1fr}.r-grid2,.r-insights{grid-template-columns:1fr}.r-body,.r-head,.r-foot{padding-left:22px;padding-right:22px}}
 </style>
 </head>
 <body>
@@ -274,14 +331,18 @@ body.present .wrap{min-height:calc(100vh - 210px)}
 
 <div class="gap" id="gap"></div>
 
-<div class="overlay" id="report-ov" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <button class="close-p" onclick="document.getElementById('report-ov').classList.remove('open')" aria-label="Close">×</button>
-    <h2>Weekly brain report</h2>
-    <div class="report" id="report-txt"></div>
-    <div class="actions"><button class="btn-p" onclick="copyReport()">Copy for WhatsApp</button></div>
+<div class="rov" id="report-ov">
+  <div class="rov-bar">
+    <div style="font-family:'Poppins';font-weight:800;font-size:14px">Weekly Briefing</div>
+    <div style="display:flex;gap:8px">
+      <button class="rbtn ghost" onclick="copyReport()">Copy text</button>
+      <button class="rbtn" onclick="window.print()">Print / Save PDF</button>
+      <button class="rbtn ghost" onclick="document.getElementById('report-ov').classList.remove('open')">Close</button>
+    </div>
   </div>
+  <div class="rov-scroll"><div class="rdoc" id="rdoc"></div></div>
 </div>
+<textarea id="report-txt" style="position:fixed;left:-9999px" aria-hidden="true"></textarea>
 
 <div class="toast" id="toast"></div>
 
@@ -790,10 +851,69 @@ ${quiet.length?'  • Quiet 60+ days (was active, now idle): '+quiet.slice(0,6).
 ━━ ONE MOVE FOR NEXT WEEK ━━
 Install learning loops on the top 3 skills in "${thin.name}" so the machine starts
 compounding there too. (Open the brain → click ${thin.name} → Copy the grow plan.)`;
-  document.getElementById('report-txt').textContent=txt;
+  document.getElementById('report-txt').value=txt;
+
+  /* ── weekly momentum: entries per week over the last 8 ISO weeks ── */
+  const wkKey=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x.getTime();};
+  const buckets={}; for(const e of D.timeline){const k=wkKey(e.date);buckets[k]=(buckets[k]||0)+1;}
+  const weeks=[]; let cur=new Date(monday); for(let i=7;i>=0;i--){const d=new Date(cur);d.setDate(d.getDate()-i*7);const k=wkKey(d);weeks.push({k, label:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}), n:buckets[k]||0});}
+  const lastWk=weeks[7].n, prevWk=weeks[6].n, wkDelta=lastWk-prevWk;
+  const clActiveThisWk=clRows.length;
+  const maxW=Math.max(1,...weeks.map(w=>w.n));
+  // area sparkline
+  const W=360,H=118,pad=6;
+  const pts=weeks.map((w,i)=>[pad+i*(W-2*pad)/7, H-8-(w.n/maxW)*(H-24)]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const area=`M${pts[0][0].toFixed(1)} ${H-8} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${pts[7][0].toFixed(1)} ${H-8} Z`;
+  const spark=`<svg class="r-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d7de0" stop-opacity=".28"/><stop offset="1" stop-color="#3d7de0" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#rg)"/><path d="${line}" fill="none" stroke="#3d7de0" stroke-width="2" stroke-linejoin="round"/>
+    ${pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i===7?3.5:2}" fill="#3d7de0"/>`).join('')}
+    ${weeks.map((w,i)=>`<text x="${pts[i][0].toFixed(1)}" y="${H-1}" font-size="7" fill="#a6adba" text-anchor="middle">${w.label}</text>`).join('')}
+  </svg>`;
+  // capability depth bars
+  const dranked=[...D.clusters].map(c=>({...c,d:D.totals.depthByCluster[c.id]})).sort((a,b)=>b.d-a.d);
+  const maxD=Math.max(1,dranked[0].d);
+  const bars=dranked.map(r=>`<div class="r-bar"><span class="lb">${esc(r.name)}</span><span class="tr"><span class="fl" style="width:${Math.max(2,100*r.d/maxD)}%;background:${r.color}"></span></span><span class="n">${r.d}</span></div>`).join('');
+  // top clients table
+  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.skills.length}</td><td class="r">${c.lastActive||'—'}</td></tr>`).join('');
+  const logo=document.querySelector('.brandbox img').src;
+  const dstr=D.generated.slice(0,10);
+  const doc=`
+    <div class="r-head"><img src="${logo}" alt="Business Booster"><h1>The Digital Brain — Weekly Briefing</h1><div class="sub">Week of ${mondayStr} · generated ${dstr}</div></div>
+    <div class="r-body">
+      <div class="r-kpis">
+        <div class="r-kpi"><div class="k">Lessons learned</div><div class="v">${D.totals.entries}</div><div class="d${wkDelta>0?'':' flat'}">${wkDelta>0?'▲ +'+wkDelta:(wkDelta<0?'▼ '+wkDelta:'—')} vs last week</div></div>
+        <div class="r-kpi" style="border-left-color:#8b5cf6"><div class="k">Skills mapped</div><div class="v">${D.totals.skills}</div><div class="d flat">newest: ${esc(newest.name.replace(/^bb-/,''))}</div></div>
+        <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Clients on record</div><div class="v">${D.totals.clientsFull||(D.clients||[]).length}</div><div class="d${clActiveThisWk?'':' flat'}">${clActiveThisWk?'▲ '+clActiveThisWk+' active this week':'none active this week'}</div></div>
+        <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Chat facts absorbed</div><div class="v">${D.totals.chatDiscussed||0}</div><div class="d flat">from your conversations</div></div>
+      </div>
+      <div class="r-grid2">
+        <div class="r-card"><h3>Learning momentum</h3><div class="cap">Lessons added per week · last 8 weeks</div>${spark}</div>
+        <div class="r-card"><h3>Capability depth</h3><div class="cap">Battle-tested iterations by area</div>${bars}</div>
+      </div>
+      <div class="r-sec">Top clients teaching the brain</div>
+      <table class="r-tbl"><thead><tr><th>Client</th><th class="r">Total</th><th class="r">Lessons</th><th class="r">Discussed</th><th class="r">Skills used</th><th class="r">Last active</th></tr></thead><tbody>${clientRows||'<tr><td colspan="6" style="color:#8a93a6">none yet</td></tr>'}</tbody></table>
+      <div class="r-insights">
+        <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Key insights</h3><ul>
+          <li><b>${lastWk}</b> lessons learned this week${wkDelta?', '+(wkDelta>0?'up':'down')+' '+Math.abs(wkDelta)+' on last week':''}.</li>
+          <li>Busiest skill: <b>${top?top[0]:'—'}</b>${top?' ('+top[1]+' lessons)':''}.</li>
+          <li>Top teacher all-time: <b>${(D.clients||[])[0]?(D.clients||[])[0].name:'—'}</b>${(D.clients||[])[0]?' ('+(D.clients||[])[0].total+' entries)':''}.</li>
+          <li><b>${D.totals.chatDiscussed||0}</b> things discussed on Claude were absorbed into client memory this cycle.</li>
+        </ul></div>
+        <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next steps</h3><ul>
+          <li>Install learning loops in <b>${thin.name}</b> (depth ${thin.d}) so it starts compounding.</li>
+          ${zeroLoopClusters.length?'<li>Areas not logging yet: <b>'+zeroLoopClusters.join(', ')+'</b>. Open each in the brain and copy its grow plan.</li>':''}
+          <li>Keep naming the client in every lesson so client memory keeps growing on its own.</li>
+          <li>Learning loops now live on <b>${loops}/${D.totals.skills}</b> skills — push toward full coverage.</li>
+        </ul></div>
+      </div>
+    </div>
+    <div class="r-foot"><img src="${logo}" alt="Business Booster"><div class="rf-r">The BB Digital Brain<br>${SITE.replace('https://','')}</div></div>`;
+  document.getElementById('rdoc').innerHTML=doc;
   document.getElementById('report-ov').classList.add('open');
 }
-function copyReport(){ copyText(document.getElementById('report-txt').textContent,'Report copied - paste into WhatsApp'); }
+function copyReport(){ copyText(document.getElementById('report-txt').value,'Report copied - paste into WhatsApp'); }
 
 /* ═══ gap signal ═══ */
 (function gap(){
