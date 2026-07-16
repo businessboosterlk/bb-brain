@@ -230,6 +230,7 @@ body.present .wrap{min-height:calc(100vh - 210px)}
   </div>
   <div class="seg" role="tablist">
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
+    <button id="v-clients" onclick="setView('clients')">Clients</button>
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Do we have something for..." oninput="doSearch(this.value)"></div>
@@ -249,12 +250,12 @@ body.present .wrap{min-height:calc(100vh - 210px)}
 <div class="wrap" id="brain-view">
   <div class="stage" id="stage">
     <svg class="brain" id="svg" viewBox="0 0 1200 720" role="img" aria-label="Interactive constellation of Business Booster skills grouped into eight capability clusters"></svg>
-    <button class="backbtn" id="backbtn" onclick="unfocus()">← Back to full brain</button>
+    <button class="backbtn" id="backbtn" onclick="backOut()">← Back to full brain</button>
     <div class="sector-title" id="sector-title"></div>
     <div class="zoomctl">
       <button onclick="zoomBtn(0.8)" aria-label="Zoom in">+</button>
       <button onclick="zoomBtn(1.25)" aria-label="Zoom out">−</button>
-      <button onclick="unfocus()" aria-label="Reset view" style="font-size:13px">⤢</button>
+      <button onclick="backOut()" aria-label="Reset view" style="font-size:13px">⤢</button>
     </div>
     <div class="demo-hint">Auto-touring the brain · click or press Esc to take control</div>
     <div class="coach" id="coach"><b>Click any sector</b> to zoom in and explore its skills</div>
@@ -420,13 +421,15 @@ function wireCamera(){
       const dx=(e.clientX-drag.cx)/r.width*drag.vb.w, dy=(e.clientY-drag.cy)/r.height*drag.vb.h;
       VB={...drag.vb,x:drag.vb.x-dx,y:drag.vb.y-dy}; applyCam(); } });
   const end=e=>{
-    // a clean click (no drag) on empty space while focused = back to full brain
-    if(drag && !drag.moved && FOCUS && !e.target.closest('.node,.hublabel,.panel')) unfocus();
+    // a clean click (no drag) on empty space while focused = back to full view
+    if(drag && !drag.moved && (FOCUS||FCLIENT) && !e.target.closest('.node,.hublabel,.chub,.panel')) backOut();
     svg.classList.remove('panning'); drag=null;
   };
   svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',()=>{svg.classList.remove('panning');drag=null;});
-  svg.addEventListener('dblclick',e=>{ const n=e.target.closest('.node,.hublabel');
-    if(n){focusCluster(n.dataset.c||n.dataset.cluster);} else if(FOCUS){unfocus();} });
+  svg.addEventListener('dblclick',e=>{
+    const n=e.target.closest('.node,.hublabel,.chub');
+    if(n){ if(MODE==='clients') focusClient(n.dataset.cli||n.dataset.client); else focusCluster(n.dataset.c||n.dataset.cluster); }
+    else if(FOCUS||FCLIENT){ backOut(); } });
 }
 /* dismiss the coach hint on the first real interaction */
 let coachDone=false;
@@ -484,6 +487,109 @@ function clearFocusDom(){
   animateCam(HOME,900);
 }
 function unfocus(){ stopDemo(); clearFocusDom(); }
+
+/* ═══════════ CLIENTS LENS — same #svg + camera engine, clients as the cores ═══════════ */
+let MODE='skills';                 // 'skills' | 'clients'
+let FCLIENT=null;
+const CLIENTS_DATA=(D.clients||[]);
+const CLI_HUBS={}, cliNodes=[];
+(function placeClients(){
+  const list=CLIENTS_DATA.slice(0,22);            // top clients by activity
+  const cx=600, cy=360, N=list.length;
+  list.forEach((cl,i)=>{
+    // phyllotaxis-ish ring layout, larger radius so hubs breathe
+    const ang=i*GA, rr=48+92*Math.sqrt(i/Math.max(1,N))*2.2;
+    const hx=cx+rr*Math.cos(ang), hy=cy+rr*Math.sin(ang)*0.82;
+    CLI_HUBS[cl.name]={x:hx,y:hy,cl};
+    const hubR=Math.min(20,7+2.6*Math.log2(1+cl.total));
+    cliNodes.push({kind:'hub',cl,x:hx,y:hy,rad:hubR});
+    // orbit: their top skills used
+    const sk=cl.skills.slice(0,8);
+    sk.forEach((s,j)=>{
+      const a2=j*GA+ang, r2=hubR+14+9*Math.sqrt(j);
+      cliNodes.push({kind:'sk',cl,skill:s.s,cluster:s.cluster,x:hx+r2*Math.cos(a2),y:hy+r2*Math.sin(a2)*0.86,rad:Math.min(7,3+s.n*0.7)});
+    });
+  });
+})();
+function cliColor(cl){ return C[cl.domCluster]?C[cl.domCluster].color:'#C9D4E8'; }
+function renderClients(){
+  const svg=svgEl();
+  let stars='';
+  for(let i=0;i<95;i++){const x=(i*173.13)%1200,y=(i*97.7+31)%720,r=(0.5+((i*7)%9)/10).toFixed(2),o=(0.10+((i*13)%17)/100).toFixed(2);stars+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="#9cc6ff" opacity="${o}"/>`;}
+  let groups='';
+  for(const cl of CLIENTS_DATA.slice(0,22)){
+    const h=CLI_HUBS[cl.name]; if(!h)continue;
+    const col=cliColor(cl);
+    const orbit=cliNodes.filter(n=>n.kind==='sk'&&n.cl===cl);
+    let spokes='',ns='',labels='';
+    for(const n of orbit){
+      spokes+=`<line x1="${h.x.toFixed(1)}" y1="${h.y.toFixed(1)}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${C[n.cluster]?C[n.cluster].color:col}" stroke-opacity="0.16" stroke-width="0.7"/>`;
+      ns+=`<g class="node" data-client="${esc(cl.name)}" data-skill="${esc(n.skill)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"><circle class="core" r="${n.rad.toFixed(1)}" fill="${C[n.cluster]?C[n.cluster].color:col}" fill-opacity="0.85"></circle></g>`;
+      labels+=`<text class="nlabel" x="${n.x.toFixed(1)}" y="${(n.y+n.rad+7).toFixed(1)}">${esc(n.skill.replace(/^bb-/,'').slice(0,16))}</text>`;
+    }
+    const hubR=cliNodes.find(n=>n.kind==='hub'&&n.cl===cl).rad;
+    groups+=`<g class="cgroup" data-cli="${esc(cl.name)}">
+      ${spokes}
+      <circle class="chub" data-client="${esc(cl.name)}" cx="${h.x}" cy="${h.y}" r="${hubR}" fill="${col}" fill-opacity="0.9" style="filter:drop-shadow(0 0 ${Math.min(16,6+cl.total/3)}px ${col});cursor:pointer"/>
+      <circle cx="${h.x}" cy="${h.y}" r="2.4" fill="#fff" opacity=".9" pointer-events="none"/>
+      ${ns}${labels}
+      <text class="hublabel" data-cli="${esc(cl.name)}" x="${h.x}" y="${(h.y-hubR-11).toFixed(1)}" text-anchor="middle">${esc(cl.name)}</text>
+      <text class="hubcount" x="${h.x}" y="${(h.y-hubR-11+13).toFixed(1)}" text-anchor="middle">${cl.total} entries · ${cl.skills.length} skills</text>
+    </g>`;
+  }
+  svg.innerHTML=`<g class="stars">${stars}</g><g class="ilinks" id="ilinks"></g>${groups}<g id="fxlayer"></g>`;
+  svg.querySelectorAll('.chub,.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();focusClient(el.dataset.cli||el.dataset.client);}));
+  svg.querySelectorAll('.node').forEach(el=>{
+    el.addEventListener('click',e=>{e.stopPropagation(); if(FCLIENT===el.dataset.client) openSkill(el.dataset.skill); else focusClient(el.dataset.client);});
+    el.addEventListener('mouseenter',()=>showTip(el.dataset.skill,el)); el.addEventListener('mouseleave',hideTip);
+  });
+}
+function clientBox(name){
+  const ns=cliNodes.filter(n=>n.cl.name===name);
+  let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+  for(const n of ns){x1=Math.min(x1,n.x-24);y1=Math.min(y1,n.y-24);x2=Math.max(x2,n.x+24);y2=Math.max(y2,n.y+30);}
+  y1-=60;
+  let w=x2-x1,h=y2-y1;const AR=1200/720;
+  if(w/h<AR){const nw=h*AR;x1-=(nw-w)/2;w=nw;}else{const nh=w/AR;y1-=(nh-h)/2;h=nh;}
+  let box={x:x1-w*0.1,y:y1-h*0.1,w:w*1.2,h:h*1.2};
+  const panelOpen=document.getElementById('panel').classList.contains('open')&&!document.body.classList.contains('present');
+  if(panelOpen&&innerWidth>820){const extra=box.w*0.62;box={x:box.x,y:box.y-box.h*0.31*(720/1200),w:box.w+extra,h:(box.w+extra)*(720/1200)};}
+  else if(panelOpen){const extraH=box.h*1.15;box={x:box.x-extraH*(1200/720)/2,y:box.y,w:box.w+extraH*(1200/720),h:box.h+extraH};}
+  return box;
+}
+function focusClient(name){
+  const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
+  dismissCoach(); hideTip(); FCLIENT=name;
+  const svg=svgEl(); svg.classList.add('focused');
+  svg.querySelectorAll('.cgroup').forEach(g=>{const on=g.dataset.cli===name;g.classList.toggle('dim',!on);g.classList.toggle('focus',on);});
+  const h=CLI_HUBS[name], col=cliColor(cl), R=60+9*cl.skills.length*0.5;
+  document.getElementById('fxlayer').innerHTML=`<circle cx="${h.x}" cy="${h.y}" r="${R}" fill="${col}" fill-opacity="0.045"/><circle cx="${h.x}" cy="${h.y}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  const st=document.getElementById('sector-title');
+  st.innerHTML=`<h2 style="color:${col}">${esc(cl.name)}</h2><div class="st-sub">${cl.total} entries · ${cl.skills.length} skills used · last active ${cl.lastActive||'—'}</div>`;
+  st.classList.add('show'); document.getElementById('backbtn').classList.add('show');
+  if(!document.body.classList.contains('present')) openClientPanel(name);
+  animateCam(clientBox(name),1150);
+}
+function openClientPanel(name){
+  const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
+  const col=cliColor(cl), p=document.getElementById('panel');
+  const cchips=Object.entries(cl.clusters).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`<span class="pill" style="color:${C[id]?C[id].color:''}"><span style="width:7px;height:7px;border-radius:50%;background:${C[id]?C[id].color:'#889'}"></span>${esc(C[id]?C[id].name:id)} · ${n}</span>`).join('');
+  p.innerHTML=`<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
+    <h2 style="color:${col}">${esc(cl.name)}</h2>
+    <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} things you discussed</span></div>
+    <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div>
+    <div class="sec">Capabilities we used for them</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${cchips||'<span style="color:var(--text-3);font-size:12px">none logged yet</span>'}</div>
+    <div class="sec">Skills used</div>
+    ${cl.skills.slice(0,10).map(s=>`<div class="skill-row" onclick="openSkill('${esc(s.s)}')"><span style="width:8px;height:8px;border-radius:50%;background:${C[s.cluster]?C[s.cluster].color:'#889'};flex-shrink:0"></span><span class="nm">${esc(s.s)}</span><span class="pill depth-badge">${s.n}</span></div>`).join('')||'<div class="latest">none yet</div>'}
+    <div class="sec">Latest lessons from this client</div>
+    ${cl.lessons.slice(0,4).map(l=>`<div class="latest" style="margin-bottom:6px"><b>${esc(l.date)}</b> · <span style="color:${C[l.cluster]?C[l.cluster].color:''}">${esc(l.skill)}</span> · ${esc(l.summary)}</div>`).join('')||'<div class="latest">none logged yet</div>'}
+    <div class="sec">What you discussed on Claude</div>
+    ${cl.discussed.slice(0,5).map(d=>`<div class="latest" style="margin-bottom:6px"><b>${esc(d.date)}</b> · ${esc(d.snippet)}</div>`).join('')||'<div class="latest">nothing captured from chat yet</div>'}`;
+  p.classList.add('open');
+}
+function unfocusClients(){ stopDemo(); FCLIENT=null; const svg=svgEl(); svg.classList.remove('focused'); svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus')); document.getElementById('fxlayer').innerHTML=''; document.getElementById('sector-title').classList.remove('show'); document.getElementById('backbtn').classList.remove('show'); animateCam(HOME,900); }
+function backOut(){ if(MODE==='clients') unfocusClients(); else unfocus(); }
 
 /* ═══ auto-demo tour (present mode) ═══ */
 let demoTimer=null, demoIdx=0, demoActive=false;
@@ -637,21 +743,53 @@ function weekData(){
 /* ═══ weekly report ═══ */
 function openReport(){
   const {monday, wk, byCluster, top, newest}=weekData();
+  const mondayStr=monday.toISOString().slice(0,10);
   const loops=D.skills.filter(s=>s.hasLoop).length;
   const ranked=[...D.clusters].map(c=>({...c,d:D.totals.depthByCluster[c.id]})).sort((a,b)=>a.d-b.d);
-  const thin=ranked[0];
-  const clusterLine=Object.entries(byCluster).map(([c,n])=>C[c].name+' '+n).join(', ')||'none';
+  const thin=ranked[0], thick=ranked[ranked.length-1];
+  // cluster movement this week
+  const grew=Object.entries(byCluster).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${C[c].name} +${n}`);
+  // client activity this week (lessons + chats dated this week)
+  const clAct={};
+  (D.clients||[]).forEach(cl=>{
+    const n=[...cl.lessons,...cl.discussed].filter(e=>new Date(e.date)>=monday).length;
+    if(n) clAct[cl.name]=n;
+  });
+  const clRows=Object.entries(clAct).sort((a,b)=>b[1]-a[1]);
+  // quiet skills that HAVE a loop (real "stalling" signal, not just new)
+  const quiet=D.skills.filter(s=>s.quiet&&s.hasLoop).map(s=>s.name);
+  // zero-loop skills in the thickest-but-loopless clusters
+  const zeroLoopClusters=ranked.filter(r=>r.d===0).map(r=>r.name);
   const txt =
-`BB DIGITAL BRAIN - week of ${monday.toISOString().slice(0,10)}
+`BB DIGITAL BRAIN — WEEKLY BRIEFING
+Week of ${mondayStr}  ·  ${SITE}
 
-- ${wk.length} lessons learned this week (${clusterLine})
-- Busiest skill: ${top?top[0]+' ('+top[1]+' entries)':'none yet'}
-- Newest capability: ${newest.name} (${newest.mtime})
-- Totals: ${D.totals.skills} skills, ${D.totals.entries} lessons, ${loops}/${D.totals.skills} skills have learning loops
-- Learning from ${D.totals.clients.length} clients (top: ${D.totals.clients.slice(0,3).map(x=>x.c).join(', ')||'none yet'})
-- Thinnest cluster: ${thin.name} (depth ${thin.d}) - decide: install loops there, or deprioritize it on purpose
+━━ THE HEADLINE ━━
+${wk.length} lessons learned this week.  ${clRows.length} client${clRows.length===1?'':'s'} moved the needle.
+Newest capability: ${newest.name} (added ${newest.mtime}).
 
-Open the brain: ${SITE}`;
+━━ WHERE WE GREW (this week) ━━
+${grew.length?grew.map(g=>'  • '+g).join('\n'):'  • no new lessons logged this week'}
+Busiest skill: ${top?top[0]+' — '+top[1]+' lessons':'none'}.
+
+━━ CLIENT ACTIVITY (this week) ━━
+${clRows.length?clRows.slice(0,10).map(([c,n])=>'  • '+c+' — '+n+' lesson/chat entr'+(n===1?'y':'ies')).join('\n'):'  • no client-tagged activity logged this week'}
+All-time top teachers: ${(D.clients||[]).slice(0,5).map(c=>c.name+' ('+c.total+')').join(', ')}.
+
+━━ THE MACHINE, RIGHT NOW ━━
+  • ${D.totals.skills} skills · ${D.totals.entries} total lessons · ${D.totals.clientsFull||(D.clients||[]).length} clients on record
+  • ${D.totals.chatDiscussed||0} things you discussed on Claude were absorbed into client memory
+  • Learning loops live on ${loops}/${D.totals.skills} skills
+  • Strongest capability: ${thick.name} (depth ${thick.d})
+
+━━ WHAT NEEDS A DECISION ━━
+  • Thinnest area: ${thin.name} (depth ${thin.d}). ${thin.d===0?'Real capability, zero battle-testing on record — install its learning loops or deprioritize it on purpose.':'Consider feeding it.'}
+${zeroLoopClusters.length?'  • Whole areas not logging yet: '+zeroLoopClusters.join(', ')+'. Open each in the brain and copy its grow plan.':''}
+${quiet.length?'  • Quiet 60+ days (was active, now idle): '+quiet.slice(0,6).join(', ')+'.':''}
+
+━━ ONE MOVE FOR NEXT WEEK ━━
+Install learning loops on the top 3 skills in "${thin.name}" so the machine starts
+compounding there too. (Open the brain → click ${thin.name} → Copy the grow plan.)`;
   document.getElementById('report-txt').textContent=txt;
   document.getElementById('report-ov').classList.add('open');
 }
@@ -699,14 +837,26 @@ function renderTL(){
 
 /* ═══ views + present mode ═══ */
 function setView(v){
-  document.getElementById('brain-view').style.display = v==='brain'?'flex':'none';
-  document.getElementById('legend').style.display = v==='brain'?'flex':'none';
-  document.getElementById('stats').style.display = v==='brain'?'flex':'none';
+  const onStage = v==='brain'||v==='clients';
+  document.getElementById('brain-view').style.display = onStage?'flex':'none';
+  document.getElementById('legend').style.display = v==='brain'?'flex':'none';   // skill legend only on Brain
+  document.getElementById('stats').style.display = onStage?'flex':'none';
   document.getElementById('gap').style.display = v==='brain'?'block':'none';
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
   document.getElementById('v-brain').classList.toggle('on',v==='brain');
+  document.getElementById('v-clients').classList.toggle('on',v==='clients');
   document.getElementById('v-tl').classList.toggle('on',v==='tl');
-  if(v==='tl') renderTL();
+  if(v==='tl'){ renderTL(); return; }
+  // switching between the two stage modes
+  const want = v==='clients'?'clients':'skills';
+  if(want!==MODE || !svgEl().querySelector('.cgroup')){
+    MODE=want; FOCUS=null; FCLIENT=null; VB={...HOME};
+    document.getElementById('sector-title').classList.remove('show');
+    document.getElementById('backbtn').classList.remove('show');
+    document.getElementById('fxlayer') && (document.getElementById('fxlayer').innerHTML='');
+    if(MODE==='clients') renderClients(); else renderBrain();
+    applyCam();
+  }
 }
 function togglePresent(on){
   document.body.classList.toggle('present',on);
@@ -727,7 +877,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     if(demoActive){stopDemo();return;}
     if(document.body.classList.contains('present')){togglePresent(false);return;}
-    if(FOCUS){unfocus();return;}
+    if(FOCUS||FCLIENT){backOut();return;}
     closePanel(); document.getElementById('report-ov').classList.remove('open');
   }
 });

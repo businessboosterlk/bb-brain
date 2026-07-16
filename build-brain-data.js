@@ -305,6 +305,99 @@ for (const s of skills) {
 }
 out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 
+/* ══ CHAT HARVEST: read the raw Claude session transcripts and pull, per client,
+   what was actually discussed and when. Efficient: a cheap substring test before
+   any JSON.parse, only Thulaib's (user) messages, skips skill/command injections,
+   caps + dedupes per client. This is the "everything spoken on Claude feeds the
+   brain" pipeline - runs in the nightly regenerate, no LLM needed. ══ */
+function harvestChat() {
+  const dir = MEMORY_DIR.replace(/\/memory$/, '');
+  const perClient = {};
+  const aliasIndex = []; // [display, [lc needles]]
+  const allNeedles = [];
+  for (const [key, display] of Object.entries(ROSTER)) {
+    const needles = [display.toLowerCase(), ...(CLIENT_ALIASES[key] || [])];
+    aliasIndex.push([display, needles]); allNeedles.push(...needles);
+  }
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const ANY = new RegExp(allNeedles.map(esc).join('|'), 'i'); // one case-insensitive prefilter
+  let files = [];
+  try {
+    const cutoff = Date.now() - 120 * 86400000; // last ~120 days, newest first (bounds cost as history grows)
+    files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).map(f => path.join(dir, f))
+      .map(p => ({ p, m: fs.statSync(p).mtimeMs })).filter(x => x.m >= cutoff)
+      .sort((a, b) => b.m - a.m).map(x => x.p);
+  } catch (e) { return { perClient, discussed: 0 }; }
+  const seen = new Set();
+  let discussed = 0;
+  for (const f of files) {
+    let raw; try { raw = fs.readFileSync(f, 'utf8'); } catch (e) { continue; }
+    if (!ANY.test(raw)) continue;                            // whole-file skip: no client mentioned at all
+    for (const ln of raw.split('\n')) {
+      // only tiny USER lines that mention a client ever get parsed (assistant lines are the huge ones)
+      if (ln.length < 30 || ln.length > 20000) continue;
+      if (ln.indexOf('"type":"user"') === -1) continue;
+      if (!ANY.test(ln)) continue;
+      let o; try { o = JSON.parse(ln); } catch (e) { continue; }
+      if (o.type !== 'user') continue;
+      const m = o.message || {}; const c = m.content;
+      let txt = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(b => b && b.type === 'text').map(b => b.text).join(' ') : '';
+      txt = txt.trim();
+      if (!txt || txt.length < 12) continue;
+      if (txt.startsWith('<') || txt.startsWith('Base directory') || txt.startsWith('Caveat:')) continue;
+      const date = (o.timestamp || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const low = txt.toLowerCase();
+      const hitClients = aliasIndex.filter(([d, needles]) => needles.some(n => low.includes(n))).map(a => a[0]);
+      const snippet = txt.replace(/\s+/g, ' ').slice(0, 150);
+      for (const cl of hitClients) {
+        const k = cl + '|' + date + '|' + snippet.slice(0, 40).toLowerCase();
+        if (seen.has(k)) continue; seen.add(k);
+        (perClient[cl] = perClient[cl] || []).push({ date, snippet });
+        discussed++;
+      }
+    }
+  }
+  for (const cl of Object.keys(perClient)) {
+    perClient[cl].sort((a, b) => b.date.localeCompare(a.date));
+    perClient[cl] = perClient[cl].slice(0, 25);
+  }
+  return { perClient, discussed };
+}
+const { perClient: chatByClient, discussed: chatDiscussed } = harvestChat();
+
+/* ══ RICH PER-CLIENT DATASET: everything the brain knows about each client,
+   from skill attribution (what we did) + chat harvest (what we discussed). ══ */
+function buildClients() {
+  const map = {}; // display -> record
+  const ensure = c => (map[c] = map[c] || { name: c, lessons: [], discussed: [], skills: {}, clusters: {} });
+  for (const s of out.skills) for (const { c, n } of (s.clients || [])) {
+    const r = ensure(c); r.skills[s.name] = (r.skills[s.name] || 0) + n; r.clusters[s.cluster] = (r.clusters[s.cluster] || 0) + n;
+  }
+  for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary });
+  for (const [c, arr] of Object.entries(chatByClient)) { const r = ensure(c); r.discussed = arr; }
+  const list = Object.values(map).map(r => {
+    const lessons = r.lessons.sort((a, b) => b.date.localeCompare(a.date));
+    const dates = [...lessons.map(l => l.date), ...r.discussed.map(d => d.date)].sort();
+    const domCluster = Object.entries(r.clusters).sort((a, b) => b[1] - a[1])[0];
+    return {
+      name: r.name,
+      lessons: lessons.slice(0, 40),
+      discussed: r.discussed,
+      skills: Object.entries(r.skills).sort((a, b) => b[1] - a[1]).map(([s, n]) => ({ s, n, cluster: (out.skills.find(x => x.name === s) || {}).cluster || 'intel' })),
+      clusters: r.clusters,
+      domCluster: domCluster ? domCluster[0] : 'intel',
+      lessonCount: r.lessons.length,
+      chatCount: r.discussed.length,
+      total: r.lessons.length + r.discussed.length,
+      firstSeen: dates[0] || null,
+      lastActive: dates[dates.length - 1] || null,
+    };
+  }).sort((a, b) => b.total - a.total);
+  return list;
+}
+out.clients = buildClients();
+
 /* totals + gap signal */
 const depthByCluster = {};
 for (const c of CLUSTERS) depthByCluster[c.id] = 0;
@@ -313,6 +406,8 @@ const clientTotals = {};
 for (const s of out.skills) for (const { c, n } of s.clients) clientTotals[c] = (clientTotals[c] || 0) + n;
 out.totals = {
   chatEntries: chatMem.length,
+  chatDiscussed,
+  clientsFull: out.clients.length,
   skills: out.skills.length,
   entries: out.skills.reduce((n, s) => n + s.depth, 0),
   datedEntries: out.timeline.length,
