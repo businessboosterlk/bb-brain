@@ -65,12 +65,12 @@ svg.brain.panning{cursor:grabbing}
 .hublabel{font-size:12px;fill:var(--text-2);font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 .hublabel:hover{fill:var(--text)}
 .hubcount{font-size:9.5px;fill:var(--text-3)}
-.nlabel{font-size:6.8px;fill:var(--text-2);text-anchor:middle;opacity:0;pointer-events:none;transition:opacity .4s var(--ease)}
-.cgroup{transition:opacity .5s var(--ease)}
-.cgroup.dim{opacity:.10}
-.cgroup.focus .nlabel{opacity:1}
-.ilinks{transition:opacity .5s var(--ease)}
-.ilinks.dim{opacity:.14}
+.nlabel{font-size:7.4px;fill:var(--text-2);text-anchor:middle;opacity:0;pointer-events:none;transition:opacity .55s var(--ease) .25s}
+.cgroup{transition:opacity .7s var(--ease)}
+.cgroup.dim{opacity:.08}
+.cgroup.focus .nlabel{opacity:.92}
+.ilinks{transition:opacity .7s var(--ease)}
+.ilinks.dim{opacity:.10}
 .stars{transition:opacity .5s var(--ease)}
 svg.focused .stars{opacity:.35}
 .node.fade{opacity:.1;pointer-events:none}
@@ -99,6 +99,11 @@ svg.focused .stars{opacity:.35}
 .zoomctl button:hover{color:var(--text)}
 .demo-hint{position:absolute;bottom:16px;right:16px;z-index:20;font-size:11px;color:var(--text-3);background:color-mix(in srgb,var(--surface) 80%,transparent);border:1px solid var(--line);border-radius:99px;padding:6px 13px;display:none}
 body.present .demo-hint{display:block}
+body.present .coach{display:none}
+.coach{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:22;font-size:12.5px;color:var(--text-2);background:color-mix(in srgb,var(--surface-2) 86%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line-2);border-radius:99px;padding:9px 18px;box-shadow:var(--shadow);transition:opacity .4s var(--ease),transform .4s var(--ease);pointer-events:none}
+.coach b{color:var(--text)}
+.coach.hide{opacity:0;transform:translate(-50%,10px)}
+@media(prefers-reduced-motion:no-preference){.coach{animation:coachbob 2.6s ease-in-out infinite}@keyframes coachbob{0%,100%{margin-bottom:0}50%{margin-bottom:5px}}}
 /* hover mini-card */
 .tip{position:absolute;pointer-events:none;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:10px 13px;box-shadow:var(--shadow-lg);font-size:12px;max-width:250px;opacity:0;transition:opacity .12s;z-index:40}
 .tip.show{opacity:1}
@@ -119,10 +124,12 @@ body.present .demo-hint{display:block}
 .stats .st b{display:block;font-family:'Poppins',sans-serif;font-size:19px;font-weight:800;font-variant-numeric:tabular-nums}
 .stats .st span{font-size:11px;color:var(--text-3)}
 
-/* ── side panel ── */
-.panel{width:360px;flex-shrink:0;border-left:1px solid var(--line);padding:20px;overflow-y:auto;max-height:calc(100vh - 150px);position:sticky;top:150px;display:none;background:linear-gradient(180deg,var(--surface),transparent 140px)}
-.panel.open{display:block;animation:slidein .25s var(--ease)}
-@keyframes slidein{from{transform:translateX(14px);opacity:0}to{transform:none;opacity:1}}
+/* ── side panel: floats OVER the stage (never resizes the graph) ── */
+.panel{position:absolute;top:16px;right:16px;width:340px;max-height:calc(100% - 32px);padding:20px;overflow-y:auto;z-index:30;display:none;
+  background:color-mix(in srgb,var(--surface-2) 92%,transparent);backdrop-filter:saturate(150%) blur(16px);-webkit-backdrop-filter:saturate(150%) blur(16px);
+  border:1px solid var(--line-2);border-radius:var(--r);box-shadow:var(--shadow-lg)}
+.panel.open{display:block;animation:slidein .32s var(--ease)}
+@keyframes slidein{from{transform:translateX(18px);opacity:0}to{transform:none;opacity:1}}
 .panel h2{font-size:17px;margin-bottom:4px;word-break:break-word;padding-right:28px}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--line)}
 .depth-badge{font-family:'Poppins',sans-serif;font-weight:700;font-variant-numeric:tabular-nums}
@@ -250,9 +257,10 @@ body.present .wrap{min-height:calc(100vh - 210px)}
       <button onclick="unfocus()" aria-label="Reset view" style="font-size:13px">⤢</button>
     </div>
     <div class="demo-hint">Auto-touring the brain · click or press Esc to take control</div>
+    <div class="coach" id="coach"><b>Click any sector</b> to zoom in and explore its skills</div>
     <div class="tip" id="tip"></div>
+    <aside class="panel" id="panel"></aside>
   </div>
-  <aside class="panel" id="panel"></aside>
 </div>
 <div class="legend" id="legend"></div>
 <div class="stats" id="stats"></div>
@@ -411,11 +419,18 @@ function wireCamera(){
     if(drag.moved){
       const dx=(e.clientX-drag.cx)/r.width*drag.vb.w, dy=(e.clientY-drag.cy)/r.height*drag.vb.h;
       VB={...drag.vb,x:drag.vb.x-dx,y:drag.vb.y-dy}; applyCam(); } });
-  const end=()=>{ svg.classList.remove('panning'); drag=null; };
-  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',end);
+  const end=e=>{
+    // a clean click (no drag) on empty space while focused = back to full brain
+    if(drag && !drag.moved && FOCUS && !e.target.closest('.node,.hublabel,.panel')) unfocus();
+    svg.classList.remove('panning'); drag=null;
+  };
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',()=>{svg.classList.remove('panning');drag=null;});
   svg.addEventListener('dblclick',e=>{ const n=e.target.closest('.node,.hublabel');
     if(n){focusCluster(n.dataset.c||n.dataset.cluster);} else if(FOCUS){unfocus();} });
 }
+/* dismiss the coach hint on the first real interaction */
+let coachDone=false;
+function dismissCoach(){ if(coachDone)return; coachDone=true; const c=document.getElementById('coach'); if(c)c.classList.add('hide'); }
 
 /* ═══ sector focus ═══ */
 let FOCUS=null;
@@ -426,11 +441,20 @@ function clusterBox(cid){
   y1-=70;
   let w=x2-x1,h=y2-y1; const AR=1200/720;
   if(w/h<AR){const nw=h*AR;x1-=(nw-w)/2;w=nw;} else {const nh=w/AR;y1-=(nh-h)/2;h=nh;}
-  return {x:x1-w*0.06,y:y1-h*0.06,w:w*1.12,h:h*1.12};
+  let box={x:x1-w*0.08,y:y1-h*0.08,w:w*1.16,h:h*1.16};
+  const panelOpen = document.getElementById('panel').classList.contains('open') && !document.body.classList.contains('present');
+  if(panelOpen && innerWidth>820){
+    // desktop: floating panel on the right -> add empty room on the RIGHT, sector sits left ~62%
+    const extra=box.w*0.62; box={x:box.x, y:box.y-box.h*0.31*(720/1200), w:box.w+extra, h:(box.w+extra)*(720/1200)};
+  } else if(panelOpen){
+    // mobile: bottom sheet (~62vh) -> add empty room at the BOTTOM so the sector sits in the top band
+    const extraH=box.h*1.15; box={x:box.x-extraH*(1200/720)/2, y:box.y, w:box.w+extraH*(1200/720), h:box.h+extraH};
+  }
+  return box;
 }
 function focusCluster(cid){
   if(!C[cid])return;
-  hideTip(); FOCUS=cid;
+  dismissCoach(); hideTip(); FOCUS=cid;
   const svg=svgEl(); svg.classList.add('focused');
   svg.querySelectorAll('.cgroup').forEach(g=>{
     g.classList.toggle('dim', g.dataset.c!==cid);
@@ -441,13 +465,13 @@ function focusCluster(cid){
   document.getElementById('fxlayer').innerHTML=
     `<circle cx="${hx}" cy="${hy}" r="${R}" fill="${col}" fill-opacity="0.045"/>
      <circle cx="${hx}" cy="${hy}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
-  animateCam(clusterBox(cid),1000);
   const num=ORDER.indexOf(cid)+1, cn=nodes.filter(n=>n.cid===cid).length;
   const st=document.getElementById('sector-title');
   st.innerHTML=`<h2><span style="color:${col}">${num}.</span> ${esc(C[cid].name)}</h2><div class="st-sub">${cn} skills · depth ${D.totals.depthByCluster[cid]} · click any node for its details</div>`;
   st.classList.add('show');
   document.getElementById('backbtn').classList.add('show');
-  if(!document.body.classList.contains('present')) openCluster(cid);
+  if(!document.body.classList.contains('present')) openCluster(cid); // open panel FIRST so the camera biases the sector left of it
+  animateCam(clusterBox(cid),1150);
 }
 function clearFocusDom(){
   FOCUS=null;
@@ -707,7 +731,8 @@ document.addEventListener('keydown',e=>{
     closePanel(); document.getElementById('report-ov').classList.remove('open');
   }
 });
-document.getElementById('stage').addEventListener('pointerdown',()=>{ if(demoActive)stopDemo(); },true);
+document.getElementById('stage').addEventListener('pointerdown',()=>{ dismissCoach(); if(demoActive)stopDemo(); },true);
+setTimeout(()=>{ if(!coachDone) dismissCoach(); }, 9000); // auto-fade if untouched
 
 renderBrain(); wireCamera(); applyCam();
 </script>
