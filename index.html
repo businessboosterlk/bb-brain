@@ -306,6 +306,7 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
     <button id="v-clients" onclick="setView('clients')">Clients</button>
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
+    <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
@@ -347,6 +348,8 @@ table.r-tbl td b{color:#0e1830}
 </div>
 
 <div class="gap" id="gap"></div>
+
+<div class="tl" id="gaps-view" style="display:none"></div>
 
 <div class="rov" id="report-ov">
   <div class="rov-bar">
@@ -1045,6 +1048,34 @@ function renderTL(){
     + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlClient='${esc(x.c)}';renderTL()">${esc(x.c)} · ${x.n}</button>`).join('');
 }
 
+/* ═══ STEP 5: gap radar - where the machine is NOT learning ═══ */
+const SERVICE_LINES=[
+  ['Influencer marketing','influencer'],
+  ['PR and media outreach','\\bpr\\b|press|media outreach'],
+  ['Photography and shoot direction','photograph|shoot direction'],
+  ['Community management','community manag'],
+  ['Email newsletters','newsletter'],
+];
+function renderGaps(){
+  const quiet=D.skills.filter(s=>s.depth===0).sort((a,b)=>a.name.localeCompare(b.name));
+  const unused=D.skills.filter(s=>!s.clients||!s.clients.length).sort((a,b)=>b.depth-a.depth);
+  const silentClients=(D.clients||[]).filter(c=>c.lessonCount===0);
+  const noSkill=SERVICE_LINES.filter(([label,pat])=>{const re=new RegExp(pat,'i');return !D.skills.some(s=>re.test(s.name+' '+s.desc));});
+  const chip=(s,col)=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('brain');focusCluster('${s.cluster}');openSkill('${esc(s.name)}')"><span style="width:7px;height:7px;border-radius:50%;background:${col||C[s.cluster].color}"></span>${esc(s.name)}</span>`;
+  const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
+  document.getElementById('gaps-view').innerHTML=
+    `<h2 style="font-size:19px;margin-bottom:4px">Gap radar</h2>
+     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:22px">Where the machine is not learning. Honest scan output: ${D.totals.skills} skills, ${D.totals.entries} entries, ${(D.clients||[]).length} clients on record.</p>`
+    +sec(`Skills with zero logged learnings · ${quiet.length}/${D.totals.skills}`,'Real capability, nothing battle-tested on record. Either install their loops or deprioritize on purpose.',
+      `<div style="display:flex;flex-wrap:wrap">${quiet.map(s=>chip(s)).join('')||'none'}</div>`)
+    +sec(`Skills never attributed to a client · ${unused.length}/${D.totals.skills}`,'No entry names a client for these. Internal-only skills are fine here; client-facing ones are the gap.',
+      `<div style="display:flex;flex-wrap:wrap">${unused.map(s=>chip(s)).join('')||'none'}</div>`)
+    +sec(`Clients with zero captured lessons · ${silentClients.length}/${(D.clients||[]).length}`,'We talk about them (chat mentions exist) but no lesson has ever been logged with their name in the title.',
+      `<div style="display:flex;flex-wrap:wrap">${silentClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:var(--text-3)">· ${c.chatCount} chats</span></span>`).join('')||'none - every client has at least one logged lesson'}</div>`)
+    +sec(`Service lines with no skill at all · ${noSkill.length}/${SERVICE_LINES.length}`,'Hand-maintained list of things BB sells or could sell, checked against every skill name and description.',
+      `<div style="display:flex;flex-wrap:wrap">${noSkill.map(([l])=>`<span class="pill" style="margin:0 6px 6px 0;color:#c9a15a">${esc(l)}</span>`).join('')||'none - every listed service line has at least one matching skill'}</div>`);
+}
+
 /* ═══ views + present mode ═══ */
 function setView(v){
   const onStage = v==='brain'||v==='clients';
@@ -1053,9 +1084,12 @@ function setView(v){
   document.getElementById('stats').style.display = onStage?'flex':'none';
   document.getElementById('gap').style.display = v==='brain'?'block':'none';
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
+  document.getElementById('gaps-view').style.display = v==='gaps'?'block':'none';
   document.getElementById('v-brain').classList.toggle('on',v==='brain');
   document.getElementById('v-clients').classList.toggle('on',v==='clients');
   document.getElementById('v-tl').classList.toggle('on',v==='tl');
+  document.getElementById('v-gaps').classList.toggle('on',v==='gaps');
+  if(v==='gaps'){ renderGaps(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes
   const want = v==='clients'?'clients':'skills';
