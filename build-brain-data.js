@@ -486,6 +486,7 @@ function detectConflicts() {
       skillA: a.skill, dateA: a.date, textA: a.summary,
       skillB: b.skill, dateB: b.date, textB: b.summary,
       shared: shared.length, topic: flip.slice(0, 3),
+      key: (a.skill + '|' + (a.date || '') + '|' + a.summary.slice(0, 40) + '||' + b.skill + '|' + (b.date || '') + '|' + b.summary.slice(0, 40)).toLowerCase(),
     });
   }
   conflicts.sort((x, y) => y.shared - x.shared);
@@ -570,7 +571,14 @@ Promise.all([
 ]).then(([feed, reviews, gaps]) => {
   out.agentFeed = feed;
   console.log('agent feed:', feed.online ? feed.entries.length + ' machine learnings' : 'OFFLINE (' + feed.error + ')');
-  if (Array.isArray(reviews)) { out.reviews = applyReviews(reviews); console.log('reviews applied:', JSON.stringify(out.reviews)); }
+  if (Array.isArray(reviews)) {
+    out.reviews = applyReviews(reviews.filter(r => r.verdict !== 'dismiss-conflict'));
+    const dismissed = new Set(reviews.filter(r => r.verdict === 'dismiss-conflict').map(r => String(r.entry_key).toLowerCase()));
+    const before = out.conflicts.length;
+    out.conflicts = out.conflicts.filter(c => !dismissed.has(c.key));
+    out.reviews.conflictsDismissed = before - out.conflicts.length;
+    console.log('reviews applied:', JSON.stringify(out.reviews));
+  }
   else { out.reviews = { offline: true }; console.log('reviews OFFLINE:', reviews.err); }
   if (Array.isArray(gaps)) { out.gaps = gaps; console.log('open gaps:', gaps.length); }
   else { out.gaps = null; console.log('gaps OFFLINE:', gaps.err); }   // null = feed offline, [] = genuinely none

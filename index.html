@@ -1404,6 +1404,17 @@ function renderTL(){
     + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlSet(()=>tlClient='${esc(x.c)}')">${esc(x.c)} · ${x.n}</button>`).join('');
 }
 
+async function dismissConflict(key,btn){
+  if(!key){toast('This flag has no key - rebuild the data first');return;}
+  if(!await pinOK()) return;
+  try{
+    const r=await fetch(SB_URL+'/brain_reviews',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({entry_key:key,verdict:'dismiss-conflict',reviewed_by:'brain-ui'})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(btn){const row=btn.closest('.rvw'); if(row) row.innerHTML='<span style="font-size:10px;color:var(--text-3);font-weight:700">dismissed - gone at next build</span>';}
+    toast('Dismissed - it disappears at the next nightly build');
+  }catch(e){ toast('Could not dismiss: '+e.message); }
+}
 async function resolveGap(id,status,btn){
   if(!await pinOK()) return;
   try{
@@ -1445,7 +1456,7 @@ function renderGaps(){
       :(D.gaps||[]).map(g=>`<div class="latest" style="margin-bottom:6px;display:flex;gap:10px;align-items:baseline"><span style="flex:1"><b>${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</span><span class="rvw"><button onclick="resolveGap(${g.id},'answered',this)">answered</button><button onclick="resolveGap(${g.id},'dismissed',this)">dismiss</button></span></div>`).join('')||'<div class="latest">none open - every question asked so far had an answer</div>')
     +sec(`Possible contradictions · ${(D.conflicts||[]).length} flagged`,'Same-topic entries where one side negates what the other states. A dumb keyword heuristic flags these for YOUR eye - most will be echoes, the real ones are gold. Nothing is ever auto-resolved.',
       (D.conflicts||[]).map(c=>`<div class="latest" style="margin-bottom:7px">
-        <div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px">topic: ${(c.topic||[]).map(esc).join(', ')}</div>
+        <div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px;flex:1">topic: ${(c.topic||[]).map(esc).join(', ')}</div><span class="rvw"><button onclick='dismissConflict(${JSON.stringify(c.key||'')},this)'>not a conflict</button></span></div>
         <div><b>${esc(c.skillA)}</b>${c.dateA?' · '+esc(c.dateA):''} - ${esc(c.textA)}</div>
         <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line)"><b>${esc(c.skillB)}</b>${c.dateB?' · '+esc(c.dateB):''} - ${esc(c.textB)}</div>
       </div>`).join('')||'<div class="latest">none flagged in the current scan</div>');
