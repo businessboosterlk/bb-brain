@@ -222,6 +222,8 @@ body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
 body.present .stage{max-width:1200px;margin:0 auto;width:100%}
 body.present .wrap{min-height:calc(100vh - 210px)}
 
+.fin{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--text);padding:10px 12px;font-size:13px;width:100%;font-family:inherit;resize:vertical}
+.fin:focus{border-color:var(--blue);outline:none}
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 18px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
 .toast.show{opacity:1}
 
@@ -309,6 +311,7 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
+  <button class="tbtn" onclick="openLog()">Log a lesson</button>
   <button class="tbtn" onclick="openBYS()">Before you start</button>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
   <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
@@ -364,6 +367,24 @@ table.r-tbl td b{color:#0e1830}
   <div class="rov-scroll"><div class="rdoc" id="rdoc"></div></div>
 </div>
 <textarea id="report-txt" style="position:fixed;left:-9999px" aria-hidden="true"></textarea>
+
+<div class="overlay" id="log-ov">
+  <div class="modal" style="max-width:480px">
+    <button class="close-p" onclick="document.getElementById('log-ov').classList.remove('open')" aria-label="Close">×</button>
+    <h2>Log a lesson</h2>
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">Goes into a pending queue. Nothing joins the brain's files until Thulaib approves it.</p>
+    <div style="display:grid;gap:10px">
+      <div style="display:grid;grid-template-columns:1fr 110px;gap:10px">
+        <input class="fin" id="lg-name" placeholder="Your name">
+        <input class="fin" id="lg-pin" placeholder="PIN" type="password" inputmode="numeric" maxlength="4">
+      </div>
+      <input class="fin" id="lg-client" placeholder="Client (who taught us this) - optional">
+      <input class="fin" id="lg-skill" placeholder="Skill or area - optional (e.g. websites, decks, ads)">
+      <textarea class="fin" id="lg-lesson" rows="4" placeholder="The lesson. What happened, what to do differently next time."></textarea>
+    </div>
+    <div class="actions"><button class="btn-p" id="lg-btn" onclick="submitLesson()">Submit for approval</button></div>
+  </div>
+</div>
 
 <div class="overlay" id="bys-ov">
   <div class="modal" style="max-width:640px">
@@ -1123,6 +1144,31 @@ function copyBYS(){
   const s=D.skills.find(x=>x.name===skillName);
   const notes=(s&&s.notes)||[];
   copyText(`BEFORE YOU START - ${label} (from ${skillName}, ${notes.length} earned rules)\n`+notes.map(n=>'  [ ] '+(n.d?n.d+' - ':'')+n.t+(n.h?'\n      '+n.h:'')).join('\n'),'Checklist copied');
+}
+
+/* ═══ STEP 8: capture form - pending queue, approval-gated, never writes md files ═══ */
+const SB_URL='https://yyviiwnqgphyklcoijyd.supabase.co/rest/v1';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5dmlpd25xZ3BoeWtsY29panlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjE5OTEsImV4cCI6MjA5MTI5Nzk5MX0.I8YiBr-rfLVcc6DE8Z1PxEP2oxXCelv6mxqAY_wY7lc';
+async function sha256(t){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+/* OS Academy pattern: name + PIN. PINs stored as SHA-256 only. */
+const PIN_HASHES=['3e34b5dc434bcf3186f089d362691cfac1b17231601f2f402dc79015be878d83','478c4ffb1cbcea37956a748e6c19d8eadd0a47e86f5e308d26cad39453b5d1ab','0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c','edee29f882543b956620b26d0ee0e7e950399b1c4222f5de05e06425b4c995e9'];
+function openLog(){ document.getElementById('log-ov').classList.add('open'); setTimeout(()=>document.getElementById('lg-name').focus(),80); }
+async function submitLesson(){
+  const name=document.getElementById('lg-name').value.trim();
+  const pin=document.getElementById('lg-pin').value.trim();
+  const lesson=document.getElementById('lg-lesson').value.trim();
+  if(!name||!pin||!lesson){ toast('Name, PIN and the lesson are required'); return; }
+  if(!PIN_HASHES.includes(await sha256(pin))){ toast('Wrong PIN'); return; }
+  const btn=document.getElementById('lg-btn'); btn.disabled=true; btn.textContent='Submitting...';
+  try{
+    const r=await fetch(SB_URL+'/pending_learnings',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({submitted_by:name,client_name:document.getElementById('lg-client').value.trim()||null,skill_guess:document.getElementById('lg-skill').value.trim()||null,lesson})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    document.getElementById('log-ov').classList.remove('open');
+    document.getElementById('lg-lesson').value=''; document.getElementById('lg-client').value=''; document.getElementById('lg-skill').value='';
+    toast('Queued - Thulaib approves it before it joins the brain');
+  }catch(e){ toast('Could not submit: '+e.message); }
+  btn.disabled=false; btn.textContent='Submit for approval';
 }
 
 /* ═══ views + present mode ═══ */
