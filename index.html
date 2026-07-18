@@ -1341,7 +1341,8 @@ function copyReport(){ copyText(document.getElementById('report-txt').value,'Rep
 })();
 
 /* ═══ timeline ═══ */
-let tlRange='all', tlCluster='', tlClient='', tlSkill='';
+let tlRange='all', tlCluster='', tlClient='', tlSkill='', tlLimit=60;
+function tlSet(fn){ fn(); tlLimit=60; renderTL(); }   // any filter change resets the window
 function renderTL(){
   const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
   const today = now.toISOString().slice(0,10);
@@ -1353,23 +1354,26 @@ function renderTL(){
   if(tlCluster) list=list.filter(e=>e.cluster===tlCluster);
   if(tlClient) list=list.filter(e=>(e.clients||[]).includes(tlClient));
   if(tlSkill) list=list.filter(e=>e.skill===tlSkill);
+  const total=list.length;
+  list=list.slice(0,tlLimit);                      // window: render newest N, never the whole history
   const groups={};
   for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
-  document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
+  document.getElementById('tl-list').innerHTML = (Object.keys(groups).length ?
     Object.entries(groups).map(([d,es])=>`<div class="tl-date">${d}</div>`+es.map(e=>
       `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${e.via==='chat'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:var(--blue)">from chat</span>':''}${e.via==='agent'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:#4ade80">machine</span>':''}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`).join('')).join('')
-    : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>';
+    : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>')
+    + (total>tlLimit?`<button class="loop-cta" style="margin-top:10px" onclick="tlLimit+=60;renderTL()">Show 60 more<span>${total-tlLimit} older entries below this point</span></button>`:'');
   const feedNote = D.agentFeed ? (D.agentFeed.online ? ` Agent feed: ${D.agentFeed.entries.length} machine learnings merged in.` : ' Agent feed OFFLINE at the last build - machine learnings are missing, not absent.') : '';
   document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.'+feedNote;
   document.getElementById('tl-filters').innerHTML =
-    (tlSkill?`<button class="fchip on" onclick="tlSkill='';renderTL()" title="Clear skill filter">${esc(tlSkill)} ×</button><span style="width:10px"></span>`:'')
-    + [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
+    (tlSkill?`<button class="fchip on" onclick="tlSet(()=>tlSkill='')" title="Clear skill filter">${esc(tlSkill)} ×</button><span style="width:10px"></span>`:'')
+    + [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlSet(()=>tlRange='${v}')">${l}</button>`).join('')
     + '<span style="width:10px"></span>'
-    + `<button class="fchip${!tlCluster?' on':''}" onclick="tlCluster='';renderTL()">All clusters</button>`
-    + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlCluster='${c.id}';renderTL()"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')
+    + `<button class="fchip${!tlCluster?' on':''}" onclick="tlSet(()=>tlCluster='')">All clusters</button>`
+    + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlSet(()=>tlCluster='${c.id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')
     + '<span style="width:10px"></span>'
-    + `<button class="fchip${!tlClient?' on':''}" onclick="tlClient='';renderTL()">All clients</button>`
-    + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlClient='${esc(x.c)}';renderTL()">${esc(x.c)} · ${x.n}</button>`).join('');
+    + `<button class="fchip${!tlClient?' on':''}" onclick="tlSet(()=>tlClient='')">All clients</button>`
+    + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlSet(()=>tlClient='${esc(x.c)}')">${esc(x.c)} · ${x.n}</button>`).join('');
 }
 
 async function resolveGap(id,status,btn){
