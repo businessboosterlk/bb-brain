@@ -15,6 +15,7 @@
   --blue:#5B9DFF;
   --shadow:0 4px 14px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
   --r:16px; --r-md:12px; --r-sm:9px; --ease:cubic-bezier(.16,1,.3,1);
+  --dur-fast:150ms; --dur-normal:300ms; --dur-slow:600ms; --dur-cam:950ms;
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -75,11 +76,11 @@ svg.brain.panning{cursor:grabbing}
 .hublabel{font-size:12px;fill:var(--text-2);font-weight:700;cursor:pointer;font-family:'Inter',sans-serif}
 .hublabel:hover{fill:var(--text)}
 .hubcount{font-size:9.5px;fill:var(--text-3)}
-.nlabel{font-size:7.4px;fill:var(--text-2);text-anchor:middle;opacity:0;pointer-events:none;transition:opacity .55s var(--ease) .25s}
-.cgroup{transition:opacity .7s var(--ease)}
+.nlabel{font-size:7.4px;fill:var(--text-2);text-anchor:middle;opacity:0;pointer-events:none;transition:opacity var(--dur-slow) var(--ease) .55s}
+.cgroup{transition:opacity var(--dur-slow) var(--ease)}
 .cgroup.dim{opacity:.08}
 .cgroup.focus .nlabel{opacity:.92}
-.ilinks{transition:opacity .7s var(--ease)}
+.ilinks{transition:opacity var(--dur-slow) var(--ease)}
 .ilinks.dim{opacity:.10}
 .stars{transition:opacity .5s var(--ease)}
 svg.focused .stars{opacity:.35}
@@ -138,7 +139,8 @@ body.present .coach{display:none}
 .panel{position:absolute;top:16px;right:16px;width:340px;max-height:calc(100% - 32px);padding:20px;overflow-y:auto;z-index:30;display:none;
   background:color-mix(in srgb,var(--surface-2) 92%,transparent);backdrop-filter:saturate(150%) blur(16px);-webkit-backdrop-filter:saturate(150%) blur(16px);
   border:1px solid var(--line-2);border-radius:var(--r);box-shadow:var(--shadow-lg)}
-.panel.open{display:block;animation:slidein .32s var(--ease)}
+.panel.open{display:block;animation:slidein var(--dur-normal) var(--ease) backwards}
+.panel.open.choreo{animation-delay:.45s}   /* focus choreography: panel lands as the camera settles */
 @keyframes slidein{from{transform:translateX(18px);opacity:0}to{transform:none;opacity:1}}
 .panel h2{font-size:17px;margin-bottom:4px;word-break:break-word;padding-right:28px}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--line)}
@@ -190,6 +192,11 @@ body.present .coach{display:none}
 .tl-item .sk{font-weight:700;font-size:12.5px;white-space:nowrap}
 .tl-item .sum{color:var(--text-2);font-size:12.5px;min-width:0}
 .tl-note{font-size:11.5px;color:var(--text-3);margin-top:16px}
+/* view cross-fade */
+.vout{animation:vout .2s var(--ease) forwards}
+.vin{animation:vin .25s var(--ease) both}
+@keyframes vout{to{opacity:0;transform:translateY(-8px)}}
+@keyframes vin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 /* confidence + decay badges */
 .cf{display:inline-flex;align-items:center;font-size:10px;font-weight:700;border-radius:99px;padding:1px 8px;flex-shrink:0;position:relative;top:-1px}
 .cf.confirmed{color:#4ade80;border:1px solid rgba(74,222,128,.35)}
@@ -515,6 +522,7 @@ const svgEl=()=>document.getElementById('svg');
 function applyCam(){ svgEl().setAttribute('viewBox',`${VB.x} ${VB.y} ${VB.w} ${VB.h}`); }
 function animateCam(t,dur=950,cb){
   if(camRaf)cancelAnimationFrame(camRaf);
+  if(typeof stopInertia==='function'){stopInertia();stopZoomLerp();}
   if(REDUCED){VB={...t};applyCam();if(cb)cb();return;}
   const s={...VB}, t0=performance.now();
   const ease=x=>x<0.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
@@ -525,30 +533,87 @@ function animateCam(t,dur=950,cb){
     if(p<1)camRaf=requestAnimationFrame(step); else {camRaf=null;if(cb)cb();}
   })(t0);
 }
-function svgPoint(cx,cy){ const r=svgEl().getBoundingClientRect(); return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]; }
-function zoomAt(px,py,f){
+let RECT=null;
+function refreshRect(){ RECT=svgEl().getBoundingClientRect(); }
+addEventListener('resize',()=>{RECT=null;},{passive:true});
+addEventListener('scroll',()=>{RECT=null;},{passive:true});
+function svgPoint(cx,cy){ const r=RECT||(RECT=svgEl().getBoundingClientRect()); return [VB.x+(cx-r.left)/r.width*VB.w, VB.y+(cy-r.top)/r.height*VB.h]; }
+/* one gate: any motion source cancels the others so nothing fights over viewBox */
+let inertiaRaf=null, zoomRaf=null, zoomTarget=null;
+function stopInertia(){ if(inertiaRaf){cancelAnimationFrame(inertiaRaf);inertiaRaf=null;} }
+function stopZoomLerp(){ if(zoomRaf){cancelAnimationFrame(zoomRaf);zoomRaf=null;} zoomTarget=null; }
+function cancelAllCam(){ if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;} stopInertia(); stopZoomLerp(); }
+function startInertia(vx,vy){
+  if(REDUCED||(Math.abs(vx)<0.4&&Math.abs(vy)<0.4)) return;
+  stopInertia();
+  const step=()=>{
+    vx*=0.92; vy*=0.92;
+    if(Math.abs(vx)<0.05&&Math.abs(vy)<0.05){inertiaRaf=null;return;}
+    VB={...VB,x:VB.x+vx,y:VB.y+vy}; applyCam();
+    inertiaRaf=requestAnimationFrame(step);
+  };
+  inertiaRaf=requestAnimationFrame(step);
+}
+function zoomAt(px,py,f){   // instant (buttons, pinch); wheel goes through smoothZoom
   const w=Math.max(150,Math.min(2600,VB.w*f)); const h=w*(720/1200);
   VB={x:px-(px-VB.x)*(w/VB.w), y:py-(py-VB.y)*(h/VB.h), w, h}; applyCam();
 }
-function zoomBtn(f){ stopDemo(); zoomAt(VB.x+VB.w/2, VB.y+VB.h/2, f); }
+function smoothZoom(px,py,f){
+  const base=zoomTarget||VB;
+  const w=Math.max(150,Math.min(2600,base.w*f)); const h=w*(720/1200);
+  zoomTarget={x:px-(px-base.x)*(w/base.w), y:py-(py-base.y)*(h/base.h), w, h};
+  if(REDUCED){ VB={...zoomTarget}; applyCam(); zoomTarget=null; return; }
+  if(zoomRaf) return;
+  const step=()=>{
+    if(!zoomTarget){zoomRaf=null;return;}
+    const k=0.24;
+    VB={x:VB.x+(zoomTarget.x-VB.x)*k, y:VB.y+(zoomTarget.y-VB.y)*k, w:VB.w+(zoomTarget.w-VB.w)*k, h:VB.h+(zoomTarget.h-VB.h)*k};
+    applyCam();
+    if(Math.abs(zoomTarget.w-VB.w)<0.4&&Math.abs(zoomTarget.x-VB.x)<0.4&&Math.abs(zoomTarget.y-VB.y)<0.4){
+      VB={...zoomTarget}; applyCam(); zoomTarget=null; zoomRaf=null; return;
+    }
+    zoomRaf=requestAnimationFrame(step);
+  };
+  zoomRaf=requestAnimationFrame(step);
+}
+function zoomBtn(f){ stopDemo(); if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;} stopInertia(); refreshRect(); smoothZoom(VB.x+VB.w/2, VB.y+VB.h/2, f); }
 function wireCamera(){
   const svg=svgEl(), stage=document.getElementById('stage');
-  stage.addEventListener('wheel',e=>{e.preventDefault();stopDemo();const [px,py]=svgPoint(e.clientX,e.clientY);zoomAt(px,py,e.deltaY>0?1.13:0.885);},{passive:false});
+  stage.addEventListener('wheel',e=>{e.preventDefault();stopDemo();if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;}stopInertia();if(!zoomRaf)refreshRect();const [px,py]=svgPoint(e.clientX,e.clientY);smoothZoom(px,py,e.deltaY>0?1.10:0.905);},{passive:false});
   let drag=null;
-  svg.addEventListener('pointerdown',e=>{ if(e.target.closest('.node,.hublabel'))return;
-    drag={cx:e.clientX,cy:e.clientY,vb:{...VB},moved:false}; try{svg.setPointerCapture(e.pointerId);}catch(_){}});
-  svg.addEventListener('pointermove',e=>{ if(!drag)return;
-    const r=svg.getBoundingClientRect();
+  const pinch={pts:new Map(),dist:0};
+  svg.addEventListener('pointerdown',e=>{
+    pinch.pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pinch.pts.size===2){ drag=null; svg.classList.remove('panning');
+      const p=[...pinch.pts.values()]; pinch.dist=Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1]);
+      cancelAllCam(); refreshRect(); stopDemo(); return; }
+    if(e.target.closest('.node,.hublabel'))return;
+    cancelAllCam(); refreshRect();
+    drag={cx:e.clientX,cy:e.clientY,vb:{...VB},moved:false,rect:RECT,px:VB.x,py:VB.y,vx:0,vy:0};
+    try{svg.setPointerCapture(e.pointerId);}catch(_){}});
+  svg.addEventListener('pointermove',e=>{
+    if(pinch.pts.has(e.pointerId)) pinch.pts.set(e.pointerId,[e.clientX,e.clientY]);
+    if(pinch.pts.size===2){   // pinch zoom, no page scroll (touch-action:none on the svg)
+      const p=[...pinch.pts.values()];
+      const d=Math.hypot(p[0][0]-p[1][0],p[0][1]-p[1][1]);
+      if(pinch.dist>0&&d>0){ const [mx,my]=svgPoint((p[0][0]+p[1][0])/2,(p[0][1]+p[1][1])/2); zoomAt(mx,my,pinch.dist/d); }
+      pinch.dist=d; return; }
+    if(!drag)return;
+    const r=drag.rect||svg.getBoundingClientRect();
     if(Math.abs(e.clientX-drag.cx)+Math.abs(e.clientY-drag.cy)>5){drag.moved=true;stopDemo();svg.classList.add('panning');}
     if(drag.moved){
       const dx=(e.clientX-drag.cx)/r.width*drag.vb.w, dy=(e.clientY-drag.cy)/r.height*drag.vb.h;
-      VB={...drag.vb,x:drag.vb.x-dx,y:drag.vb.y-dy}; applyCam(); } });
+      const nx=drag.vb.x-dx, ny=drag.vb.y-dy;
+      drag.vx=nx-drag.px; drag.vy=ny-drag.py; drag.px=nx; drag.py=ny;   // velocity in viewBox units/frame
+      VB={...drag.vb,x:nx,y:ny}; applyCam(); } });
   const end=e=>{
+    pinch.pts.delete(e.pointerId); if(pinch.pts.size<2) pinch.dist=0;
     // a clean click (no drag) on empty space while focused = back to full view
     if(drag && !drag.moved && (FOCUS||FCLIENT) && !e.target.closest('.node,.hublabel,.chub,.panel')) backOut();
+    if(drag && drag.moved) startInertia(drag.vx,drag.vy);
     svg.classList.remove('panning'); drag=null;
   };
-  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',()=>{svg.classList.remove('panning');drag=null;});
+  svg.addEventListener('pointerup',end); svg.addEventListener('pointercancel',e=>{pinch.pts.delete(e.pointerId);pinch.dist=0;svg.classList.remove('panning');drag=null;});
   svg.addEventListener('dblclick',e=>{
     const n=e.target.closest('.node,.hublabel,.chub');
     if(n){ if(MODE==='clients') focusClient(n.dataset.cli||n.dataset.client); else focusCluster(n.dataset.c||n.dataset.cluster); }
@@ -578,36 +643,46 @@ function clusterBox(cid){
   }
   return box;
 }
+let focusT=null;
 function focusCluster(cid){
   if(!C[cid])return;
   dismissCoach(); hideTip(); FOCUS=cid;
   const svg=svgEl(); svg.classList.add('focused');
-  svg.querySelectorAll('.cgroup').forEach(g=>{
-    g.classList.toggle('dim', g.dataset.c!==cid);
-    g.classList.toggle('focus', g.dataset.c===cid);
-  });
-  document.getElementById('ilinks').classList.add('dim');
-  const [hx,hy]=HUBS[cid], col=C[cid].color, R=(spiralMax[cid]||60)+26;
-  document.getElementById('fxlayer').innerHTML=
-    `<circle cx="${hx}" cy="${hy}" r="${R}" fill="${col}" fill-opacity="0.045"/>
-     <circle cx="${hx}" cy="${hy}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  if(!document.body.classList.contains('present')){ openCluster(cid); document.getElementById('panel').classList.add('choreo'); } // open FIRST so the camera biases left; choreo delays its entrance
+  animateCam(clusterBox(cid),1150);                       // 1. camera starts
+  clearTimeout(focusT);
+  const dim=()=>{                                          // 2. dim follows 80ms later
+    svg.querySelectorAll('.cgroup').forEach(g=>{
+      g.classList.toggle('dim', g.dataset.c!==cid);
+      g.classList.toggle('focus', g.dataset.c===cid);
+    });
+    document.getElementById('ilinks').classList.add('dim');
+    const [hx,hy]=HUBS[cid], col=C[cid].color, R=(spiralMax[cid]||60)+26;
+    document.getElementById('fxlayer').innerHTML=
+      `<circle cx="${hx}" cy="${hy}" r="${R}" fill="${col}" fill-opacity="0.045"/>
+       <circle cx="${hx}" cy="${hy}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  };
+  if(REDUCED) dim(); else focusT=setTimeout(dim,80);
   const num=ORDER.indexOf(cid)+1, cn=nodes.filter(n=>n.cid===cid).length;
   const st=document.getElementById('sector-title');
-  st.innerHTML=`<h2><span style="color:${col}">${num}.</span> ${esc(C[cid].name)}</h2><div class="st-sub">${cn} skills · depth ${D.totals.depthByCluster[cid]} · click any node for its details</div>`;
+  st.innerHTML=`<h2><span style="color:${col2(cid)}">${num}.</span> ${esc(C[cid].name)}</h2><div class="st-sub">${cn} skills · depth ${D.totals.depthByCluster[cid]} · click any node for its details</div>`;
   st.classList.add('show');
   document.getElementById('backbtn').classList.add('show');
-  if(!document.body.classList.contains('present')) openCluster(cid); // open panel FIRST so the camera biases the sector left of it
-  animateCam(clusterBox(cid),1150);
 }
+function col2(cid){ return C[cid].color; }
 function clearFocusDom(){
-  FOCUS=null;
+  FOCUS=null; clearTimeout(focusT);
   const svg=svgEl(); svg.classList.remove('focused');
-  svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus'));
-  document.getElementById('ilinks').classList.remove('dim');
-  document.getElementById('fxlayer').innerHTML='';
+  document.getElementById('panel').classList.remove('choreo');
+  animateCam(HOME,900);                                   // reverse: camera first,
+  const undim=()=>{                                        // un-dim follows 80ms later
+    svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus'));
+    document.getElementById('ilinks').classList.remove('dim');
+    document.getElementById('fxlayer').innerHTML='';
+  };
+  if(REDUCED) undim(); else focusT=setTimeout(undim,80);
   document.getElementById('sector-title').classList.remove('show');
   document.getElementById('backbtn').classList.remove('show');
-  animateCam(HOME,900);
 }
 function unfocus(){ stopDemo(); clearFocusDom(); }
 
@@ -684,14 +759,19 @@ function focusClient(name){
   const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
   dismissCoach(); hideTip(); FCLIENT=name;
   const svg=svgEl(); svg.classList.add('focused');
-  svg.querySelectorAll('.cgroup').forEach(g=>{const on=g.dataset.cli===name;g.classList.toggle('dim',!on);g.classList.toggle('focus',on);});
-  const h=CLI_HUBS[name], col=cliColor(cl), R=60+9*cl.skills.length*0.5;
-  document.getElementById('fxlayer').innerHTML=`<circle cx="${h.x}" cy="${h.y}" r="${R}" fill="${col}" fill-opacity="0.045"/><circle cx="${h.x}" cy="${h.y}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  if(!document.body.classList.contains('present')){ openClientPanel(name); document.getElementById('panel').classList.add('choreo'); }
+  animateCam(clientBox(name),1150);
+  clearTimeout(focusT);
+  const col=cliColor(cl);
+  const dim=()=>{
+    svg.querySelectorAll('.cgroup').forEach(g=>{const on=g.dataset.cli===name;g.classList.toggle('dim',!on);g.classList.toggle('focus',on);});
+    const h=CLI_HUBS[name], R=60+9*cl.skills.length*0.5;
+    document.getElementById('fxlayer').innerHTML=`<circle cx="${h.x}" cy="${h.y}" r="${R}" fill="${col}" fill-opacity="0.045"/><circle cx="${h.x}" cy="${h.y}" r="${R}" fill="none" stroke="${col}" stroke-opacity="0.4" stroke-width="1.2" class="selring"/>`;
+  };
+  if(REDUCED) dim(); else focusT=setTimeout(dim,80);
   const st=document.getElementById('sector-title');
   st.innerHTML=`<h2 style="color:${col}">${esc(cl.name)}</h2><div class="st-sub">${cl.total} entries · ${cl.skills.length} skills used · last active ${cl.lastActive||'—'}</div>`;
   st.classList.add('show'); document.getElementById('backbtn').classList.add('show');
-  if(!document.body.classList.contains('present')) openClientPanel(name);
-  animateCam(clientBox(name),1150);
   syncHash();
 }
 /* ═══ STEP 4: client brain pages - #client/<slug> deep links + prep brief ═══ */
@@ -738,7 +818,16 @@ function openClientPanel(name){
     ${cl.discussed.slice(0,5).map(d=>`<div class="latest" style="margin-bottom:6px"><b>${esc(d.date)}</b> · ${esc(d.snippet)}</div>`).join('')||'<div class="latest">nothing captured from chat yet</div>'}`;
   p.classList.add('open');
 }
-function unfocusClients(){ stopDemo(); FCLIENT=null; syncHash(); const svg=svgEl(); svg.classList.remove('focused'); svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus')); document.getElementById('fxlayer').innerHTML=''; document.getElementById('sector-title').classList.remove('show'); document.getElementById('backbtn').classList.remove('show'); animateCam(HOME,900); }
+function unfocusClients(){
+  stopDemo(); FCLIENT=null; syncHash(); clearTimeout(focusT);
+  const svg=svgEl(); svg.classList.remove('focused');
+  document.getElementById('panel').classList.remove('choreo');
+  animateCam(HOME,900);
+  const undim=()=>{ svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus')); document.getElementById('fxlayer').innerHTML=''; };
+  if(REDUCED) undim(); else focusT=setTimeout(undim,80);
+  document.getElementById('sector-title').classList.remove('show');
+  document.getElementById('backbtn').classList.remove('show');
+}
 function backOut(){ if(MODE==='clients') unfocusClients(); else unfocus(); }
 
 /* ═══ auto-demo tour (present mode) ═══ */
@@ -791,6 +880,7 @@ function openSkill(name){
   const s = D.skills.find(x=>x.name===name); if(!s) return;
   const col=C[s.cluster].color;
   const p=document.getElementById('panel');
+  p.classList.remove('choreo');   // direct opens are instant; only focus choreography delays
   p.innerHTML = `<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
     <h2>${esc(s.name)}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
@@ -1178,8 +1268,26 @@ async function submitLesson(){
   btn.disabled=false; btn.textContent='Submit for approval';
 }
 
-/* ═══ views + present mode ═══ */
+/* ═══ views + present mode (cross-fade between lenses) ═══ */
+let VIEW='brain', viewT=null;
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view'};
 function setView(v){
+  const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
+  const prev=VIEW; VIEW=v;
+  if(prev===v||REDUCED){ applyView(v,prev); return; }
+  if(sameContainer){ applyView(v,prev); return; }          // brain<->clients: the svg itself fades in applyView
+  clearTimeout(viewT);
+  const fromEl=document.getElementById(VIEW_EL[prev]);
+  fromEl.classList.add('vout');
+  viewT=setTimeout(()=>{
+    fromEl.classList.remove('vout');
+    applyView(v,prev);
+    const toEl=document.getElementById(VIEW_EL[v]);
+    toEl.classList.add('vin');
+    setTimeout(()=>toEl.classList.remove('vin'),320);
+  },200);
+}
+function applyView(v,prev){
   const onStage = v==='brain'||v==='clients';
   document.getElementById('brain-view').style.display = onStage?'flex':'none';
   document.getElementById('legend').style.display = v==='brain'?'flex':'none';   // skill legend only on Brain
@@ -1193,15 +1301,21 @@ function setView(v){
   document.getElementById('v-gaps').classList.toggle('on',v==='gaps');
   if(v==='gaps'){ renderGaps(); return; }
   if(v==='tl'){ renderTL(); return; }
-  // switching between the two stage modes
+  // switching between the two stage modes - fade the constellation through, no blink
   const want = v==='clients'?'clients':'skills';
   if(want!==MODE || !svgEl().querySelector('.cgroup')){
-    MODE=want; FOCUS=null; FCLIENT=null; VB={...HOME};
-    document.getElementById('sector-title').classList.remove('show');
-    document.getElementById('backbtn').classList.remove('show');
-    document.getElementById('fxlayer') && (document.getElementById('fxlayer').innerHTML='');
-    if(MODE==='clients') renderClients(); else renderBrain();
-    applyCam();
+    const swap=()=>{
+      MODE=want; FOCUS=null; FCLIENT=null; VB={...HOME}; cancelAllCam(); RECT=null;
+      document.getElementById('sector-title').classList.remove('show');
+      document.getElementById('backbtn').classList.remove('show');
+      document.getElementById('fxlayer') && (document.getElementById('fxlayer').innerHTML='');
+      if(want==='clients') renderClients(); else renderBrain();
+      applyCam();
+    };
+    const svg=svgEl();
+    if(REDUCED){ swap(); return; }
+    svg.style.transition='opacity 150ms var(--ease)'; svg.style.opacity='0';
+    setTimeout(()=>{ swap(); requestAnimationFrame(()=>{svg.style.opacity='1'; setTimeout(()=>{svg.style.transition='';},200);}); },150);
   }
 }
 function togglePresent(on){
