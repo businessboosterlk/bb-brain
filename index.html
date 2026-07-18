@@ -652,14 +652,28 @@ function renderBrain(){
   const pairs=[];
   for(const L of [LOBE_L,LOBE_R]) for(let i=0;i<L.length-1;i++) pairs.push([L[i],L[i+1]]);
   pairs.push(['web','content'],['systems','intel'],['sales','systems']);
+  /* the living web: when one client taught two regions within 14 days, a synapse fires between them */
+  const hot={};
+  (function livingWeb(){
+    const byClient={};
+    for(const e of D.timeline) for(const c of (e.clients||[])) (byClient[c]=byClient[c]||[]).push({cl:e.cluster,d:new Date(e.date).getTime()});
+    for(const list of Object.values(byClient))
+      for(let i=0;i<list.length;i++) for(let j=i+1;j<list.length;j++)
+        if(list[i].cl!==list[j].cl && Math.abs(list[i].d-list[j].d)<14*86400000){
+          const k=[list[i].cl,list[j].cl].sort().join('|'); hot[k]=(hot[k]||0)+1;
+        }
+    if(Object.keys(hot).length) console.log('synapse pairs (client taught both within 14d):',JSON.stringify(hot));
+  })();
+  for(const k of Object.keys(hot)){ const [a,b]=k.split('|'); if(REGIONS[a]&&REGIONS[b]&&!pairs.some(p=>(p[0]===a&&p[1]===b)||(p[0]===b&&p[1]===a))) pairs.push([a,b]); }
   let ilinks='', pulses='';
   pairs.forEach((pr,i)=>{
     const [a,b]=pr,[x1,y1]=HUBS[a],[x2,y2]=HUBS[b];
     const mx=(x1+x2)/2, my=(y1+y2)/2, dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy);
     const off=(i%2?1:-1)*Math.min(70,len*0.18);
     const cx=mx-dy/len*off, cy=my+dx/len*off;
-    ilinks+=`<path id="il${i}" d="M ${x1} ${y1} Q ${cx.toFixed(0)} ${cy.toFixed(0)} ${x2} ${y2}" fill="none" stroke="#5B9DFF" stroke-opacity="0.10" stroke-width="1.1"/>`;
-    if(!REDUCED) pulses+=`<circle r="2" fill="#bcd7ff" opacity="0.7"><animateMotion dur="${(6+i*0.9).toFixed(1)}s" begin="${(i*0.7).toFixed(1)}s" repeatCount="indefinite"><mpath href="#il${i}"/></animateMotion></circle>`;
+    const hk=[pr[0],pr[1]].sort().join('|'), isHot=!!hot[hk];
+    ilinks+=`<path id="il${i}" d="M ${x1} ${y1} Q ${cx.toFixed(0)} ${cy.toFixed(0)} ${x2} ${y2}" fill="none" stroke="#5B9DFF" stroke-opacity="${isHot?0.22:0.10}" stroke-width="${isHot?1.5:1.1}"/>`;
+    if(!REDUCED) pulses+=`<circle r="${isHot?2.6:2}" fill="${isHot?'#e9f2ff':'#bcd7ff'}" opacity="${isHot?0.95:0.7}"><animateMotion dur="${(isHot?3.2+i*0.4:6+i*0.9).toFixed(1)}s" begin="${(i*0.7).toFixed(1)}s" repeatCount="indefinite"><mpath href="#il${i}"/></animateMotion></circle>`;
   });
   let groups='';
   for(const cid of Object.keys(HUBS)){
@@ -1138,6 +1152,19 @@ function openSkill(name){
       ${s.quiet?'<span class="pill quiet-tag" title="Latest learning is more than 60 days old">quiet lately</span>':''}
     </div>
     <div class="depth-hero" title="${esc(DEPTH_TIP)}"><b style="color:${col}">${s.depth}</b><span>${bucket(s.depth)}<br>battle-tested iterations</span></div>
+    ${(function(){ /* cumulative depth curve: the skill sharpening over time */
+      const hist=D.timeline.filter(e=>e.skill===s.name).sort((a,b)=>a.date.localeCompare(b.date));
+      if(hist.length<2) return '';
+      const W=300,H=54,undatedBase=s.depth-hist.length;   // undated seeds form the base the curve starts from
+      const t0=new Date(hist[0].date).getTime(), t1=new Date(hist[hist.length-1].date).getTime()||t0+1;
+      const pts=hist.map((e,i)=>[4+(W-8)*((new Date(e.date).getTime()-t0)/Math.max(1,t1-t0)), H-6-(H-14)*((i+1)/hist.length)]);
+      return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;margin-top:8px">
+        <path d="M4 ${H-6} ${pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="1.6" stroke-opacity="0.9"/>
+        <circle cx="${pts[pts.length-1][0].toFixed(1)}" cy="${pts[pts.length-1][1].toFixed(1)}" r="3" fill="${col}"/>
+        <text x="4" y="10" font-size="8.5" fill="var(--text-3)">${esc(hist[0].date)}${undatedBase>0?' · +'+undatedBase+' undated seeds':''}</text>
+        <text x="${W-4}" y="10" font-size="8.5" fill="var(--text-3)" text-anchor="end">${esc(hist[hist.length-1].date)} = ${s.depth}</text>
+      </svg>`;
+    })()}
     ${s.conf&&s.depth?`<div class="conf-row">
       ${s.conf.confirmed?`<span class="cf confirmed">${s.conf.confirmed} confirmed</span>`:''}
       ${s.conf.emerging?`<span class="cf emerging">${s.conf.emerging} emerging</span>`:''}
@@ -1147,9 +1174,15 @@ function openSkill(name){
     <p class="desc">${esc(s.desc)}</p>
     <div class="sec">Say this to use it</div>
     <div class="trigger" id="trig">${s.trigger?esc(s.trigger):'Load the '+esc(s.name)+' skill'}<button class="copy" onclick="copyTrigger('${esc(s.name)}')">Copy</button></div>
-    <div class="sec">Latest learning</div>
-    ${s.latest?`<div class="latest"><b>${esc(s.latest.date)}</b> · ${esc(s.latest.summary)}</div>`
-      :`<div class="latest">No logged iterations yet. ${s.depth===0?'A new capability, not a weakness.':''}</div>`}
+    <div class="sec">Service history - every time it was used</div>
+    ${(function(){ /* the usage ledger: what each real use taught it */
+      const hist=D.timeline.filter(e=>e.skill===s.name);
+      if(!hist.length) return `<div class="latest">No logged iterations yet. ${s.depth===0?'A new capability, not a weakness.':''}</div>`;
+      return hist.slice(0,25).map(e=>`<div class="latest" style="margin-bottom:6px"><b>${esc(e.date)}</b> · ${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</div>`).join('')
+        +(hist.length>25?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">+ ${hist.length-25} earlier uses on the Timeline</div>`:'');
+    })()}
+    <div class="sec">Put it to work</div>
+    <button class="loop-cta" onclick="copyText('Use the ${esc(s.name)} skill on this task: [DESCRIBE THE TASK AND CLIENT]. Apply everything its learnings file already knows. When done, append what was learned to its learnings file titled with the date, the client name in brackets, and [worked] or [failed] - so the Digital Brain records this use.','Test prompt copied - paste it to Claude with your task')">Test this skill<span>Copies a ready prompt: applies the skill to a real task and logs the lesson after - every test makes it sharper.</span></button>
     ${s.clients&&s.clients.length?`<div class="sec">Used for</div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.clients.map(x=>`<span class="pill">${esc(x.c)} <span style="color:var(--text-3)">· ${x.n}</span></span>`).join('')}</div>`:''}
     <div class="sec">Learning loop</div>
     ${s.hasLoop
