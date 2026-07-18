@@ -1038,7 +1038,9 @@ let tlRange='all', tlCluster='', tlClient='';
 function renderTL(){
   const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
   const today = now.toISOString().slice(0,10);
-  let list = D.timeline;
+  // STEP 7: merge the machine agents' learnings into the human timeline
+  const agentItems=((D.agentFeed&&D.agentFeed.entries)||[]).map(a=>({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[],via:'agent'}));
+  let list = [...D.timeline,...agentItems].sort((a,b)=>b.date.localeCompare(a.date));
   if(tlRange==='today') list=list.filter(e=>e.date===today);
   if(tlRange==='week') list=list.filter(e=>new Date(e.date)>=monday);
   if(tlCluster) list=list.filter(e=>e.cluster===tlCluster);
@@ -1047,9 +1049,10 @@ function renderTL(){
   for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
   document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
     Object.entries(groups).map(([d,es])=>`<div class="tl-date">${d}</div>`+es.map(e=>
-      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${e.via==='chat'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:var(--blue)">from chat</span>':''}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`).join('')).join('')
+      `<div class="tl-item"><span class="dot" style="background:${C[e.cluster].color}"></span><span class="sk" style="color:${C[e.cluster].color}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${e.via==='chat'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:var(--blue)">from chat</span>':''}${e.via==='agent'?' <span class="pill" style="font-size:10px;padding:1px 8px;color:#4ade80">machine</span>':''}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`).join('')).join('')
     : '<p style="color:var(--text-3);padding:30px 0;text-align:center">Nothing in this range.</p>';
-  document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.';
+  const feedNote = D.agentFeed ? (D.agentFeed.online ? ` Agent feed: ${D.agentFeed.entries.length} machine learnings merged in.` : ' Agent feed OFFLINE at the last build - machine learnings are missing, not absent.') : '';
+  document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.'+feedNote;
   document.getElementById('tl-filters').innerHTML =
     [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
     + '<span style="width:10px"></span>'
