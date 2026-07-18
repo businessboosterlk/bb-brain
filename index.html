@@ -309,6 +309,7 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
+  <button class="tbtn" onclick="openBYS()">Before you start</button>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
   <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
 </header>
@@ -363,6 +364,17 @@ table.r-tbl td b{color:#0e1830}
   <div class="rov-scroll"><div class="rdoc" id="rdoc"></div></div>
 </div>
 <textarea id="report-txt" style="position:fixed;left:-9999px" aria-hidden="true"></textarea>
+
+<div class="overlay" id="bys-ov">
+  <div class="modal" style="max-width:640px">
+    <button class="close-p" onclick="document.getElementById('bys-ov').classList.remove('open')" aria-label="Close">×</button>
+    <h2>Before you start</h2>
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:12px">Pick the kind of work. The checklist below is built live from that skill's real learnings file - every line was earned on a past build.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px" id="bys-tabs"></div>
+    <div id="bys-list"></div>
+    <div class="actions"><button class="btn-p" onclick="copyBYS()">Copy checklist</button></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -1074,6 +1086,34 @@ function renderGaps(){
       `<div style="display:flex;flex-wrap:wrap">${silentClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:var(--text-3)">· ${c.chatCount} chats</span></span>`).join('')||'none - every client has at least one logged lesson'}</div>`)
     +sec(`Service lines with no skill at all · ${noSkill.length}/${SERVICE_LINES.length}`,'Hand-maintained list of things BB sells or could sell, checked against every skill name and description.',
       `<div style="display:flex;flex-wrap:wrap">${noSkill.map(([l])=>`<span class="pill" style="margin:0 6px 6px 0;color:#c9a15a">${esc(l)}</span>`).join('')||'none - every listed service line has at least one matching skill'}</div>`);
+}
+
+/* ═══ STEP 6: before-you-start cards - distilled from real learnings files ═══ */
+const BYS_TYPES=[
+  ['deck','Deck / PDF','bb-deck-builder'],
+  ['website','Website','bb-web-master'],
+  ['pitch','Pitch / Proposal','bb-growth-sales'],
+  ['content','Content plan','bb-content-plan-builder'],
+  ['system','Client system','bb-system-forge'],
+];
+let bysType='deck';
+function openBYS(){ document.getElementById('bys-ov').classList.add('open'); renderBYS(bysType); }
+function renderBYS(t){
+  bysType=t;
+  document.getElementById('bys-tabs').innerHTML=BYS_TYPES.map(([id,label])=>`<button class="fchip${bysType===id?' on':''}" onclick="renderBYS('${id}')">${label}</button>`).join('');
+  const [,label,skillName]=BYS_TYPES.find(x=>x[0]===t);
+  const s=D.skills.find(x=>x.name===skillName);
+  const notes=(s&&s.notes)||[];
+  document.getElementById('bys-list').innerHTML = notes.length
+    ? `<div style="font-size:11px;color:var(--text-3);margin-bottom:8px">${notes.length} earned rules from <b style="color:var(--text-2)">${esc(skillName)}</b> · deepest lessons first</div>`
+      + notes.map(n=>`<div class="latest" style="margin-bottom:6px">${n.d?`<b>${esc(n.d)}</b> · `:''}${esc(n.t)}${n.h?`<div style="font-size:11.5px;color:var(--text-3);margin-top:3px">${esc(n.h)}</div>`:''}</div>`).join('')
+    : `<div class="latest">No learnings logged for ${esc(skillName)} yet - the checklist grows as lessons are logged.</div>`;
+}
+function copyBYS(){
+  const [,label,skillName]=BYS_TYPES.find(x=>x[0]===bysType);
+  const s=D.skills.find(x=>x.name===skillName);
+  const notes=(s&&s.notes)||[];
+  copyText(`BEFORE YOU START - ${label} (from ${skillName}, ${notes.length} earned rules)\n`+notes.map(n=>'  [ ] '+(n.d?n.d+' - ':'')+n.t+(n.h?'\n      '+n.h:'')).join('\n'),'Checklist copied');
 }
 
 /* ═══ views + present mode ═══ */

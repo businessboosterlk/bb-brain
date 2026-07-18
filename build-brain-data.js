@@ -236,7 +236,13 @@ function parseLearnings(file) {
     if (m) t = m[1].trim();
     else if ((m = line.match(/^##\s+(\d{4}-\d{2}-\d{2}.*)/))) t = m[1].trim();
     else if ((m = line.match(/^\s*[-*]\s+(\d{4}-\d{2}-\d{2}.*)/))) { t = m[1].trim(); requireDate = true; }
-    if (t === null) continue;
+    if (t === null) {
+      // first non-empty body line after a header = the entry's one-line hint (for before-you-start cards)
+      const last = entries[entries.length - 1];
+      const tl = line.trim();
+      if (last && !last.hint && tl && !tl.startsWith('#')) last.hint = tl.replace(/^[-*>]\s*/, '').slice(0, 160);
+      continue;
+    }
     const dm = t.match(/^(\d{4}-\d{2}-\d{2})\s*[-–—:·]?\s*(.*)/);
     if (dm) entries.push({ date: dm[1], summary: (dm[2] || t).slice(0, 140) });
     else if (!requireDate) { undated++; entries.push({ date: null, summary: t.slice(0, 140) }); }
@@ -326,6 +332,8 @@ for (const s of skills) {
     trigger: triggerFor(s.name, s.desc),
     quiet: latest ? (now - new Date(latest.date)) / DAY > 60 : false,
     clients: Object.entries(clientCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ c, n })),
+    /* STEP 6: entry headers (dated first, undated seeds after) for before-you-start cards */
+    notes: entries.length ? [...dated, ...entries.filter(e => !e.date)].slice(0, 40).map(e => ({ d: e.date, t: e.summary, h: e.hint })) : undefined,
     conf: {
       single: entries.filter(e => e.conf === 'single').length,
       emerging: entries.filter(e => e.conf === 'emerging').length,
