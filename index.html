@@ -246,6 +246,13 @@ body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
 body.present .stage{max-width:1200px;margin:0 auto;width:100%}
 body.present .wrap{min-height:calc(100vh - 210px)}
 
+/* first-visit tour */
+.tour-hole{position:fixed;z-index:210;border-radius:12px;box-shadow:0 0 0 9999px rgba(3,6,12,.78);pointer-events:none;transition:all var(--dur-normal) var(--ease)}
+.tour-card{position:fixed;z-index:211;width:300px;max-width:calc(100vw - 24px);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:16px;box-shadow:var(--shadow-lg);transition:all var(--dur-normal) var(--ease)}
+.tour-card .tc-step{font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--blue);margin-bottom:6px}
+.tour-card .tc-text{font-size:13px;line-height:1.55}
+.hk{display:flex;align-items:center;gap:12px;font-size:12.5px;color:var(--text-2);margin-bottom:8px}
+.hk kbd{background:var(--surface-2);border:1px solid var(--line-2);border-radius:5px;padding:2px 9px;font-size:11px;font-family:inherit;color:var(--text);min-width:24px;text-align:center}
 .fin{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--text);padding:10px 12px;font-size:13px;width:100%;font-family:inherit;resize:vertical}
 .fin:focus{border-color:var(--blue);outline:none}
 .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:9px 18px;font-size:12.5px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:opacity .2s;pointer-events:none;z-index:99}
@@ -346,10 +353,11 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
-  <button class="tbtn" onclick="openLog()">Log a lesson</button>
+  <button class="tbtn" id="btn-log" onclick="openLog()">Log a lesson</button>
   <button class="tbtn" onclick="openBYS()">Before you start</button>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
   <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
+  <button class="tbtn" id="btn-help" onclick="openHelp()" aria-label="Help and shortcuts" style="padding:8px 12px">?</button>
 </header>
 
 <div class="week" id="week"></div>
@@ -438,7 +446,36 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- first-visit tour: spotlight hole + card -->
+<div id="tour" style="display:none">
+  <div class="tour-hole" id="tour-hole"></div>
+  <div class="tour-card" id="tour-card">
+    <div class="tc-step" id="tc-step"></div>
+    <div class="tc-text" id="tc-text"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+      <button class="tbtn" onclick="endTour()">Skip</button>
+      <button class="btn-p" id="tc-next" onclick="tourNext()">Next</button>
+    </div>
+  </div>
+</div>
+
+<!-- help + shortcuts -->
+<div class="overlay" id="help-ov">
+  <div class="modal" style="max-width:420px">
+    <button class="close-p" onclick="document.getElementById('help-ov').classList.remove('open')" aria-label="Close">×</button>
+    <h2>Help</h2>
+    <div class="sec" style="font-size:11px;font-weight:700;color:var(--text-3);margin:14px 0 8px">Keyboard shortcuts</div>
+    <div class="hk"><kbd>/</kbd><span>Ask the brain from anywhere</span></div>
+    <div class="hk"><kbd>P</kbd><span>Present mode (prospect-safe auto-tour)</span></div>
+    <div class="hk"><kbd>Esc</kbd><span>Back out of anything - panels, modals, focus</span></div>
+    <div class="hk"><kbd>↑ ↓ Enter</kbd><span>Move through search results and open one</span></div>
+    <div class="sec" style="font-size:11px;font-weight:700;color:var(--text-3);margin:16px 0 8px">The daily loop</div>
+    <p style="font-size:12.5px;color:var(--text-2);line-height:1.6">Morning: read the Today tab. Before a task: open its Before-you-start card. Stuck: press / and ask. After a task: Log a lesson and name the client. The brain does the rest overnight.</p>
+    <button class="loop-cta" style="margin-top:14px" onclick="document.getElementById('help-ov').classList.remove('open');startTour(true)">Replay the intro tour<span>The 4-step walkthrough from your first visit.</span></button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="brain-data.js"></script>
 <script>
@@ -1556,7 +1593,40 @@ document.addEventListener('keydown',e=>{
 document.getElementById('stage').addEventListener('pointerdown',()=>{ dismissCoach(); if(demoActive)stopDemo(); },true);
 setTimeout(()=>{ if(!coachDone) dismissCoach(); }, 9000); // auto-fade if untouched
 
+/* ═══ first-visit tour: 4 spotlight steps, once ever, replayable from Help ═══ */
+const TOUR_STEPS=[
+  ['v-today','1 of 4','The Today tab: your 2-minute morning read. What was learned, what needs a decision, which clients went quiet.'],
+  ['q','2 of 4','Ask the brain anything - press / from anywhere. If it has no answer, log it as a gap and it becomes a thing to learn.'],
+  ['stage','3 of 4','This is the brain. Every dot is a skill, sized by how battle-tested it is. Click a cluster name to zoom in.'],
+  ['btn-log','4 of 4','After every task: log what you learned and NAME THE CLIENT. That one habit is what makes tomorrow smarter than today.'],
+];
+let tourI=0;
+function placeTour(){
+  const [id,step,text]=TOUR_STEPS[tourI];
+  const el=document.getElementById(id); if(!el){endTour();return;}
+  el.scrollIntoView({block:'nearest'});
+  const r=el.getBoundingClientRect();
+  const hole=document.getElementById('tour-hole'), card=document.getElementById('tour-card');
+  hole.style.left=(r.left-8)+'px'; hole.style.top=(r.top-8)+'px';
+  hole.style.width=(r.width+16)+'px'; hole.style.height=Math.min(r.height+16, innerHeight*0.5)+'px';
+  document.getElementById('tc-step').textContent=step;
+  document.getElementById('tc-text').textContent=text;
+  document.getElementById('tc-next').textContent=tourI===TOUR_STEPS.length-1?'Done':'Next';
+  const below=r.bottom+16+170<innerHeight;
+  card.style.left=Math.max(12,Math.min(r.left, innerWidth-320))+'px';
+  card.style.top=(below? r.bottom+16 : Math.max(12,r.top-190))+'px';
+}
+function startTour(force){
+  if(!force && localStorage.getItem('bb_tour_done')) return;
+  tourI=0; document.getElementById('tour').style.display='block'; placeTour();
+}
+function tourNext(){ tourI++; if(tourI>=TOUR_STEPS.length) endTour(); else placeTour(); }
+function endTour(){ document.getElementById('tour').style.display='none'; try{localStorage.setItem('bb_tour_done','1');}catch(e){} }
+function openHelp(){ document.getElementById('help-ov').classList.add('open'); }
+addEventListener('resize',()=>{ if(document.getElementById('tour').style.display==='block') placeTour(); },{passive:true});
+
 renderBrain(); wireCamera(); applyCam(); routeHash();
+setTimeout(()=>startTour(false), 700);
 </script>
 </body>
 </html>
