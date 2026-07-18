@@ -1,7 +1,7 @@
 /* BB Brain service worker - offline-read cache for the shell + data.
    Network-first so the nightly rebuild is always picked up; cache is the fallback. */
-const CACHE = 'bb-brain-v1';
-const ASSETS = ['./index.html', './brain-data.js', './bb-logo.png', './manifest.json'];
+const CACHE = 'bb-brain-v2';
+const ASSETS = ['./index.html', './brain-data.enc.js', './bb-logo.png', './manifest.json'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });

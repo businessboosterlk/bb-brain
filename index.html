@@ -268,6 +268,13 @@ body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
 body.present .stage{max-width:1200px;margin:0 auto;width:100%}
 body.present .wrap{min-height:calc(100vh - 210px)}
 
+/* the lock screen */
+.lock{position:fixed;inset:0;z-index:300;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px}
+.lock-card{width:340px;max-width:100%;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);padding:32px;text-align:center;box-shadow:var(--shadow-lg)}
+.lock-card img{height:34px;margin:0 auto 18px;display:block}
+.lock-card h2{font-size:18px;margin-bottom:6px}
+.lock-card p{font-size:12.5px;color:var(--text-2);margin-bottom:18px}
+.lk-err{font-size:12px;color:#f87171;margin-top:10px;min-height:16px}
 /* first-visit tour */
 .tour-hole{position:fixed;z-index:210;border-radius:12px;box-shadow:0 0 0 9999px rgba(3,6,12,.78);pointer-events:none;transition:all var(--dur-normal) var(--ease)}
 .tour-card{position:fixed;z-index:211;width:300px;max-width:calc(100vw - 24px);background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);padding:16px;box-shadow:var(--shadow-lg);transition:all var(--dur-normal) var(--ease)}
@@ -501,8 +508,19 @@ table.r-tbl td b{color:#0e1830}
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="brain-data.js"></script>
-<script>
+<div class="lock" id="lock">
+  <div class="lock-card">
+    <img src="bb-logo.png" alt="Business Booster">
+    <h2>Digital Brain</h2>
+    <p>This brain is encrypted. Enter the team passcode.</p>
+    <input class="fin" id="lk-pass" type="password" placeholder="Team passcode" autocomplete="current-password">
+    <button class="btn-p" id="lk-btn" style="width:100%;margin-top:10px">Unlock</button>
+    <div class="lk-err" id="lk-err"></div>
+  </div>
+</div>
+
+<script src="brain-data.enc.js"></script>
+<script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1774,6 +1792,7 @@ renderBrain(); wireCamera(); applyCam(); routeHash();
 setTimeout(()=>startTour(false), 700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 /* theme toggle, persisted */
+/* (script is inert text/plain until the lock boots it - see the boot script at the end of body) */
 function applyTheme(t){
   document.body.classList.toggle('light',t==='light');
   document.getElementById('btn-theme').textContent=t==='light'?'Dark':'Light';
@@ -1781,6 +1800,51 @@ function applyTheme(t){
 }
 function toggleTheme(){ const t=document.body.classList.contains('light')?'dark':'light'; try{localStorage.setItem('bb_theme',t);}catch(e){} applyTheme(t); }
 applyTheme((function(){try{return localStorage.getItem('bb_theme')||'dark';}catch(e){return 'dark';}})());
+</script>
+
+<script>
+/* ═══ THE LOCK: decrypt brain-data.enc.js, then boot the inert app script.
+   Key = PBKDF2(passcode, salt, 310k) -> AES-256-GCM. The derived key (never the
+   passcode) is remembered on this device so the team unlocks once. ═══ */
+(async function(){
+  const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+  const enc=window.BRAIN_ENC;
+  const lock=document.getElementById('lock');
+  function boot(){
+    const s=document.createElement('script');
+    s.text=document.getElementById('app-src').text;
+    document.body.appendChild(s);
+    lock.remove();
+  }
+  async function tryKey(rawB64){
+    try{
+      const key=await crypto.subtle.importKey('raw',b64(rawB64),'AES-GCM',false,['decrypt']);
+      const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(enc.iv)},key,b64(enc.ct));
+      window.BRAIN_DATA=JSON.parse(new TextDecoder().decode(pt));
+      return true;
+    }catch(e){ return false; }
+  }
+  let stored=null; try{stored=localStorage.getItem('bb_brainkey');}catch(e){}
+  if(enc&&stored&&await tryKey(stored)){ boot(); return; }
+  lock.style.display='flex';
+  if(!enc){ document.getElementById('lk-err').textContent='No encrypted data published yet.'; return; }
+  setTimeout(()=>document.getElementById('lk-pass').focus(),100);
+  async function unlock(){
+    const pass=document.getElementById('lk-pass').value.trim();
+    if(!pass) return;
+    const btn=document.getElementById('lk-btn'); btn.disabled=true; btn.textContent='Unlocking...';
+    try{
+      const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveBits']);
+      const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64(enc.salt),iterations:enc.iter,hash:'SHA-256'},km,256);
+      const raw=btoa(String.fromCharCode(...new Uint8Array(bits)));
+      if(await tryKey(raw)){ try{localStorage.setItem('bb_brainkey',raw);}catch(e){} boot(); return; }
+      document.getElementById('lk-err').textContent='Wrong passcode.';
+    }catch(e){ document.getElementById('lk-err').textContent='Could not unlock: '+e.message; }
+    btn.disabled=false; btn.textContent='Unlock';
+  }
+  document.getElementById('lk-btn').addEventListener('click',unlock);
+  document.getElementById('lk-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') unlock(); });
+})();
 </script>
 </body>
 </html>
