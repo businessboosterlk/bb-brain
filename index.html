@@ -659,26 +659,39 @@ function renderBrain(){
     'M 700 250 C 800 240 890 270 950 330','M 640 520 C 730 500 830 500 910 470',
     'M 470 520 C 540 560 620 580 700 580','M 852 548 C 880 572 910 580 940 566',
   ];
-  /* THE MEMBRANES: each lobe gets a scalloped glowing shell in its own color -
-     the reference's signature. Two strokes (sharp + blurred echo) + a soft fill. */
-  function lobePath(R,phase){
-    const N=26; let d='';
-    for(let k=0;k<=N;k++){
-      const a=k/N*2*Math.PI;
-      const wob=0.91+0.055*Math.sin(a*9+phase)+0.035*Math.sin(a*15+phase*2);
-      const px=R.x+R.rr*wob*Math.cos(a), py=R.y+R.rr*wob*0.88*Math.sin(a);
-      d+=(k?'L':'M')+px.toFixed(1)+' '+py.toFixed(1)+' ';
-    }
-    return d+'Z';
-  }
+  /* THE LOBES v2 (reference-true): each region is a CLUSTER OF BULBOUS BUMPS -
+     overlapping soft circles along the boundary (the cauliflower), a starburst of
+     rays from the core, and blurred bokeh orbs for volumetric depth. */
+  defs=defs.replace('</defs>','<filter id="bok" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.6"/></filter></defs>');
   let membranes='';
   Object.entries(REGIONS).forEach(([cid,R],mi)=>{
-    const col=C[cid].color, d=lobePath(R,mi*1.7);
-    membranes+=`<g class="membrane" data-c="${cid}">
-      <path d="${d}" fill="${col}" fill-opacity="0.055"/>
-      <path d="${d}" fill="none" stroke="${col}" stroke-opacity="0.16" stroke-width="5.5" style="filter:blur(5px)"/>
-      <path d="${d}" fill="none" stroke="${col}" stroke-opacity="0.42" stroke-width="1.3"/>
-    </g>`;
+    const col=C[cid].color;
+    let g=`<g class="membrane" data-c="${cid}">`;
+    /* inner body wash */
+    g+=`<ellipse cx="${R.x}" cy="${R.y}" rx="${R.rr}" ry="${R.rr*0.88}" fill="${col}" fill-opacity="0.07"/>`;
+    /* the cauliflower: bulb circles ringing the lobe, overlapping */
+    const NB=11;
+    for(let k=0;k<NB;k++){
+      const a=k/NB*2*Math.PI+mi;
+      const br=R.rr*(0.30+0.10*Math.sin(k*2.7+mi));
+      const bx=R.x+(R.rr*0.80)*Math.cos(a), by=R.y+(R.rr*0.80)*0.88*Math.sin(a);
+      g+=`<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${br.toFixed(1)}" fill="${col}" fill-opacity="0.045" stroke="${col}" stroke-opacity="0.16" stroke-width="1"/>`;
+    }
+    /* blurred glow shell behind the bulbs */
+    g+=`<ellipse cx="${R.x}" cy="${R.y}" rx="${R.rr*1.02}" ry="${R.rr*0.90}" fill="none" stroke="${col}" stroke-opacity="0.20" stroke-width="7" style="filter:blur(6px)"/>`;
+    /* starburst rays from the core */
+    for(let k=0;k<18;k++){
+      const a=k/18*2*Math.PI+mi*0.6, rl=R.rr*(0.42+0.34*((k*29)%13)/13);
+      g+=`<line x1="${R.x}" y1="${R.y}" x2="${(R.x+rl*Math.cos(a)).toFixed(1)}" y2="${(R.y+rl*0.88*Math.sin(a)).toFixed(1)}" stroke="${col}" stroke-opacity="0.20" stroke-width="0.8"/>`;
+    }
+    /* bokeh orbs: the volumetric blur depth */
+    for(let k=0;k<9;k++){
+      const a=k*2.399+mi*2, r=R.rr*0.72*Math.sqrt(((k*41)%11)/11);
+      g+=`<circle cx="${(R.x+r*Math.cos(a)).toFixed(1)}" cy="${(R.y+r*0.88*Math.sin(a)).toFixed(1)}" r="${(3.5+((k*13)%11)*0.7).toFixed(1)}" fill="${col}" opacity="${(0.10+((k*7)%9)/60).toFixed(2)}" filter="url(#bok)"/>`;
+    }
+    /* the bright core */
+    g+=`<circle cx="${R.x}" cy="${R.y}" r="${(R.rr*0.16).toFixed(1)}" fill="${col}" opacity="0.30" filter="url(#bok)"/>`;
+    membranes+=g+'</g>';
   });
   const auras=Object.entries(REGIONS).map(([cid,R])=>
     `<ellipse cx="${R.x}" cy="${R.y}" rx="${R.rr+34}" ry="${(R.rr+34)*0.88}" fill="url(#rg-${cid})"/>`).join('');
@@ -753,16 +766,23 @@ function renderBrain(){
       </g>`;
       labels+=`<text class="nlabel" x="${n.x.toFixed(1)}" y="${(n.y+n.rad+8).toFixed(1)}">${esc(shortName(n.s.name))}</text>`;
     }
-    const num=ORDER.indexOf(cid)+1;
     const total=D.totals.depthByCluster[cid], count=cn.length;
-    const off=30+(spiralMax[cid]||40)*0.92;
+    /* margin label + elbow connector into the lobe (the reference's annotation style) */
+    const SLOT={content:{s:'L',y:170},web:{s:'L',y:300},strategy:{s:'L',y:486},sales:{s:'R',y:166},systems:{s:'R',y:266},seo:{s:'R',y:366},intel:{s:'R',y:466},ads:{s:'R',y:566}}[cid]||{s:'L',y:120};
+    const L=SLOT.s==='L', lx=L?140:1068, anchor=L?'start':'end';
+    const R3=REGIONS[cid], cSt=[L?286:922, SLOT.y+8];
+    const dxn=cSt[0]-R3.x, dyn=cSt[1]-R3.y, dl=Math.hypot(dxn,dyn)||1;
+    const edge=[R3.x+dxn/dl*R3.rr*1.04, R3.y+dyn/dl*R3.rr*0.92];
+    const elbow=`<polyline points="${(L?cSt[0]-46:cSt[0]+46)},${cSt[1]} ${cSt[0]},${cSt[1]} ${edge[0].toFixed(0)},${edge[1].toFixed(0)}" fill="none" stroke="${col}" stroke-opacity="0.5" stroke-width="1"/>
+      <circle cx="${(L?cSt[0]-46:cSt[0]+46)}" cy="${cSt[1]}" r="2.2" fill="${col}"/>`;
     groups+=`<g class="cgroup" data-c="${cid}">
       ${spokes}
-      <circle cx="${hx}" cy="${hy}" r="7" fill="${col}" style="filter:drop-shadow(0 0 10px ${col})"/>
-      <circle cx="${hx}" cy="${hy}" r="2.4" fill="#fff" opacity=".9"/>
+      <circle cx="${hx}" cy="${hy}" r="7.5" fill="${col}" style="filter:drop-shadow(0 0 12px ${col})"/>
+      <circle cx="${hx}" cy="${hy}" r="2.6" fill="#fff" opacity=".95"/>
       ${ns}${labels}
-      <text class="hublabel" data-cluster="${cid}" x="${hx}" y="${hy-off}" text-anchor="middle"><tspan fill="${col}">${num}.</tspan> ${esc(C[cid].name)}</text>
-      <text class="hubcount" data-cluster="${cid}" x="${hx}" y="${hy-off+14}" text-anchor="middle">${count} skills · depth ${total}</text>
+      ${elbow}
+      <text class="hublabel" data-cluster="${cid}" x="${lx}" y="${SLOT.y}" text-anchor="${anchor}" fill="${col}" style="font-size:15px">${esc(C[cid].name.split(' / ')[0].split(' & ')[0])}</text>
+      <text class="hubcount" data-cluster="${cid}" x="${lx}" y="${SLOT.y+17}" text-anchor="${anchor}">${count} skills · depth ${total}</text>
     </g>`;
   }
   svg.innerHTML=`<g class="stars">${stars}</g>${defs}<g id="scene">${anatomy}<g class="ilinks" id="ilinks">${ilinks}${pulses}</g>${groups}<g id="fxlayer"></g></g>`;
@@ -782,7 +802,7 @@ function renderBrain(){
 }
 
 /* ═══ camera: animated viewBox, wheel zoom, drag pan ═══ */
-const HOME={x:0,y:0,w:1200,h:720};
+const HOME={x:128,y:44,w:952,h:571};   /* framed tight on the brain, like the reference film */
 let VB={...HOME}, camRaf=null;
 const svgEl=()=>document.getElementById('svg');
 function applyCam(){ svgEl().setAttribute('viewBox',`${VB.x} ${VB.y} ${VB.w} ${VB.h}`); }
