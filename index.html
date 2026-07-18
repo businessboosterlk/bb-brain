@@ -1492,6 +1492,15 @@ function renderToday(){
   document.getElementById('today-view').innerHTML=
     `<h2 style="font-size:19px;margin-bottom:4px">Today in the brain</h2>
      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
+     ${(function(){ /* who taught the brain this week - real (by Name) tags only */
+       const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
+       const who={};
+       for(const e of D.timeline) if(e.by&&new Date(e.date)>=monday) who[e.by]=(who[e.by]||0)+1;
+       const rows=Object.entries(who).sort((a,b)=>b[1]-a[1]);
+       return `<div id="who-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><span style="font-size:11px;font-weight:700;color:var(--text-3)">Taught the brain this week:</span>${
+         rows.length?rows.map(([n,c])=>`<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span></span>`).join('')
+         :'<span style="font-size:12px;color:var(--text-3)">nobody yet - sign your lessons with the form and your name appears here</span>'}</div>`;
+     })()}
      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
        <button class="fchip" onclick="openBYS()">Before you start a task</button>
        <button class="fchip" onclick="openLog()">Log a lesson</button>

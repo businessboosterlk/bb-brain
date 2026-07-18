@@ -247,8 +247,10 @@ function parseLearnings(file) {
     // explicit outcome tags only - [worked] / [failed] in the title. Never inferred.
     const om = t.match(/\[(worked|failed)\]/i);
     const outcome = om ? om[1].toLowerCase() : null;
-    if (dm) entries.push({ date: dm[1], summary: (dm[2] || t).slice(0, 140), outcome });
-    else if (!requireDate) { undated++; entries.push({ date: null, summary: t.slice(0, 140), outcome }); }
+    const bm = t.match(/\(by ([^)]{2,30})\)/i);      // "(by Name)" = who taught the brain this
+    const by = bm ? bm[1].trim() : null;
+    if (dm) entries.push({ date: dm[1], summary: (dm[2] || t).slice(0, 140), outcome, by });
+    else if (!requireDate) { undated++; entries.push({ date: null, summary: t.slice(0, 140), outcome, by }); }
   }
   return { entries, undated };
 }
@@ -344,7 +346,7 @@ for (const s of skills) {
       stale: entries.filter(e => e.stale).length,
     },
   });
-  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.body || e.summary), via: e.via || 'file', conf: e.conf, stale: e.stale, outcome: e.outcome || null });
+  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.body || e.summary), via: e.via || 'file', conf: e.conf, stale: e.stale, outcome: e.outcome || null, by: e.by || null });
 }
 out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 
