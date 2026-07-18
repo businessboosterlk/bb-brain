@@ -285,9 +285,35 @@ const DAY = 86400000;
 const now = new Date();
 const out = { generated: now.toISOString(), clusters: CLUSTERS, skills: [], timeline: [], undatedCount: totalUndated };
 
+/* ── STEP 2: confidence + decay, computed honestly from the entries themselves ──
+   confirmed = explicit repetition marker in the text, OR 2+ sibling entries on the same topic.
+   emerging  = exactly one sibling entry on the same topic.
+   single    = seen once, never re-encountered.
+   stale     = dated entry older than 90 days with NO newer same-topic entry re-confirming it. */
+const STOPWORDS = new Set(['the','this','that','with','from','have','when','what','client','skill','never','always','every','their','them','into','over','only','after','before','more','than','then','they','were','been','made','make','need','needs','also','because','which','would','should','could','about','does','done','some','same','just','like','very','each','must','uses','used','using','work','works','page','build','built']);
+const kwOf = t => { const set = new Set(); for (const w of (String(t).toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || [])) if (!STOPWORDS.has(w)) set.add(w); return set; };
+const kwOverlap = (a, b) => { let n = 0; for (const w of a) if (b.has(w)) { n++; if (n >= 2) return true; } return false; };
+const CONF_MARK = /\b(again|always|every time|keeps? (happening|working)|confirmed|re-?tested|second time|twice|proven|standing rule|rule now)\b/i;
+const STALE_DAYS = 90;
+function scoreConfidence(entries, nowDate) {
+  const kws = entries.map(e => kwOf(e.summary));
+  entries.forEach((e, i) => {
+    let siblings = 0;
+    for (let j = 0; j < entries.length; j++) if (j !== i && kwOverlap(kws[i], kws[j])) siblings++;
+    e.conf = (CONF_MARK.test(e.summary) || siblings >= 2) ? 'confirmed' : siblings === 1 ? 'emerging' : 'single';
+    if (e.date && (nowDate - new Date(e.date)) / 86400000 > STALE_DAYS) {
+      let reconfirmed = false;
+      for (let j = 0; j < entries.length; j++)
+        if (j !== i && entries[j].date && entries[j].date > e.date && kwOverlap(kws[i], kws[j])) { reconfirmed = true; break; }
+      e.stale = !reconfirmed;
+    } else e.stale = false;
+  });
+}
+
 for (const s of skills) {
   const cluster = clusterFor(s.name, s.desc);
   const entries = learningsBySkill[s.name] || [];
+  scoreConfidence(entries, now);
   const dated = entries.filter(e => e.date).sort((a, b) => b.date.localeCompare(a.date));
   const latest = dated[0] || null;
   const clientCount = {};
@@ -300,8 +326,14 @@ for (const s of skills) {
     trigger: triggerFor(s.name, s.desc),
     quiet: latest ? (now - new Date(latest.date)) / DAY > 60 : false,
     clients: Object.entries(clientCount).sort((a, b) => b[1] - a[1]).map(([c, n]) => ({ c, n })),
+    conf: {
+      single: entries.filter(e => e.conf === 'single').length,
+      emerging: entries.filter(e => e.conf === 'emerging').length,
+      confirmed: entries.filter(e => e.conf === 'confirmed').length,
+      stale: entries.filter(e => e.stale).length,
+    },
   });
-  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.body || e.summary), via: e.via || 'file' });
+  for (const e of dated) out.timeline.push({ date: e.date, skill: s.name, cluster, summary: e.summary, clients: clientsIn(e.body || e.summary), via: e.via || 'file', conf: e.conf, stale: e.stale });
 }
 out.timeline.sort((a, b) => b.date.localeCompare(a.date));
 
