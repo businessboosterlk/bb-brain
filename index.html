@@ -318,16 +318,23 @@ body.present .wrap{min-height:calc(100vh - 210px)}
 .rov-scroll{flex:1;overflow:auto;display:flex;justify-content:center;padding:26px 16px 60px}
 .rdoc{width:820px;max-width:100%;background:#fff;color:#1a2233;box-shadow:0 24px 70px rgba(0,0,0,.5);font-family:'Inter',sans-serif}
 .rdoc *{box-sizing:border-box}
-.r-head{background:#0e1830;color:#fff;padding:30px 40px;position:relative;overflow:hidden}
-.r-head::after{content:"";position:absolute;top:0;bottom:0;right:0;width:200px;background:linear-gradient(120deg,transparent,rgba(91,157,255,.35));transform:skewX(-18deg) translateX(60px)}
-.r-head img{height:30px;margin-bottom:14px;display:block;filter:brightness(0) invert(1)}
-.r-head h1{font-family:'Poppins';font-size:24px;font-weight:800;letter-spacing:-.01em}
-.r-head .sub{font-size:13px;color:rgba(255,255,255,.7);margin-top:4px}
+.r-head{background:#0c1526;color:#fff;padding:34px 44px 30px;position:relative;overflow:hidden}
+.r-head .motif{position:absolute;right:26px;top:50%;transform:translateY(-50%);opacity:.9}
+.r-head img{height:26px;margin-bottom:18px;display:block;filter:brightness(0) invert(1)}
+.r-head .kick{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#6fa8ff;margin-bottom:8px}
+.r-head h1{font-family:'Poppins';font-size:29px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+.r-head .sub{font-size:12.5px;color:rgba(255,255,255,.62);margin-top:8px}
+.r-hero{background:#f4f7fc;border-bottom:1px solid #e7eaf0;padding:16px 44px;font-size:14.5px;color:#1a2233;line-height:1.5}
+.r-hero b{color:#2563c9}
+.r-kick{font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#8a93a6;margin:26px 0 12px}
+.r-abs{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.r-abs .a{border:1px solid #e7eaf0;border-radius:10px;padding:11px 14px;font-size:11px;color:#5a6478}
+.r-abs .a b{display:block;font-family:'Poppins';font-size:19px;font-weight:800;color:#0e1830;font-variant-numeric:tabular-nums}
 .r-body{padding:26px 40px 34px}
 .r-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px}
-.r-kpi{border:1px solid #e7eaf0;border-left:3px solid #3d7de0;border-radius:10px;padding:14px 16px}
+.r-kpi{border:1px solid #e7eaf0;border-left:3px solid #3d7de0;border-radius:10px;padding:16px 18px;background:linear-gradient(180deg,#fbfcfe,#fff)}
 .r-kpi .k{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#8a93a6}
-.r-kpi .v{font-family:'Poppins';font-size:23px;font-weight:800;letter-spacing:-.02em;margin-top:5px;font-variant-numeric:tabular-nums}
+.r-kpi .v{font-family:'Poppins';font-size:30px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;line-height:1}
 .r-kpi .d{font-size:11px;font-weight:600;margin-top:5px;color:#1a9d5a}
 .r-kpi .d.flat{color:#8a93a6}
 .r-grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:26px}
@@ -567,9 +574,9 @@ document.getElementById('gen').textContent = D.totals.skills+' skills · refresh
    glowing region territories, real per-node depth with parallax sway. Base x/y stay
    in the same 1200x720 viewBox space so the camera, panels, search and deep links
    keep working untouched. Two dormant slots wait for future sectors. ═══ */
-const REGIONS = {
-  web:     {x:348,y:330}, strategy:{x:462,y:502}, content:{x:566,y:200}, sales:{x:712,y:194},
-  systems: {x:766,y:340}, seo:     {x:906,y:380}, intel:  {x:652,y:498}, ads:  {x:846,y:540},
+const REGIONS = {   /* rr = lobe radius; lobes tile the silhouette like the reference */
+  web:     {x:360,y:330,rr:128}, strategy:{x:474,y:496,rr:104}, content:{x:576,y:210,rr:100}, sales:{x:730,y:200,rr:86},
+  systems: {x:770,y:350,rr:106}, seo:     {x:920,y:360,rr:86},  intel:  {x:652,y:492,rr:98},  ads:  {x:852,y:530,rr:82},
 };
 const DORMANT=[{x:540,y:330},{x:930,y:236}];   /* room to grow */
 const HUBS = Object.fromEntries(Object.entries(REGIONS).map(([k,v])=>[k,[v.x,v.y]]));
@@ -583,12 +590,13 @@ const spiralMax = {};
     list.sort((a,b)=>b.depth-a.depth);
     const [hx,hy] = HUBS[cid]||[600,360];
     let maxR = 0;
+    const rr=(REGIONS[cid]||{}).rr||90;
     list.forEach((s,i)=>{
-      const r = 15+10.5*Math.sqrt(i), a = i*GA;
+      /* fill the whole lobe area, deepest skills near the core */
+      const r = rr*0.72*Math.sqrt((i+0.7)/list.length), a = i*GA;
       maxR = Math.max(maxR, r);
-      /* deterministic depth: nodes spread through the volume; far ones dim + shrink */
       const z = 110*Math.sin(i*2.399+cid.length*1.3)*(0.35+0.65*Math.abs(Math.cos(a*1.7)));
-      nodes.push({s, cid, z, x:hx+r*Math.cos(a), y:hy+r*Math.sin(a)*0.84,
+      nodes.push({s, cid, z, x:hx+r*Math.cos(a), y:hy+r*Math.sin(a)*0.86,
         rad: s.depth===0?4:Math.min(19, 5.5+3.1*Math.log2(1+s.depth))});
     });
     spiralMax[cid] = maxR;
@@ -651,16 +659,37 @@ function renderBrain(){
     'M 700 250 C 800 240 890 270 950 330','M 640 520 C 730 500 830 500 910 470',
     'M 470 520 C 540 560 620 580 700 580','M 852 548 C 880 572 910 580 940 566',
   ];
+  /* THE MEMBRANES: each lobe gets a scalloped glowing shell in its own color -
+     the reference's signature. Two strokes (sharp + blurred echo) + a soft fill. */
+  function lobePath(R,phase){
+    const N=26; let d='';
+    for(let k=0;k<=N;k++){
+      const a=k/N*2*Math.PI;
+      const wob=0.91+0.055*Math.sin(a*9+phase)+0.035*Math.sin(a*15+phase*2);
+      const px=R.x+R.rr*wob*Math.cos(a), py=R.y+R.rr*wob*0.88*Math.sin(a);
+      d+=(k?'L':'M')+px.toFixed(1)+' '+py.toFixed(1)+' ';
+    }
+    return d+'Z';
+  }
+  let membranes='';
+  Object.entries(REGIONS).forEach(([cid,R],mi)=>{
+    const col=C[cid].color, d=lobePath(R,mi*1.7);
+    membranes+=`<g class="membrane" data-c="${cid}">
+      <path d="${d}" fill="${col}" fill-opacity="0.055"/>
+      <path d="${d}" fill="none" stroke="${col}" stroke-opacity="0.16" stroke-width="5.5" style="filter:blur(5px)"/>
+      <path d="${d}" fill="none" stroke="${col}" stroke-opacity="0.42" stroke-width="1.3"/>
+    </g>`;
+  });
   const auras=Object.entries(REGIONS).map(([cid,R])=>
-    `<ellipse cx="${R.x}" cy="${R.y}" rx="${(spiralMax[cid]||50)+66}" ry="${((spiralMax[cid]||50)+66)*0.86}" fill="url(#rg-${cid})"/>`).join('');
-  /* micro-dot fill: tiny background sparks give each territory its density (reference look) */
+    `<ellipse cx="${R.x}" cy="${R.y}" rx="${R.rr+34}" ry="${(R.rr+34)*0.88}" fill="url(#rg-${cid})"/>`).join('');
+  /* micro-dot fill: dense background sparks through every lobe */
   let micro='';
   for(const [cid,R] of Object.entries(REGIONS)){
-    const col=C[cid].color, spread=(spiralMax[cid]||50)+34;
-    for(let i=0;i<16;i++){
-      const a=i*2.399+cid.charCodeAt(0), r=spread*(0.25+0.72*((i*37)%17)/17);
-      const mx=R.x+r*Math.cos(a), my=R.y+r*Math.sin(a)*0.82, z=(-90+((i*53)%180));
-      micro+=`<circle class="micro" data-z="${z}" data-bx="${mx.toFixed(1)}" data-by="${my.toFixed(1)}" transform="translate(${mx.toFixed(1)},${my.toFixed(1)})" r="${(0.7+((i*7)%8)/9).toFixed(2)}" fill="${col}" opacity="${(0.16+0.30*((z+90)/180)).toFixed(2)}"/>`;
+    const col=C[cid].color;
+    for(let i=0;i<44;i++){
+      const a=i*2.399+cid.charCodeAt(0), r=R.rr*0.82*Math.sqrt(((i*37)%23)/23);
+      const mx=R.x+r*Math.cos(a), my=R.y+r*Math.sin(a)*0.86, z=(-95+((i*53)%190));
+      micro+=`<circle class="micro" data-z="${z}" data-bx="${mx.toFixed(1)}" data-by="${my.toFixed(1)}" transform="translate(${mx.toFixed(1)},${my.toFixed(1)})" r="${(0.6+((i*7)%9)/8).toFixed(2)}" fill="${col}" opacity="${(0.14+0.34*((z+95)/190)).toFixed(2)}"/>`;
     }
   }
   const dormant=DORMANT.map((d,i)=>`<g class="dormant"><ellipse cx="${d.x}" cy="${d.y}" rx="44" ry="36" fill="none" stroke="#5d6a83" stroke-opacity="0.28" stroke-width="1" stroke-dasharray="4 5"/><text x="${d.x}" y="${d.y+3}" text-anchor="middle" font-size="8.5" fill="#5d6a83" opacity="0.55">room to grow</text></g>`).join('');
@@ -668,7 +697,7 @@ function renderBrain(){
     <path d="${SIL}" fill="#5B9DFF" fill-opacity="0.045" stroke="#8fb8ff" stroke-opacity="0.24" stroke-width="1.6"/>
     <path d="${SIL}" fill="none" stroke="#8fb8ff" stroke-opacity="0.12" stroke-width="9" style="filter:blur(7px)"/>
     ${SULCI.map(s=>`<path d="${s}" fill="none" stroke="#8fb8ff" stroke-opacity="0.11" stroke-width="1.1"/>`).join('')}
-    ${auras}${micro}${dormant}
+    ${auras}${membranes}${micro}${dormant}
   </g>`;
   const LOBE_L=['web','strategy','intel','ads'], LOBE_R=['content','sales','systems','seo'];
   const pairs=[];
@@ -705,7 +734,7 @@ function renderBrain(){
     /* filament mesh: each node links to its 2 nearest siblings - the reference's neural web */
     const seenPair=new Set();
     cn.forEach((n,i)=>{
-      const near=cn.map((m,j)=>({j,d:(n.x-m.x)**2+(n.y-m.y)**2})).filter(x=>x.j!==i).sort((a,b)=>a.d-b.d).slice(0,2);
+      const near=cn.map((m,j)=>({j,d:(n.x-m.x)**2+(n.y-m.y)**2})).filter(x=>x.j!==i).sort((a,b)=>a.d-b.d).slice(0,3);
       for(const {j} of near){
         const k=Math.min(i,j)+'-'+Math.max(i,j);
         if(seenPair.has(k)) continue; seenPair.add(k);
@@ -1481,24 +1510,43 @@ compounding there too. (Open the brain → click ${thin.name} → Copy the grow 
   const maxD=Math.max(1,dranked[0].d);
   const bars=dranked.map(r=>`<div class="r-bar"><span class="lb">${esc(r.name)}</span><span class="tr"><span class="fl" style="width:${Math.max(2,100*r.d/maxD)}%;background:${r.color}"></span></span><span class="n">${r.d}</span></div>`).join('');
   // top clients table
-  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.skills.length}</td><td class="r">${c.lastActive||'—'}</td></tr>`).join('');
+  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.waCount||0}</td><td class="r">${c.lastActive||'—'}</td></tr>`).join('');
   const logo=document.querySelector('.brandbox img').src;
   const dstr=D.generated.slice(0,10);
+  /* masthead motif: a mini constellation of the real cluster colors */
+  const motif=`<svg width="120" height="96" viewBox="0 0 120 96">${D.clusters.map((c,i)=>{
+    const mx=18+((i*43)%84), my=14+((i*29)%68);
+    return `<circle cx="${mx}" cy="${my}" r="${3+((i*7)%4)}" fill="${c.color}" opacity="0.9"/><circle cx="${mx}" cy="${my}" r="${8+((i*7)%4)}" fill="${c.color}" opacity="0.15"/>`;
+  }).join('')}</svg>`;
+  const waTotal=D.totals.waFacts||0, gapsOpen=D.gaps===null?null:(D.gaps||[]).length;
+  const heroLine=`This week the brain gained <b>${wk.length} lessons</b>${clRows.length?` from <b>${clRows.length} client${clRows.length===1?'':'s'}</b>`:''}, absorbed <b>${D.totals.chatDiscussed||0} facts</b> from your conversations${waTotal?` and <b>${waTotal} from WhatsApp</b>`:''}${gapsOpen?`, and is carrying <b>${gapsOpen} open question${gapsOpen===1?'':'s'}</b> it wants answered`:''}.`;
   const doc=`
-    <div class="r-head"><img src="${logo}" alt="Business Booster"><h1>The Digital Brain — Weekly Briefing</h1><div class="sub">Week of ${mondayStr} · generated ${dstr}</div></div>
+    <div class="r-head"><div class="motif">${motif}</div><img src="${logo}" alt="Business Booster"><div class="kick">The Digital Brain</div><h1>Weekly Intelligence Briefing</h1><div class="sub">Week of ${mondayStr} · generated ${dstr} · encrypted, team-only</div></div>
+    <div class="r-hero">${heroLine}</div>
     <div class="r-body">
+      <div class="r-kick">The machine right now</div>
       <div class="r-kpis">
         <div class="r-kpi"><div class="k">Lessons learned</div><div class="v">${D.totals.entries}</div><div class="d${wkDelta>0?'':' flat'}">${wkDelta>0?'▲ +'+wkDelta:(wkDelta<0?'▼ '+wkDelta:'—')} vs last week</div></div>
         <div class="r-kpi" style="border-left-color:#8b5cf6"><div class="k">Skills mapped</div><div class="v">${D.totals.skills}</div><div class="d flat">newest: ${esc(newest.name.replace(/^bb-/,''))}</div></div>
         <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Clients on record</div><div class="v">${D.totals.clientsFull||(D.clients||[]).length}</div><div class="d${clActiveThisWk?'':' flat'}">${clActiveThisWk?'▲ '+clActiveThisWk+' active this week':'none active this week'}</div></div>
         <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Chat facts absorbed</div><div class="v">${D.totals.chatDiscussed||0}</div><div class="d flat">from your conversations</div></div>
       </div>
+      <div class="r-kick">What the brain absorbed this cycle</div>
+      <div class="r-abs">
+        <div class="a"><b>${D.totals.chatDiscussed||0}</b>facts from Claude chats</div>
+        <div class="a"><b>${waTotal}</b>facts from WhatsApp exports</div>
+        <div class="a"><b>${(D.agentFeed&&D.agentFeed.online)?D.agentFeed.entries.length:'—'}</b>machine-agent learnings</div>
+        <div class="a"><b>${(D.decisions||[]).length}</b>decisions captured</div>
+      </div>
+      <div class="r-kick">Momentum and depth</div>
       <div class="r-grid2">
         <div class="r-card"><h3>Learning momentum</h3><div class="cap">Lessons added per week · last 8 weeks</div>${spark}</div>
         <div class="r-card"><h3>Capability depth</h3><div class="cap">Battle-tested iterations by area</div>${bars}</div>
       </div>
-      <div class="r-sec">Top clients teaching the brain</div>
-      <table class="r-tbl"><thead><tr><th>Client</th><th class="r">Total</th><th class="r">Lessons</th><th class="r">Discussed</th><th class="r">Skills used</th><th class="r">Last active</th></tr></thead><tbody>${clientRows||'<tr><td colspan="6" style="color:#8a93a6">none yet</td></tr>'}</tbody></table>
+      <div class="r-kick">Top clients teaching the brain</div>
+      <table class="r-tbl"><thead><tr><th>Client</th><th class="r">Total</th><th class="r">Lessons</th><th class="r">Discussed</th><th class="r">WhatsApp</th><th class="r">Last active</th></tr></thead><tbody>${clientRows||'<tr><td colspan="6" style="color:#8a93a6">none yet</td></tr>'}</tbody></table>
+      ${gapsOpen?`<div class="r-kick">Open questions the brain cannot answer</div>
+      ${(D.gaps||[]).slice(0,5).map(g=>`<div style="font-size:12.5px;color:#3a4457;padding:9px 12px;border:1px solid #e7eaf0;border-radius:8px;margin-bottom:7px"><b style="color:#b45309">${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</div>`).join('')}`:''}
       <div class="r-insights">
         <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Key insights</h3><ul>
           <li><b>${lastWk}</b> lessons learned this week${wkDelta?', '+(wkDelta>0?'up':'down')+' '+Math.abs(wkDelta)+' on last week':''}.</li>
