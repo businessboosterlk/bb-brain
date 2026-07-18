@@ -453,16 +453,22 @@ function ingestWhatsApp() {
       } catch (e) { continue; }
       files++;
       const seen = new Set();
+      const WA_LINE_ISO = /^\[?(\d{4})-(\d{2})-(\d{2}),? \d{1,2}:\d{2}(?::\d{2})?\]?\s(?:- )?([^:]{1,40}):\s(.*)$/;
       for (const line of raw.split('\n')) {
-        const m = line.replace(/‎/g, '').trim().match(WA_LINE);
-        if (!m) continue;
-        let [, d1, d2, yy, sender, text] = m;
+        const clean = line.replace(/[‎‏]/g, '').trim();
+        let date = null, sender = null, text = null;
+        let m = clean.match(WA_LINE_ISO);                            // [2024-10-15, 07:54:50] Name: msg
+        if (m) { date = `${m[1]}-${m[2]}-${m[3]}`; sender = m[4]; text = m[5]; }
+        else if ((m = clean.match(WA_LINE))) {                       // DD/MM formats (iOS + Android)
+          const [, d1, d2, yy, s, t] = m;
+          const year = yy.length === 2 ? '20' + yy : yy;
+          date = `${year}-${String(d2).padStart(2, '0')}-${String(d1).padStart(2, '0')}`;
+          sender = s; text = t;
+        } else continue;
         text = text.trim();
         if (text.length < 20 || WA_JUNK.test(text)) continue;
+        if (/\b(omitted|deleted|this message|created this group|added you|end-to-end encrypted|changed the (subject|group))\b/i.test(text)) continue;  // attachment stubs + system lines
         if (!WA_MEANING.test(text)) continue;                       // meaningful lines only
-        // exports are DD/MM in SL; year may be 2 or 4 digits
-        const year = yy.length === 2 ? '20' + yy : yy;
-        const date = `${year}-${String(d2).padStart(2, '0')}-${String(d1).padStart(2, '0')}`;
         if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) continue;
         const snippet = text.replace(/\s+/g, ' ').slice(0, 160);
         const k = date + '|' + snippet.slice(0, 40).toLowerCase();
