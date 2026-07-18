@@ -696,7 +696,10 @@ function smoothZoom(px,py,f){
 function zoomBtn(f){ stopDemo(); if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;} stopInertia(); refreshRect(); smoothZoom(VB.x+VB.w/2, VB.y+VB.h/2, f); }
 function wireCamera(){
   const svg=svgEl(), stage=document.getElementById('stage');
-  stage.addEventListener('wheel',e=>{e.preventDefault();stopDemo();if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;}stopInertia();if(!zoomRaf)refreshRect();const [px,py]=svgPoint(e.clientX,e.clientY);smoothZoom(px,py,e.deltaY>0?1.10:0.905);},{passive:false});
+  stage.addEventListener('wheel',e=>{
+    // CAMERA LOCK: wheel over the floating panel/overlays scrolls THEM, never the brain
+    if(e.target.closest('.panel,.qres,.tour-card,.backbtn,.zoomctl')) return;
+    e.preventDefault();stopDemo();if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;}stopInertia();if(!zoomRaf)refreshRect();const [px,py]=svgPoint(e.clientX,e.clientY);smoothZoom(px,py,e.deltaY>0?1.10:0.905);},{passive:false});
   let drag=null;
   const pinch={pts:new Map(),dist:0};
   svg.addEventListener('pointerdown',e=>{
@@ -1534,6 +1537,39 @@ async function submitLesson(){
 
 /* ═══ TODAY: the daily front door - what the whole team opens first ═══ */
 function daysAgo(d){ return Math.floor((Date.now()-new Date(d))/86400000); }
+/* install prompt: captured once, offered as a dismissible card on Today (mobile) */
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e; if(VIEW==='today') renderToday();});
+function installApp(){ if(installEvt){installEvt.prompt();installEvt=null;renderToday();} }
+function dismissInstall(){ try{localStorage.setItem('bb_install_dismissed','1');}catch(e){} renderToday(); }
+function installCard(){
+  try{ if(localStorage.getItem('bb_install_dismissed')) return ''; }catch(e){}
+  if(matchMedia('(display-mode: standalone)').matches) return '';
+  const ios=/iphone|ipad/i.test(navigator.userAgent);
+  if(!installEvt&&!ios) return '';
+  return `<div class="latest" style="display:flex;gap:12px;align-items:center;margin-bottom:18px;border-color:var(--line-2)">
+    <span style="flex:1"><b style="color:var(--text)">Put the brain on your home screen.</b> One tap from your phone, works offline.${ios?' Tap Share, then "Add to Home Screen".':''}</span>
+    ${installEvt?'<button class="fchip on" onclick="installApp()">Install</button>':''}
+    <button class="fchip" onclick="dismissInstall()">Not now</button></div>`;
+}
+/* since-last-visit delta: the personal "what changed" greeting */
+function visitDelta(){
+  let prev=null; try{prev=JSON.parse(localStorage.getItem('bb_last_visit')||'null');}catch(e){}
+  const now={date:new Date().toISOString().slice(0,10), entries:D.totals.entries};
+  try{localStorage.setItem('bb_last_visit',JSON.stringify(now));}catch(e){}
+  if(!prev||prev.date===now.date) return '';
+  const d=now.entries-prev.entries;
+  if(d<=0) return '';
+  return `<div style="font-size:13px;color:var(--text);background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md);padding:10px 16px;margin-bottom:16px">Since your last visit (${esc(prev.date)}): <b style="color:var(--blue)">${d} new lesson${d===1?'':'s'}</b> joined the brain.</div>`;
+}
+/* per-person week streaks from real signed entries */
+function streakOf(name){
+  const wk=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x.getTime();};
+  const weeks=new Set(D.timeline.filter(e=>e.by===name).map(e=>wk(e.date)));
+  let s=0, cur=wk(new Date());
+  while(weeks.has(cur)){s++;cur-=7*86400000;}
+  return s;
+}
 function renderToday(){
   const today=new Date().toISOString().slice(0,10);
   const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
@@ -1547,13 +1583,14 @@ function renderToday(){
   document.getElementById('today-view').innerHTML=
     `<h2 style="font-size:19px;margin-bottom:4px">Today in the brain</h2>
      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
+     ${installCard()}${visitDelta()}
      ${(function(){ /* who taught the brain this week - real (by Name) tags only */
        const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
        const who={};
        for(const e of D.timeline) if(e.by&&new Date(e.date)>=monday) who[e.by]=(who[e.by]||0)+1;
        const rows=Object.entries(who).sort((a,b)=>b[1]-a[1]);
        return `<div id="who-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><span style="font-size:11px;font-weight:700;color:var(--text-3)">Taught the brain this week:</span>${
-         rows.length?rows.map(([n,c])=>`<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span></span>`).join('')
+         rows.length?rows.map(([n,c])=>{const st=streakOf(n);return `<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span>${st>=2?` <span style="color:#4ade80;font-weight:700">${st}wk streak</span>`:''}</span>`;}).join('')
          :'<span style="font-size:12px;color:var(--text-3)">nobody yet - sign your lessons with the form and your name appears here</span>'}</div>`;
      })()}
      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
