@@ -38,8 +38,18 @@ input{font-family:inherit}
 .seg button.on{background:var(--surface-2);color:var(--text);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.4)}
 .search{position:relative}
 .search input{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);color:var(--text);padding:8px 12px 8px 32px;font-size:12.5px;width:200px;transition:border-color .15s}
-.search input:focus{border-color:var(--blue)}
+.search input:focus{border-color:var(--blue);width:280px}
 .search svg{position:absolute;left:10px;top:9px;width:15px;height:15px;stroke:var(--text-3)}
+.search kbd{position:absolute;right:8px;top:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 6px;font-size:10.5px;color:var(--text-3);font-family:inherit;pointer-events:none}
+.qres{position:absolute;top:calc(100% + 6px);right:0;width:380px;max-width:calc(100vw - 24px);max-height:min(480px,68vh);overflow-y:auto;background:var(--surface-2);border:1px solid var(--line-2);border-radius:var(--r-md);box-shadow:var(--shadow-lg);z-index:60;display:none;padding:6px}
+.qres.open{display:block}
+.qres .qh{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);padding:8px 10px 4px}
+.qres .qi{display:flex;align-items:baseline;gap:8px;padding:8px 10px;border-radius:7px;cursor:pointer;font-size:12.5px}
+.qres .qi:hover,.qres .qi.sel{background:var(--surface)}
+.qres .qi .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;position:relative;top:-1px}
+.qres .qi .nm{font-weight:700;white-space:nowrap}
+.qres .qi .sub{color:var(--text-3);font-size:11.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qres .qnone{padding:14px 10px;color:var(--text-3);font-size:12.5px}
 .tbtn{font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 13px;transition:color .15s,border-color .15s}
 .tbtn:hover{color:var(--text);border-color:var(--line-2)}
 .tbtn kbd{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10.5px;margin-left:6px;font-family:inherit}
@@ -290,7 +300,7 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-clients" onclick="setView('clients')">Clients</button>
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
   </div>
-  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Do we have something for..." oninput="doSearch(this.value)"></div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
   <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
 </header>
@@ -759,19 +769,57 @@ function fallbackCopy(t,cb){ const ta=document.createElement('textarea');ta.valu
 let toastT;
 function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2000); }
 
-/* ═══ search ═══ */
+/* ═══ query box: fuzzy, instant, across skills / clients / clusters / learnings ═══ */
+function fuzzyScore(q, text){
+  // exact substring wins big; else word-prefix; else in-order subsequence
+  const t=text.toLowerCase();
+  const i=t.indexOf(q);
+  if(i!==-1) return 100-(i>0?10:0)-Math.min(20,i);
+  if(q.length<3) return 0;
+  let ti=0, hits=0;
+  for(const ch of q){ const f=t.indexOf(ch,ti); if(f===-1) return 0; ti=f+1; hits++; }
+  return 28-Math.min(18,(ti-hits));
+}
+let qHits=[], qSel=-1;
 function doSearch(q){
   q=q.trim().toLowerCase();
-  const hits = q? D.skills.filter(s=>(s.name+' '+s.desc).toLowerCase().includes(q)).map(s=>s.name) : null;
+  const box=document.getElementById('qres');
+  // node highlighting on the constellation (kept from v1)
+  const skillHits = q? D.skills.filter(s=>fuzzyScore(q,s.name+' '+s.desc)>0).map(s=>s.name) : null;
   document.querySelectorAll('#svg .node').forEach(el=>{
     el.classList.remove('hit','fade');
-    if(hits){ if(hits.includes(el.dataset.skill)) el.classList.add('hit'); else el.classList.add('fade'); }
+    if(skillHits){ if(skillHits.includes(el.dataset.skill)) el.classList.add('hit'); else el.classList.add('fade'); }
   });
   document.querySelectorAll('#svg .hublabel,#svg .hubcount').forEach(el=>{
-    el.classList.toggle('fade', !!hits && !D.skills.some(s=>s.cluster===el.dataset.cluster&&hits.includes(s.name)));
+    el.classList.toggle('fade', !!skillHits && !D.skills.some(s=>s.cluster===el.dataset.cluster&&skillHits.includes(s.name)));
   });
-  if(hits&&hits.length===1) openSkill(hits[0]);
+  if(!q){ box.classList.remove('open'); qHits=[]; qSel=-1; return; }
+  // build the grouped result list
+  const R=[];
+  for(const c of D.clusters){ const sc=fuzzyScore(q,c.name); if(sc>0) R.push({t:'cluster',score:sc+8,name:c.name,sub:D.skills.filter(s=>s.cluster===c.id).length+' skills · depth '+D.totals.depthByCluster[c.id],color:c.color,go:()=>{setView('brain');focusCluster(c.id);}}); }
+  for(const cl of CLIENTS_DATA){ const sc=fuzzyScore(q,cl.name); if(sc>0) R.push({t:'client',score:sc+6,name:cl.name,sub:cl.total+' entries · last active '+(cl.lastActive||'—'),color:cliColor(cl),go:()=>{setView('clients');focusClient(cl.name);}}); }
+  for(const s of D.skills){ const sc=Math.max(fuzzyScore(q,s.name),fuzzyScore(q,s.desc)*0.8); if(sc>0) R.push({t:'skill',score:sc+4,name:s.name,sub:C[s.cluster].name+' · depth '+s.depth,color:C[s.cluster].color,go:()=>{setView('brain');if(FOCUS!==s.cluster)focusCluster(s.cluster);openSkill(s.name);}}); }
+  for(const e of D.timeline){
+    const hay=e.summary+' '+(e.clients||[]).join(' ');
+    const sc=fuzzyScore(q,hay);
+    if(sc>0) R.push({t:'learning',score:sc,name:e.date,sub:e.skill.replace(/^bb-/,'')+' · '+e.summary,color:C[e.cluster]?C[e.cluster].color:'#889',go:()=>{tlClient='';tlCluster='';tlRange='all';setView('tl');}});
+  }
+  R.sort((a,b)=>b.score-a.score);
+  const groups=[['cluster','Clusters'],['client','Clients'],['skill','Skills'],['learning','Learnings']];
+  qHits=[]; let html='';
+  for(const [t,label] of groups){
+    const rows=R.filter(r=>r.t===t).slice(0, t==='learning'?30:6);
+    if(!rows.length) continue;
+    html+=`<div class="qh">${label}${t==='learning'?' · '+R.filter(r=>r.t==='learning').length:''}</div>`;
+    for(const r of rows){ const idx=qHits.length; qHits.push(r);
+      html+=`<div class="qi" data-qi="${idx}" onclick="qGo(${idx})"><span class="dot" style="background:${r.color}"></span><span class="nm">${esc(r.name)}</span><span class="sub">${esc(r.sub)}</span></div>`; }
+  }
+  box.innerHTML=html||'<div class="qnone">Nothing in the brain matches that. If it should exist, that is a gap worth logging.</div>';
+  box.classList.add('open'); qSel=-1;
+  if(skillHits&&skillHits.length===1&&!document.body.classList.contains('present')) openSkill(skillHits[0]);
 }
+function qGo(i){ const r=qHits[i]; if(!r)return; document.getElementById('qres').classList.remove('open'); r.go(); }
+document.addEventListener('click',e=>{ if(!e.target.closest('.search')) document.getElementById('qres').classList.remove('open'); });
 
 /* ═══ this week + stats bar ═══ */
 function weekData(){
@@ -992,7 +1040,22 @@ function togglePresent(on){
   } else { stopDemo(); clearFocusDom(); }
 }
 document.addEventListener('keydown',e=>{
+  const qin=document.getElementById('q'), qbox=document.getElementById('qres');
+  if(e.target===qin){
+    if(e.key==='Escape'){ qin.value=''; doSearch(''); qin.blur(); return; }
+    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+      e.preventDefault();
+      if(!qHits.length) return;
+      qSel=e.key==='ArrowDown'?Math.min(qHits.length-1,qSel+1):Math.max(0,qSel-1);
+      qbox.querySelectorAll('.qi').forEach(el=>el.classList.toggle('sel',+el.dataset.qi===qSel));
+      const sel=qbox.querySelector('.qi.sel'); if(sel) sel.scrollIntoView({block:'nearest'});
+      return;
+    }
+    if(e.key==='Enter'){ e.preventDefault(); qGo(qSel>=0?qSel:0); return; }
+    return;
+  }
   if(e.target.tagName==='INPUT') return;
+  if(e.key==='/'){ e.preventDefault(); qin.focus(); qin.select(); return; }
   if(e.key==='p'||e.key==='P') togglePresent(!document.body.classList.contains('present'));
   if(e.key==='Escape'){
     if(demoActive){stopDemo();return;}
