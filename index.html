@@ -649,6 +649,31 @@ function focusClient(name){
   st.classList.add('show'); document.getElementById('backbtn').classList.add('show');
   if(!document.body.classList.contains('present')) openClientPanel(name);
   animateCam(clientBox(name),1150);
+  syncHash();
+}
+/* ═══ STEP 4: client brain pages - #client/<slug> deep links + prep brief ═══ */
+const slugOf = n => n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function clientBySlug(slug){ return CLIENTS_DATA.find(c=>slugOf(c.name)===slug); }
+function syncHash(){
+  if(FCLIENT) history.replaceState(null,'','#client/'+slugOf(FCLIENT));
+  else if(location.hash) history.replaceState(null,'','#');
+}
+function routeHash(){
+  const m=location.hash.match(/^#client\/([a-z0-9-]+)/);
+  if(m){ const cl=clientBySlug(m[1]); if(cl){ setView('clients'); focusClient(cl.name); return true; } }
+  return false;
+}
+window.addEventListener('hashchange',routeHash);
+function prepBrief(name){
+  const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return '';
+  const caps=Object.entries(cl.clusters).sort((a,b)=>b[1]-a[1]).map(([id,n])=>(C[id]?C[id].name:id)+' ('+n+')').join(', ');
+  return `PREP BRIEF - ${cl.name}  (from the BB Digital Brain, ${D.generated.slice(0,10)})\n`+
+`Activity: ${cl.total} entries (${cl.lessonCount} logged lessons, ${cl.chatCount} chat mentions) · first seen ${cl.firstSeen||'unknown'} · last active ${cl.lastActive||'unknown'}\n`+
+`Capabilities used for them: ${caps||'none logged'}\n`+
+`Top skills: ${cl.skills.slice(0,5).map(s=>s.s+' ('+s.n+')').join(', ')||'none'}\n\n`+
+`LATEST LESSONS WE LOGGED\n${cl.lessons.slice(0,6).map(l=>'  · '+l.date+' ['+l.skill+'] '+l.summary).join('\n')||'  · none yet'}\n\n`+
+`WHAT WAS DISCUSSED ON CLAUDE\n${cl.discussed.slice(0,8).map(d=>'  · '+d.date+(d.kind==='decision'?' [decision]':'')+' '+d.snippet).join('\n')||'  · nothing captured yet'}\n\n`+
+`Everything above is what the scan actually found - gaps mean nothing was logged, not that nothing happened.`;
 }
 function openClientPanel(name){
   const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
@@ -658,6 +683,8 @@ function openClientPanel(name){
     <h2 style="color:${col}">${esc(cl.name)}</h2>
     <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} things you discussed</span></div>
     <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div>
+    <button class="loop-cta" onclick="copyText(prepBrief('${esc(cl.name)}'),'Prep brief copied - paste it anywhere')">Prep me for ${esc(cl.name)}<span>Copies everything the brain knows: capabilities, latest lessons, what you discussed.</span></button>
+    <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Direct link: <span style="color:var(--blue)">${SITE}#client/${slugOf(cl.name)}</span></div>
     <div class="sec">Capabilities we used for them</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${cchips||'<span style="color:var(--text-3);font-size:12px">none logged yet</span>'}</div>
     <div class="sec">Skills used</div>
@@ -668,7 +695,7 @@ function openClientPanel(name){
     ${cl.discussed.slice(0,5).map(d=>`<div class="latest" style="margin-bottom:6px"><b>${esc(d.date)}</b> · ${esc(d.snippet)}</div>`).join('')||'<div class="latest">nothing captured from chat yet</div>'}`;
   p.classList.add('open');
 }
-function unfocusClients(){ stopDemo(); FCLIENT=null; const svg=svgEl(); svg.classList.remove('focused'); svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus')); document.getElementById('fxlayer').innerHTML=''; document.getElementById('sector-title').classList.remove('show'); document.getElementById('backbtn').classList.remove('show'); animateCam(HOME,900); }
+function unfocusClients(){ stopDemo(); FCLIENT=null; syncHash(); const svg=svgEl(); svg.classList.remove('focused'); svg.querySelectorAll('.cgroup').forEach(g=>g.classList.remove('dim','focus')); document.getElementById('fxlayer').innerHTML=''; document.getElementById('sector-title').classList.remove('show'); document.getElementById('backbtn').classList.remove('show'); animateCam(HOME,900); }
 function backOut(){ if(MODE==='clients') unfocusClients(); else unfocus(); }
 
 /* ═══ auto-demo tour (present mode) ═══ */
@@ -1082,7 +1109,7 @@ document.addEventListener('keydown',e=>{
 document.getElementById('stage').addEventListener('pointerdown',()=>{ dismissCoach(); if(demoActive)stopDemo(); },true);
 setTimeout(()=>{ if(!coachDone) dismissCoach(); }, 9000); // auto-fade if untouched
 
-renderBrain(); wireCamera(); applyCam();
+renderBrain(); wireCamera(); applyCam(); routeHash();
 </script>
 </body>
 </html>
