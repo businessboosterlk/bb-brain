@@ -450,6 +450,44 @@ function buildClients() {
 out.clients = buildClients();
 out.decisions = chatDecisions;   // recent decisions/facts pulled from chat (item 1)
 
+/* ── STEP 3: contradiction detection - same-topic entries with opposing guidance.
+   Heuristic only (keyword overlap >= 3 significant tokens + one side carries negation
+   language the other lacks). NEVER auto-resolved - flagged for human review. ── */
+const NEG = /\b(never|not|don'?t|do not|avoid|stop|no longer|instead of|wrong|remove|kill|ban)\b/i;
+function detectConflicts() {
+  const all = [];
+  for (const [skill, entries] of Object.entries(learningsBySkill))
+    for (const e of entries) all.push({ skill, date: e.date, summary: e.summary, hint: e.hint || '', kw: kwOf(e.summary + ' ' + (e.hint || '')) });
+  // which keywords does a text NEGATE? (a negation word with the keyword in its next ~45 chars)
+  const negatedKws = (text, kws) => {
+    const t = text.toLowerCase(); const hit = new Set();
+    let m; const re = new RegExp(NEG.source, 'gi');
+    while ((m = re.exec(t))) { const win = t.slice(m.index, m.index + 50); for (const w of kws) if (win.includes(w)) hit.add(w); }
+    return hit;
+  };
+  const conflicts = [];
+  for (let i = 0; i < all.length; i++) for (let j = i + 1; j < all.length; j++) {
+    const a = all[i], b = all[j];
+    const shared = []; for (const w of a.kw) if (b.kw.has(w)) shared.push(w);
+    if (shared.length < 3) continue;
+    if (a.summary.slice(0, 60) === b.summary.slice(0, 60)) continue;   // same entry echoed across files
+    if (shared.length >= 0.65 * Math.min(a.kw.size, b.kw.size)) continue; // near-duplicate = same lesson twice, not a conflict
+    const ta = a.summary + ' ' + a.hint, tb = b.summary + ' ' + b.hint;
+    const negA = negatedKws(ta, shared), negB = negatedKws(tb, shared);
+    // conflict = a shared keyword one entry negates and the other states plainly
+    const flip = [...negA].filter(w => !negB.has(w)).concat([...negB].filter(w => !negA.has(w)));
+    if (!flip.length) continue;
+    conflicts.push({
+      skillA: a.skill, dateA: a.date, textA: a.summary,
+      skillB: b.skill, dateB: b.date, textB: b.summary,
+      shared: shared.length, topic: flip.slice(0, 3),
+    });
+  }
+  conflicts.sort((x, y) => y.shared - x.shared);
+  return conflicts.slice(0, 30);
+}
+out.conflicts = detectConflicts();
+
 /* totals + gap signal */
 const depthByCluster = {};
 for (const c of CLUSTERS) depthByCluster[c.id] = 0;

@@ -1085,7 +1085,13 @@ function renderGaps(){
     +sec(`Clients with zero captured lessons · ${silentClients.length}/${(D.clients||[]).length}`,'We talk about them (chat mentions exist) but no lesson has ever been logged with their name in the title.',
       `<div style="display:flex;flex-wrap:wrap">${silentClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:var(--text-3)">· ${c.chatCount} chats</span></span>`).join('')||'none - every client has at least one logged lesson'}</div>`)
     +sec(`Service lines with no skill at all · ${noSkill.length}/${SERVICE_LINES.length}`,'Hand-maintained list of things BB sells or could sell, checked against every skill name and description.',
-      `<div style="display:flex;flex-wrap:wrap">${noSkill.map(([l])=>`<span class="pill" style="margin:0 6px 6px 0;color:#c9a15a">${esc(l)}</span>`).join('')||'none - every listed service line has at least one matching skill'}</div>`);
+      `<div style="display:flex;flex-wrap:wrap">${noSkill.map(([l])=>`<span class="pill" style="margin:0 6px 6px 0;color:#c9a15a">${esc(l)}</span>`).join('')||'none - every listed service line has at least one matching skill'}</div>`)
+    +sec(`Possible contradictions · ${(D.conflicts||[]).length} flagged`,'Same-topic entries where one side negates what the other states. A dumb keyword heuristic flags these for YOUR eye - most will be echoes, the real ones are gold. Nothing is ever auto-resolved.',
+      (D.conflicts||[]).map(c=>`<div class="latest" style="margin-bottom:7px">
+        <div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px">topic: ${(c.topic||[]).map(esc).join(', ')}</div>
+        <div><b>${esc(c.skillA)}</b>${c.dateA?' · '+esc(c.dateA):''} - ${esc(c.textA)}</div>
+        <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line)"><b>${esc(c.skillB)}</b>${c.dateB?' · '+esc(c.dateB):''} - ${esc(c.textB)}</div>
+      </div>`).join('')||'<div class="latest">none flagged in the current scan</div>');
 }
 
 /* ═══ STEP 6: before-you-start cards - distilled from real learnings files ═══ */
