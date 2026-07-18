@@ -51,6 +51,7 @@ input{font-family:inherit}
 .qres .qi .nm{font-weight:700;white-space:nowrap}
 .qres .qi .sub{color:var(--text-3);font-size:11.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qres .qnone{padding:14px 10px;color:var(--text-3);font-size:12.5px}
+.qres mark.hlq{background:transparent;color:var(--blue);font-weight:700}
 .tbtn{font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 13px;transition:color .15s,border-color .15s}
 .tbtn:hover{color:var(--text);border-color:var(--line-2)}
 .tbtn kbd{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:10.5px;margin-left:6px;font-family:inherit}
@@ -142,6 +143,7 @@ body.present .coach{display:none}
 .panel.open{display:block;animation:slidein var(--dur-normal) var(--ease) backwards}
 .panel.open.choreo{animation-delay:.45s}   /* focus choreography: panel lands as the camera settles */
 @keyframes slidein{from{transform:translateX(18px);opacity:0}to{transform:none;opacity:1}}
+@keyframes sheetup{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
 .panel h2{font-size:17px;margin-bottom:4px;word-break:break-word;padding-right:28px}
 .pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--line)}
 .depth-badge{font-family:'Poppins',sans-serif;font-weight:700;font-variant-numeric:tabular-nums}
@@ -149,7 +151,10 @@ body.present .coach{display:none}
 .depth-hero b{font-family:'Poppins',sans-serif;font-size:38px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
 .depth-hero span{font-size:12px;color:var(--text-2);font-weight:600}
 .panel .desc{color:var(--text-2);font-size:13px;margin:12px 0}
-.panel .sec{font-size:11px;font-weight:700;color:var(--text-3);margin:16px 0 6px}
+.panel .sec{font-size:11px;font-weight:700;color:var(--text-3);margin:16px 0 8px;cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+.panel .sec::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--text-3);border-bottom:1.5px solid var(--text-3);transform:rotate(45deg) translateY(-1px);transition:transform var(--dur-fast) var(--ease);margin-left:auto;margin-right:4px}
+.panel .sec.closed::after{transform:rotate(-45deg)}
+.panel .sec:hover{color:var(--text-2)}
 .trigger{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;font-size:12.5px;color:var(--text);position:relative;padding-right:64px}
 .copy{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;color:var(--blue);border:1px solid var(--line-2);border-radius:6px;padding:4px 10px;background:var(--surface-2);transition:background .15s}
 .copy:hover{background:#1a2438}
@@ -244,6 +249,9 @@ body.present .wrap{min-height:calc(100vh - 210px)}
   .qres{left:0;right:auto}
   .wrap{flex-direction:column}
   .panel{width:100%;position:fixed;left:0;right:0;bottom:0;top:auto;max-height:62vh;border-left:none;border-top:1px solid var(--line-2);background:var(--surface);border-radius:var(--r) var(--r) 0 0;box-shadow:var(--shadow-lg);z-index:80}
+  .panel::before{content:"";display:block;width:36px;height:4px;border-radius:99px;background:var(--line-2);margin:0 auto 12px}
+  .panel.open{animation:sheetup var(--dur-normal) var(--ease) backwards}
+  .panel.open.choreo{animation-delay:.45s}
   .search input{width:140px}
   .gbar{grid-template-columns:120px 1fr 40px}
   .seg{margin-left:0}
@@ -457,6 +465,8 @@ const spiralMax = {};
 
 /* ═══ render ═══ */
 function shortName(n){ return n.replace(/^bb-/,'').slice(0,20); }
+let FIRST_PAINT=true;   // stagger cluster arrival only on the very first load
+const XRANK=Object.fromEntries(Object.keys(HUBS).sort((a,b)=>HUBS[a][0]-HUBS[b][0]).map((c,i)=>[c,i]));
 function renderBrain(){
   const svg=document.getElementById('svg');
   let stars='';
@@ -485,7 +495,7 @@ function renderBrain(){
     let idx=0;
     for(const n of cn){
       spokes+=`<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${col}" stroke-opacity="0.14" stroke-width="0.8"/>`;
-      const deep=n.s.depth>=6, delay=(idx++%40)*22;
+      const deep=n.s.depth>=6, delay=FIRST_PAINT?(XRANK[cid]*72+(idx++%40)*12):0;
       ns+=`<g class="node${n.s.quiet?' quiet':''}" data-skill="${esc(n.s.name)}" data-c="${cid}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})" style="animation-delay:${delay}ms">
         ${deep?`<circle r="${(n.rad*1.9).toFixed(1)}" fill="${col}" fill-opacity="0.07"/>`:''}
         <circle class="core${deep?' pulse':''}" r="${n.rad}" fill="${col}" fill-opacity="${n.s.depth===0?0.4:0.88}" ${deep?`style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}></circle>
@@ -513,6 +523,7 @@ function renderBrain(){
   });
   svg.querySelectorAll('.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();focusCluster(el.dataset.cluster);}));
   document.getElementById('legend').innerHTML = ORDER.map(id=>{const c=C[id];return `<button onclick="focusCluster('${id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span style="color:var(--text-3)">· ${D.totals.depthByCluster[id]}</span></button>`;}).join('');
+  FIRST_PAINT=false;
 }
 
 /* ═══ camera: animated viewBox, wheel zoom, drag pan ═══ */
@@ -646,6 +657,7 @@ function clusterBox(cid){
 let focusT=null;
 function focusCluster(cid){
   if(!C[cid])return;
+  if(MODE!=='skills'){ setTimeout(()=>focusCluster(cid),170); return; }   // wait out a pending mode-swap fade
   dismissCoach(); hideTip(); FOCUS=cid;
   const svg=svgEl(); svg.classList.add('focused');
   if(!document.body.classList.contains('present')){ openCluster(cid); document.getElementById('panel').classList.add('choreo'); } // open FIRST so the camera biases left; choreo delays its entrance
@@ -757,6 +769,7 @@ function clientBox(name){
 }
 function focusClient(name){
   const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
+  if(MODE!=='clients'){ setTimeout(()=>focusClient(name),170); return; }   // wait out a pending mode-swap fade
   dismissCoach(); hideTip(); FCLIENT=name;
   const svg=svgEl(); svg.classList.add('focused');
   if(!document.body.classList.contains('present')){ openClientPanel(name); document.getElementById('panel').classList.add('choreo'); }
@@ -843,20 +856,37 @@ function startDemo(){
 }
 function stopDemo(){ if(!demoActive)return; demoActive=false; clearTimeout(demoTimer); }
 
-/* ═══ hover mini-card ═══ */
-function showTip(name, el){
+/* ═══ hover mini-card - follows the pointer with a lag lerp, never teleports ═══ */
+let tipOn=false, tipT={x:0,y:0}, tipP={x:0,y:0}, tipRaf=null;
+function tipLoop(){
+  const tip=document.getElementById('tip');
+  tipP.x+=(tipT.x-tipP.x)*0.22; tipP.y+=(tipT.y-tipP.y)*0.22;
+  tip.style.transform=`translate(${tipP.x.toFixed(1)}px,${tipP.y.toFixed(1)}px)`;
+  if(tipOn||Math.abs(tipT.x-tipP.x)>0.5||Math.abs(tipT.y-tipP.y)>0.5) tipRaf=requestAnimationFrame(tipLoop);
+  else tipRaf=null;
+}
+function tipTargetFrom(cx,cy){
+  const sr=document.getElementById('stage').getBoundingClientRect();
+  tipT.x=Math.min(cx-sr.left+16, sr.width-270); tipT.y=Math.max(6, cy-sr.top-10);
+}
+function showTip(name, el, ev){
   if(document.body.classList.contains('present'))return;
   const s=D.skills.find(x=>x.name===name); if(!s) return;
-  const tip=document.getElementById('tip'), stage=document.getElementById('stage'), col=C[s.cluster].color;
+  const tip=document.getElementById('tip'), col=C[s.cluster].color;
   tip.innerHTML=`<div class="t-name">${esc(s.name)}</div>
     <div class="t-meta"><span class="dot" style="background:${col}"></span>${esc(C[s.cluster].name)} · ${s.depth} · ${bucket(s.depth)}</div>
     <div class="t-desc">${esc(s.desc.slice(0,110))}${s.desc.length>110?'…':''}</div>`;
-  const r=el.getBoundingClientRect(), sr=stage.getBoundingClientRect();
-  let x=r.left-sr.left+r.width/2+14, y=r.top-sr.top-8;
-  tip.style.left=Math.min(x, sr.width-270)+'px'; tip.style.top=Math.max(6,y)+'px';
+  const r=el.getBoundingClientRect();
+  tipTargetFrom(r.left+r.width/2, r.top);
+  if(!tipOn||REDUCED){ tipP.x=tipT.x; tipP.y=tipT.y; }   // first show snaps into place; only following lerps
+  tipOn=true;
+  tip.style.left='0'; tip.style.top='0';
+  tip.style.transform=`translate(${tipP.x}px,${tipP.y}px)`;
   tip.classList.add('show');
+  if(!tipRaf&&!REDUCED) tipRaf=requestAnimationFrame(tipLoop);
 }
-function hideTip(){ document.getElementById('tip').classList.remove('show'); }
+function hideTip(){ tipOn=false; document.getElementById('tip').classList.remove('show'); }
+document.getElementById('stage').addEventListener('pointermove',e=>{ if(tipOn) tipTargetFrom(e.clientX,e.clientY); },{passive:true});
 
 /* ═══ learning-loop installer prompts ═══ */
 function loopPrompt(name){
@@ -928,7 +958,23 @@ function openCluster(cid){
       <span class="pill depth-badge" title="${esc(DEPTH_TIP)}">${s.depth}</span></div>`).join('')}`;
   p.classList.add('open');
 }
-function closePanel(){ document.getElementById('panel').classList.remove('open'); }
+function closePanel(){ const p=document.getElementById('panel'); p.classList.remove('open','choreo'); }
+/* collapsible panel sections: click a section header to fold everything under it */
+document.getElementById('panel').addEventListener('click',e=>{
+  const h=e.target.closest('.sec'); if(!h)return;
+  h.classList.toggle('closed');
+  const closed=h.classList.contains('closed');
+  let n=h.nextElementSibling;
+  while(n && !n.classList.contains('sec')){ n.style.display=closed?'none':''; n=n.nextElementSibling; }
+});
+/* swipe-down to close the mobile bottom sheet (drag handle in CSS) */
+(function panelSwipe(){
+  const p=document.getElementById('panel');
+  let y0=null;
+  p.addEventListener('touchstart',e=>{ if(innerWidth<=820&&p.scrollTop<=0) y0=e.touches[0].clientY; },{passive:true});
+  p.addEventListener('touchmove',e=>{ if(y0!==null&&e.touches[0].clientY-y0>64){ y0=null; closePanel(); } },{passive:true});
+  p.addEventListener('touchend',()=>{ y0=null; },{passive:true});
+})();
 
 /* ═══ clipboard + toast ═══ */
 function copyText(text, msg){
@@ -956,6 +1002,9 @@ function fuzzyScore(q, text){
   return 28-Math.min(18,(ti-hits));
 }
 let qHits=[], qSel=-1;
+function hiq(text,q){ const i=String(text).toLowerCase().indexOf(q); if(i<0||!q) return esc(text); return esc(text.slice(0,i))+'<mark class="hlq">'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length)); }
+function qRecent(){ try{return JSON.parse(localStorage.getItem('bbq_recent')||'[]');}catch(e){return[];} }
+function qRemember(q){ if(!q)return; const r=[q,...qRecent().filter(x=>x!==q)].slice(0,3); try{localStorage.setItem('bbq_recent',JSON.stringify(r));}catch(e){} }
 function doSearch(q){
   q=q.trim().toLowerCase();
   const box=document.getElementById('qres');
@@ -968,7 +1017,16 @@ function doSearch(q){
   document.querySelectorAll('#svg .hublabel,#svg .hubcount').forEach(el=>{
     el.classList.toggle('fade', !!skillHits && !D.skills.some(s=>s.cluster===el.dataset.cluster&&skillHits.includes(s.name)));
   });
-  if(!q){ box.classList.remove('open'); qHits=[]; qSel=-1; return; }
+  if(!q){
+    qHits=[]; qSel=-1;
+    const rec=qRecent();
+    if(rec.length&&document.activeElement===document.getElementById('q')){
+      qHits=rec.map(r=>({t:'recent',name:r,sub:'recent search',color:'var(--text-3)',go:()=>{const qin=document.getElementById('q');qin.value=r;doSearch(r);}}));
+      box.innerHTML='<div class="qh">Recent</div>'+qHits.map((r,i)=>`<div class="qi" data-qi="${i}" onclick="qGo(${i})"><span class="dot" style="background:${r.color}"></span><span class="nm">${esc(r.name)}</span><span class="sub">${esc(r.sub)}</span></div>`).join('');
+      box.classList.add('open');
+    } else box.classList.remove('open');
+    return;
+  }
   // build the grouped result list
   const R=[];
   for(const c of D.clusters){ const sc=fuzzyScore(q,c.name); if(sc>0) R.push({t:'cluster',score:sc+8,name:c.name,sub:D.skills.filter(s=>s.cluster===c.id).length+' skills · depth '+D.totals.depthByCluster[c.id],color:c.color,go:()=>{setView('brain');focusCluster(c.id);}}); }
@@ -977,7 +1035,7 @@ function doSearch(q){
   for(const e of D.timeline){
     const hay=e.summary+' '+(e.clients||[]).join(' ');
     const sc=fuzzyScore(q,hay);
-    if(sc>0) R.push({t:'learning',score:sc,name:e.date,sub:e.skill.replace(/^bb-/,'')+' · '+e.summary,color:C[e.cluster]?C[e.cluster].color:'#889',go:()=>{tlClient='';tlCluster='';tlRange='all';setView('tl');}});
+    if(sc>0) R.push({t:'learning',score:sc,name:e.date,sub:e.skill.replace(/^bb-/,'')+' · '+e.summary,color:C[e.cluster]?C[e.cluster].color:'#889',go:()=>{tlClient='';tlCluster='';tlRange='all';tlSkill=e.skill;setView('tl');}});
   }
   R.sort((a,b)=>b.score-a.score);
   const groups=[['cluster','Clusters'],['client','Clients'],['skill','Skills'],['learning','Learnings']];
@@ -987,13 +1045,13 @@ function doSearch(q){
     if(!rows.length) continue;
     html+=`<div class="qh">${label}${t==='learning'?' · '+R.filter(r=>r.t==='learning').length:''}</div>`;
     for(const r of rows){ const idx=qHits.length; qHits.push(r);
-      html+=`<div class="qi" data-qi="${idx}" onclick="qGo(${idx})"><span class="dot" style="background:${r.color}"></span><span class="nm">${esc(r.name)}</span><span class="sub">${esc(r.sub)}</span></div>`; }
+      html+=`<div class="qi" data-qi="${idx}" onclick="qGo(${idx})"><span class="dot" style="background:${r.color}"></span><span class="nm">${hiq(r.name,q)}</span><span class="sub">${hiq(r.sub,q)}</span></div>`; }
   }
   box.innerHTML=html||'<div class="qnone">Nothing in the brain matches that. If it should exist, that is a gap worth logging.</div>';
   box.classList.add('open'); qSel=-1;
   if(skillHits&&skillHits.length===1&&!document.body.classList.contains('present')) openSkill(skillHits[0]);
 }
-function qGo(i){ const r=qHits[i]; if(!r)return; document.getElementById('qres').classList.remove('open'); r.go(); }
+function qGo(i){ const r=qHits[i]; if(!r)return; if(r.t!=='recent') qRemember(document.getElementById('q').value.trim().toLowerCase()); document.getElementById('qres').classList.remove('open'); r.go(); }
 document.addEventListener('click',e=>{ if(!e.target.closest('.search')) document.getElementById('qres').classList.remove('open'); });
 
 /* ═══ this week + stats bar ═══ */
@@ -1152,7 +1210,7 @@ function copyReport(){ copyText(document.getElementById('report-txt').value,'Rep
 })();
 
 /* ═══ timeline ═══ */
-let tlRange='all', tlCluster='', tlClient='';
+let tlRange='all', tlCluster='', tlClient='', tlSkill='';
 function renderTL(){
   const now=new Date(); const monday=new Date(now); monday.setDate(now.getDate()-((now.getDay()+6)%7)); monday.setHours(0,0,0,0);
   const today = now.toISOString().slice(0,10);
@@ -1163,6 +1221,7 @@ function renderTL(){
   if(tlRange==='week') list=list.filter(e=>new Date(e.date)>=monday);
   if(tlCluster) list=list.filter(e=>e.cluster===tlCluster);
   if(tlClient) list=list.filter(e=>(e.clients||[]).includes(tlClient));
+  if(tlSkill) list=list.filter(e=>e.skill===tlSkill);
   const groups={};
   for(const e of list) (groups[e.date]=groups[e.date]||[]).push(e);
   document.getElementById('tl-list').innerHTML = Object.keys(groups).length ?
@@ -1172,7 +1231,8 @@ function renderTL(){
   const feedNote = D.agentFeed ? (D.agentFeed.online ? ` Agent feed: ${D.agentFeed.entries.length} machine learnings merged in.` : ' Agent feed OFFLINE at the last build - machine learnings are missing, not absent.') : '';
   document.getElementById('tl-note').textContent = D.undatedCount+' further entries are counted in depth but have no dates in their files, so they cannot appear on this timeline.'+feedNote;
   document.getElementById('tl-filters').innerHTML =
-    [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
+    (tlSkill?`<button class="fchip on" onclick="tlSkill='';renderTL()" title="Clear skill filter">${esc(tlSkill)} ×</button><span style="width:10px"></span>`:'')
+    + [['all','All'],['week','This week'],['today','Today']].map(([v,l])=>`<button class="fchip${tlRange===v?' on':''}" onclick="tlRange='${v}';renderTL()">${l}</button>`).join('')
     + '<span style="width:10px"></span>'
     + `<button class="fchip${!tlCluster?' on':''}" onclick="tlCluster='';renderTL()">All clusters</button>`
     + D.clusters.map(c=>`<button class="fchip${tlCluster===c.id?' on':''}" onclick="tlCluster='${c.id}';renderTL()"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}</button>`).join('')
