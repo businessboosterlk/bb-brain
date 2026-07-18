@@ -321,6 +321,8 @@ function harvestChat() {
   }
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const ANY = new RegExp(allNeedles.map(esc).join('|'), 'i'); // one case-insensitive prefilter
+  // a line is a DECISION/FACT (not just a name-drop) when it carries commitment/number/constraint language
+  const DECISION = /\b(decided|decision|we('| a)?re going|let'?s go with|final|locked|confirm(ed)?|agreed|the price is|priced at|charge|charging|budget is|deadline|due (on|by)|launch(es|ing)? on|the problem is|the issue is|the goal is|must not|never (say|mention|do)|always|do not|the plan is|next step|rule:|note that|remember (that|to)|the fee is|rev.?share|per month|\/month|lkr\s?[\d,]|rs\.?\s?[\d,]|\$[\d,]|\b\d+%)/i;
   let files = [];
   try {
     const cutoff = Date.now() - 120 * 86400000; // last ~120 days, newest first (bounds cost as history grows)
@@ -345,26 +347,35 @@ function harvestChat() {
       txt = txt.trim();
       if (!txt || txt.length < 12) continue;
       if (txt.startsWith('<') || txt.startsWith('Base directory') || txt.startsWith('Caveat:')) continue;
+      // skip harness-injected messages (session summaries, tool results, command output) - not real user speech
+      if (/^(This session is being continued|The user|Analysis:|Summary:|\[Request interrupted|Result of|Contents of|Command|Tool ran)/.test(txt)) continue;
+      if (txt.indexOf('"tool_use_id"') !== -1 || txt.indexOf('system-reminder') !== -1) continue;
       const date = (o.timestamp || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
       const low = txt.toLowerCase();
       const hitClients = aliasIndex.filter(([d, needles]) => needles.some(n => low.includes(n))).map(a => a[0]);
       const snippet = txt.replace(/\s+/g, ' ').slice(0, 150);
+      const kind = DECISION.test(txt) ? 'decision' : 'mention';   // item 1: is this a real fact/decision?
+      const cluster = clusterFor('', snippet);                     // item 3: auto-tag topic even without a client title
       for (const cl of hitClients) {
         const k = cl + '|' + date + '|' + snippet.slice(0, 40).toLowerCase();
         if (seen.has(k)) continue; seen.add(k);
-        (perClient[cl] = perClient[cl] || []).push({ date, snippet });
+        (perClient[cl] = perClient[cl] || []).push({ date, snippet, kind, cluster });
+        if (kind === 'decision') decisions.push({ date, client: cl, cluster, snippet });
         discussed++;
       }
     }
   }
   for (const cl of Object.keys(perClient)) {
-    perClient[cl].sort((a, b) => b.date.localeCompare(a.date));
+    // decisions first, then most-recent mentions; keeps the signal when we cap
+    perClient[cl].sort((a, b) => (a.kind === b.kind ? b.date.localeCompare(a.date) : a.kind === 'decision' ? -1 : 1));
     perClient[cl] = perClient[cl].slice(0, 25);
   }
-  return { perClient, discussed };
+  decisions.sort((a, b) => b.date.localeCompare(a.date));
+  return { perClient, discussed, decisions: decisions.slice(0, 60) };
 }
-const { perClient: chatByClient, discussed: chatDiscussed } = harvestChat();
+const decisions = [];
+const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions } = harvestChat();
 
 /* ══ RICH PER-CLIENT DATASET: everything the brain knows about each client,
    from skill attribution (what we did) + chat harvest (what we discussed). ══ */
@@ -397,6 +408,7 @@ function buildClients() {
   return list;
 }
 out.clients = buildClients();
+out.decisions = chatDecisions;   // recent decisions/facts pulled from chat (item 1)
 
 /* totals + gap signal */
 const depthByCluster = {};
@@ -407,6 +419,7 @@ for (const s of out.skills) for (const { c, n } of s.clients) clientTotals[c] = 
 out.totals = {
   chatEntries: chatMem.length,
   chatDiscussed,
+  chatDecisions: chatDecisions.length,
   clientsFull: out.clients.length,
   skills: out.skills.length,
   entries: out.skills.reduce((n, s) => n + s.depth, 0),
