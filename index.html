@@ -893,6 +893,7 @@ function prepBrief(name){
 `WHAT WAS DISCUSSED ON CLAUDE\n${cl.discussed.slice(0,8).map(d=>'  · '+d.date+(d.kind==='decision'?' [decision]':'')+' '+d.snippet).join('\n')||'  · nothing captured yet'}\n\n`+
 `Everything above is what the scan actually found - gaps mean nothing was logged, not that nothing happened.`;
 }
+function waBrief(name){ const b=prepBrief(name); if(!b)return; open('https://wa.me/?text='+encodeURIComponent(b.slice(0,3500)),'_blank'); }
 function openClientPanel(name){
   const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl)return;
   const col=cliColor(cl), p=document.getElementById('panel');
@@ -913,6 +914,7 @@ function openClientPanel(name){
       return f.length?`<div class="conf-row" style="margin-top:8px">${f.join(' ')}</div>`:'';
     })()}
     <button class="loop-cta" onclick="copyText(prepBrief('${esc(cl.name)}'),'Prep brief copied - paste it anywhere')">Prep me for ${esc(cl.name)}<span>Copies everything the brain knows: capabilities, latest lessons, what you discussed.</span></button>
+    <button class="loop-cta" onclick="waBrief('${esc(cl.name)}')">Send the brief on WhatsApp<span>Opens WhatsApp with the prep brief ready to send to yourself or the team.</span></button>
     <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Direct link: <span style="color:var(--blue)">${SITE}#client/${slugOf(cl.name)}</span></div>
     <div class="sec">Capabilities we used for them</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">${cchips||'<span style="color:var(--text-3);font-size:12px">none logged yet</span>'}</div>
@@ -1103,7 +1105,7 @@ function fuzzyScore(q, text){
   for(const ch of q){ const f=t.indexOf(ch,ti); if(f===-1) return 0; ti=f+1; hits++; }
   return 28-Math.min(18,(ti-hits));
 }
-let qHits=[], qSel=-1;
+let qHits=[], qSel=-1, lastAnswer='';
 function hiq(text,q){ const i=String(text).toLowerCase().indexOf(q); if(i<0||!q) return esc(text); return esc(text.slice(0,i))+'<mark class="hlq">'+esc(text.slice(i,i+q.length))+'</mark>'+esc(text.slice(i+q.length)); }
 function qRecent(){ try{return JSON.parse(localStorage.getItem('bbq_recent')||'[]');}catch(e){return[];} }
 function qRemember(q){ if(!q)return; const r=[q,...qRecent().filter(x=>x!==q)].slice(0,3); try{localStorage.setItem('bbq_recent',JSON.stringify(r));}catch(e){} }
@@ -1154,7 +1156,8 @@ function doSearch(q){
   if(q.split(/\s+/).length>=2||q.length>10){
     const facts=R.filter(r=>r.t==='learning').slice(0,3);
     if(facts.length){
-      answer=`<div class="qanswer"><div class="qa-h">What the brain knows</div>`+
+      lastAnswer='WHAT THE BRAIN KNOWS - "'+q+'"\n'+facts.map(f=>{const [sk,...rest]=f.sub.split(' · ');return '  · '+rest.join(' · ')+'  ('+f.name+', '+sk+')';}).join('\n');
+      answer=`<div class="qanswer"><div class="qa-h" style="display:flex;align-items:center">What the brain knows<button class="copy" style="position:static;margin-left:auto" onclick="copyText(lastAnswer,'Answer copied with sources')">Copy answer</button></div>`+
         facts.map(f=>{const [sk,...rest]=f.sub.split(' · ');return `<div class="qa-f">${hiq(rest.join(' · '),q)}<div class="qa-src">${esc(f.name)} · ${esc(sk)}</div></div>`;}).join('')+
         `</div>`;
     }
