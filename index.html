@@ -429,6 +429,7 @@ table.r-tbl td b{color:#0e1830}
 
 <div class="tl" id="gaps-view" style="display:none"></div>
 <div class="tl" id="today-view" style="display:none"></div>
+<div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
 
 <div class="rov" id="report-ov">
   <div class="rov-bar">
@@ -943,7 +944,10 @@ function renderClients(){
     </g>`;
   }
   svg.innerHTML=`<g class="stars">${stars}</g><g class="ilinks" id="ilinks"></g>${groups}<g id="fxlayer"></g>`;
-  svg.querySelectorAll('.chub,.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();focusClient(el.dataset.cli||el.dataset.client);}));
+  svg.querySelectorAll('.chub,.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();
+    const nm=el.dataset.cli||el.dataset.client;
+    if(FCLIENT===nm) openDossier(nm); else focusClient(nm);   // first click explores, second opens the dossier
+  }));
   svg.querySelectorAll('.node').forEach(el=>{
     el.addEventListener('click',e=>{e.stopPropagation(); if(FCLIENT===el.dataset.client) openSkill(el.dataset.skill); else focusClient(el.dataset.client);});
     el.addEventListener('mouseenter',()=>showTip(el.dataset.skill,el)); el.addEventListener('mouseleave',hideTip);
@@ -991,7 +995,7 @@ function syncHash(){
 }
 function routeHash(){
   const m=location.hash.match(/^#client\/([a-z0-9-]+)/);
-  if(m){ const cl=clientBySlug(m[1]); if(cl){ setView('clients'); focusClient(cl.name); return true; } }
+  if(m){ const cl=clientBySlug(m[1]); if(cl){ openDossier(cl.name); return true; } }
   return false;
 }
 window.addEventListener('hashchange',routeHash);
@@ -1718,9 +1722,62 @@ function renderToday(){
       quietClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:#c9a15a">· ${daysAgo(c.lastActive)}d silent</span></span>`).join('')||'<div class="latest">every active client taught the brain something in the last 2 weeks</div>');
 }
 
+/* ═══ STEP 5: the client dossier - a full page, not a side panel ═══ */
+let DOSSIER=null;
+function openDossier(name){
+  const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl) return;
+  DOSSIER=name;
+  const col=cliColor(cl);
+  /* 12-week rhythm */
+  const wk=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x.getTime();};
+  const nowW=wk(new Date()), weeks=[];
+  for(let i=11;i>=0;i--) weeks.push(nowW-i*7*86400000);
+  const acts=[...cl.lessons.map(l=>l.date),...cl.discussed.map(d=>d.date),...(cl.whatsapp||[]).map(w=>w.date)];
+  const perWeek=weeks.map(w=>acts.filter(d=>wk(d)===w).length);
+  const maxW=Math.max(1,...perWeek);
+  const rhythm=perWeek.map((n,i)=>`<div title="${n} facts" style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><div style="height:${Math.max(3,46*n/maxW)}px;background:${n?col:'var(--surface-2)'};opacity:${n?0.85:1};border-radius:3px"></div></div>`).join('');
+  /* win/loss ring */
+  const w=cl.lessons.filter(l=>l.outcome==='worked').length, f=cl.lessons.filter(l=>l.outcome==='failed').length;
+  const ring=(w||f)?(function(){const tot=w+f,R=26,CIRC=2*Math.PI*R,wf=w/tot;
+    return `<svg viewBox="0 0 64 64" style="width:64px;height:64px"><circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="7"/><circle cx="32" cy="32" r="${R}" fill="none" stroke="#4ade80" stroke-width="7" stroke-dasharray="${(CIRC*wf).toFixed(1)} ${CIRC.toFixed(1)}" transform="rotate(-90 32 32)" stroke-linecap="round"/><text x="32" y="36" text-anchor="middle" font-size="13" font-weight="800" fill="var(--text)">${w}-${f}</text></svg>`;})()
+    :'<div style="font-size:11px;color:var(--text-3);width:120px">No outcome tags yet - tag lessons [worked]/[failed] and the win/loss ring appears.</div>';
+  /* similar clients by shared skills */
+  const mySkills=new Set(cl.skills.map(s=>s.s));
+  const similar=CLIENTS_DATA.filter(c=>c.name!==name).map(c=>({c,ov:c.skills.filter(s=>mySkills.has(s.s)).length}))
+    .filter(x=>x.ov>0).sort((a,b)=>b.ov-a.ov).slice(0,3);
+  const gq=(D.gaps||[]).filter(g=>g.question.toLowerCase().includes(name.toLowerCase()));
+  const secH=t=>`<h3 style="font-size:14px;margin:24px 0 10px">${t}</h3>`;
+  const fact=(pre,txt,extra)=>`<div class="latest" style="margin-bottom:6px"><b>${pre}</b> · ${txt}${extra||''}</div>`;
+  document.getElementById('dossier-view').innerHTML=
+    `<button class="tbtn" onclick="setView('clients')" style="margin-bottom:16px">← All clients</button>
+     <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-left:3px solid ${col};padding-left:18px">
+       <div><h2 style="font-size:26px;color:${col}">${esc(cl.name)}</h2>
+       <div style="font-size:12.5px;color:var(--text-2)">${cl.total} facts on record · ${cl.lessonCount} lessons · ${cl.chatCount} from Claude · ${cl.waCount||0} from WhatsApp · first seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div></div>
+       <div style="margin-left:auto">${ring}</div>
+     </div>
+     ${secH('Activity rhythm - last 12 weeks')}
+     <div style="display:flex;gap:5px;align-items:flex-end;height:52px">${rhythm}</div>
+     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
+       <button class="fchip on" onclick="copyText(prepBrief('${esc(name)}'),'Prep brief copied')">Prep me</button>
+       <button class="fchip" onclick="waBrief('${esc(name)}')">Send brief on WhatsApp</button>
+       <button class="fchip" onclick="setView('clients');setTimeout(()=>focusClient('${esc(name)}'),400)">See in the brain</button>
+     </div>
+     ${gq.length?secH('Open questions about them')+gq.map(g=>`<div class="latest" style="margin-bottom:6px;display:flex;gap:10px;align-items:baseline"><span style="flex:1"><b>${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</span><span class="rvw"><button onclick="resolveGap(${g.id},'answered',this)">answered</button><button onclick="resolveGap(${g.id},'dismissed',this)">dismiss</button></span></div>`).join(''):''}
+     ${secH('Lessons we logged · '+cl.lessonCount)}
+     ${cl.lessons.slice(0,14).map(l=>fact(l.date,esc(l.summary)+' <span style="color:'+(C[l.cluster]?C[l.cluster].color:'#889')+'">'+esc(l.skill)+'</span>',l.outcome?` <span class="cf ${l.outcome}">${l.outcome}</span>`:'')).join('')||'<div class="latest">none yet - log the first one</div>'}
+     ${secH('Discussed on Claude · '+cl.chatCount)}
+     ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
+     ${secH('From WhatsApp · '+(cl.waCount||0))}
+     ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||'<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>'}
+     ${secH('Clients like this one')}
+     ${similar.length?similar.map(x=>`<div class="latest" style="margin-bottom:6px;cursor:pointer" onclick="openDossier('${esc(x.c.name)}');setView('dossier')"><b>${esc(x.c.name)}</b> · ${x.ov} shared skill${x.ov===1?'':'s'} · ${x.c.lessons.filter(l=>l.outcome==='worked').length} proven wins</div>`).join(''):'<div class="latest">no meaningful skill overlap with other clients yet</div>'}`;
+  setView('dossier');
+  history.replaceState(null,'','#client/'+slugOf(name));
+}
+
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',dossier:'dossier-view'};
 function setView(v){
   const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
   const prev=VIEW; VIEW=v;
@@ -1746,11 +1803,15 @@ function applyView(v,prev){
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
   document.getElementById('gaps-view').style.display = v==='gaps'?'block':'none';
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
+  document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain');
   document.getElementById('v-clients').classList.toggle('on',v==='clients');
   document.getElementById('v-tl').classList.toggle('on',v==='tl');
   document.getElementById('v-gaps').classList.toggle('on',v==='gaps');
+  document.getElementById('v-clients').classList.toggle('on',v==='clients'||v==='dossier');
+  if(v==='dossier'){ return; }
+  if(DOSSIER&&v!=='dossier'){ DOSSIER=null; if(location.hash.startsWith('#client')) history.replaceState(null,'','#'); }
   if(v==='gaps'){ renderGaps(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
@@ -1836,6 +1897,7 @@ document.addEventListener('keydown',e=>{
     const openOv=OVERLAYS.map(id=>document.getElementById(id)).find(o=>o.classList.contains('open'));
     if(openOv){openOv.classList.remove('open');return;}
     if(document.getElementById('report-ov').classList.contains('open')){document.getElementById('report-ov').classList.remove('open');return;}
+    if(VIEW==='dossier'){setView('clients');return;}
     if(FOCUS||FCLIENT){backOut();return;}
     closePanel();
   }
