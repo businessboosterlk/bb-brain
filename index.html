@@ -568,8 +568,8 @@ document.getElementById('gen').textContent = D.totals.skills+' skills · refresh
    in the same 1200x720 viewBox space so the camera, panels, search and deep links
    keep working untouched. Two dormant slots wait for future sectors. ═══ */
 const REGIONS = {
-  web:     {x:352,y:312}, strategy:{x:446,y:462}, content:{x:560,y:196}, sales:{x:706,y:190},
-  systems: {x:756,y:334}, seo:     {x:884,y:368}, intel:  {x:646,y:470}, ads:  {x:836,y:520},
+  web:     {x:348,y:330}, strategy:{x:462,y:502}, content:{x:566,y:200}, sales:{x:712,y:194},
+  systems: {x:766,y:340}, seo:     {x:906,y:380}, intel:  {x:652,y:498}, ads:  {x:846,y:540},
 };
 const DORMANT=[{x:540,y:330},{x:930,y:236}];   /* room to grow */
 const HUBS = Object.fromEntries(Object.entries(REGIONS).map(([k,v])=>[k,[v.x,v.y]]));
@@ -596,7 +596,7 @@ const spiralMax = {};
 })();
 /* ── the sway engine: one rAF loop gives the volume its life - idle yaw/pitch drift,
    a lean toward the focused sector, and a slow breath. Reduced-motion = still. ── */
-const SWAY={yaw:0,pitch:0,lean:0,leanT:0,els:null,raf:null};
+const SWAY={yaw:0,pitch:0,lean:0,leanT:0,els:null,micro:null,mesh:null,raf:null};
 const depthAlpha = z => (0.34+0.66*((z+120)/240));
 function swayLoop(now){
   SWAY.raf=requestAnimationFrame(swayLoop);
@@ -610,9 +610,20 @@ function swayLoop(now){
   const sy=Math.sin(yaw*Math.PI/180), sp=Math.sin(pitch*Math.PI/180);
   const scene=svgEl().querySelector('#scene');
   if(scene) scene.setAttribute('transform',`translate(${(600*(1-breathe)).toFixed(2)},${(372*(1-breathe)).toFixed(2)}) scale(${breathe.toFixed(4)})`);
+  const pos={};
   for(const el of SWAY.els){
     const z=+el.dataset.z;
-    el.setAttribute('transform',`translate(${(+el.dataset.bx + z*sy*0.85).toFixed(1)},${(+el.dataset.by + z*sp*0.55).toFixed(1)}) scale(${(1+z*0.0011).toFixed(3)})`);
+    const px=+el.dataset.bx + z*sy*0.85, py=+el.dataset.by + z*sp*0.55;
+    pos[el.dataset.skill]=[px,py];
+    el.setAttribute('transform',`translate(${px.toFixed(1)},${py.toFixed(1)}) scale(${(1+z*0.0011).toFixed(3)})`);
+  }
+  for(const m of SWAY.mesh||[]){            // filaments stay glued to their swaying nodes
+    const a=pos[m.dataset.a], b=pos[m.dataset.b];
+    if(a&&b){ m.setAttribute('x1',a[0].toFixed(1)); m.setAttribute('y1',a[1].toFixed(1)); m.setAttribute('x2',b[0].toFixed(1)); m.setAttribute('y2',b[1].toFixed(1)); }
+  }
+  for(const el of SWAY.micro||[]){
+    const z=+el.dataset.z;
+    el.setAttribute('transform',`translate(${(+el.dataset.bx + z*sy*0.85).toFixed(1)},${(+el.dataset.by + z*sp*0.55).toFixed(1)})`);
   }
 }
 
@@ -630,7 +641,7 @@ function renderBrain(){
   /* ── the anatomy: profile silhouette, sulci folds, breathing region auras ── */
   let defs='<defs>';
   for(const cid of Object.keys(REGIONS)){
-    defs+=`<radialGradient id="rg-${cid}"><stop offset="0%" stop-color="${C[cid].color}" stop-opacity="0.16"/><stop offset="62%" stop-color="${C[cid].color}" stop-opacity="0.055"/><stop offset="100%" stop-color="${C[cid].color}" stop-opacity="0"/></radialGradient>`;
+    defs+=`<radialGradient id="rg-${cid}"><stop offset="0%" stop-color="${C[cid].color}" stop-opacity="0.30"/><stop offset="55%" stop-color="${C[cid].color}" stop-opacity="0.11"/><stop offset="100%" stop-color="${C[cid].color}" stop-opacity="0"/></radialGradient>`;
   }
   defs+='</defs>';
   const SIL='M 262 392 C 246 322 268 244 330 186 C 392 128 490 96 600 92 C 716 88 822 112 896 168 C 962 218 1000 292 1000 366 C 1000 424 980 470 942 500 C 962 520 972 552 958 584 C 940 624 892 644 844 632 C 820 668 776 686 738 676 C 726 700 700 712 676 706 C 640 698 622 672 626 644 C 560 640 488 620 430 584 C 356 538 296 470 262 392 Z';
@@ -641,13 +652,23 @@ function renderBrain(){
     'M 470 520 C 540 560 620 580 700 580','M 852 548 C 880 572 910 580 940 566',
   ];
   const auras=Object.entries(REGIONS).map(([cid,R])=>
-    `<ellipse cx="${R.x}" cy="${R.y}" rx="${(spiralMax[cid]||50)+52}" ry="${((spiralMax[cid]||50)+52)*0.86}" fill="url(#rg-${cid})"/>`).join('');
+    `<ellipse cx="${R.x}" cy="${R.y}" rx="${(spiralMax[cid]||50)+66}" ry="${((spiralMax[cid]||50)+66)*0.86}" fill="url(#rg-${cid})"/>`).join('');
+  /* micro-dot fill: tiny background sparks give each territory its density (reference look) */
+  let micro='';
+  for(const [cid,R] of Object.entries(REGIONS)){
+    const col=C[cid].color, spread=(spiralMax[cid]||50)+34;
+    for(let i=0;i<16;i++){
+      const a=i*2.399+cid.charCodeAt(0), r=spread*(0.25+0.72*((i*37)%17)/17);
+      const mx=R.x+r*Math.cos(a), my=R.y+r*Math.sin(a)*0.82, z=(-90+((i*53)%180));
+      micro+=`<circle class="micro" data-z="${z}" data-bx="${mx.toFixed(1)}" data-by="${my.toFixed(1)}" transform="translate(${mx.toFixed(1)},${my.toFixed(1)})" r="${(0.7+((i*7)%8)/9).toFixed(2)}" fill="${col}" opacity="${(0.16+0.30*((z+90)/180)).toFixed(2)}"/>`;
+    }
+  }
   const dormant=DORMANT.map((d,i)=>`<g class="dormant"><ellipse cx="${d.x}" cy="${d.y}" rx="44" ry="36" fill="none" stroke="#5d6a83" stroke-opacity="0.28" stroke-width="1" stroke-dasharray="4 5"/><text x="${d.x}" y="${d.y+3}" text-anchor="middle" font-size="8.5" fill="#5d6a83" opacity="0.55">room to grow</text></g>`).join('');
   const anatomy=`<g id="anatomy">
-    <path d="${SIL}" fill="#5B9DFF" fill-opacity="0.022" stroke="#8fb8ff" stroke-opacity="0.13" stroke-width="1.4"/>
-    <path d="${SIL}" fill="none" stroke="#8fb8ff" stroke-opacity="0.05" stroke-width="7" style="filter:blur(6px)"/>
-    ${SULCI.map(s=>`<path d="${s}" fill="none" stroke="#8fb8ff" stroke-opacity="0.06" stroke-width="1"/>`).join('')}
-    ${auras}${dormant}
+    <path d="${SIL}" fill="#5B9DFF" fill-opacity="0.045" stroke="#8fb8ff" stroke-opacity="0.24" stroke-width="1.6"/>
+    <path d="${SIL}" fill="none" stroke="#8fb8ff" stroke-opacity="0.12" stroke-width="9" style="filter:blur(7px)"/>
+    ${SULCI.map(s=>`<path d="${s}" fill="none" stroke="#8fb8ff" stroke-opacity="0.11" stroke-width="1.1"/>`).join('')}
+    ${auras}${micro}${dormant}
   </g>`;
   const LOBE_L=['web','strategy','intel','ads'], LOBE_R=['content','sales','systems','seo'];
   const pairs=[];
@@ -681,14 +702,25 @@ function renderBrain(){
     const [hx,hy]=HUBS[cid]; const col=C[cid].color;
     const cn=nodes.filter(n=>n.cid===cid);
     let spokes='', ns='', labels='';
+    /* filament mesh: each node links to its 2 nearest siblings - the reference's neural web */
+    const seenPair=new Set();
+    cn.forEach((n,i)=>{
+      const near=cn.map((m,j)=>({j,d:(n.x-m.x)**2+(n.y-m.y)**2})).filter(x=>x.j!==i).sort((a,b)=>a.d-b.d).slice(0,2);
+      for(const {j} of near){
+        const k=Math.min(i,j)+'-'+Math.max(i,j);
+        if(seenPair.has(k)) continue; seenPair.add(k);
+        const m=cn[j], op=0.10+0.10*Math.min(depthAlpha(n.z),depthAlpha(m.z));
+        spokes+=`<line class="mesh" data-a="${esc(n.s.name)}" data-b="${esc(m.s.name)}" x1="${n.x.toFixed(1)}" y1="${n.y.toFixed(1)}" x2="${m.x.toFixed(1)}" y2="${m.y.toFixed(1)}" stroke="${col}" stroke-opacity="${op.toFixed(2)}" stroke-width="0.7"/>`;
+      }
+    });
     let idx=0;
     for(const n of cn){
-      spokes+=`<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${col}" stroke-opacity="0.14" stroke-width="0.8"/>`;
+      spokes+=`<line x1="${hx}" y1="${hy}" x2="${n.x.toFixed(1)}" y2="${n.y.toFixed(1)}" stroke="${col}" stroke-opacity="0.10" stroke-width="0.7"/>`;
       const deep=n.s.depth>=6, delay=FIRST_PAINT?(XRANK[cid]*72+(idx++%40)*12):0;
       const da=depthAlpha(n.z);
       ns+=`<g class="node${n.s.quiet?' quiet':''}" data-skill="${esc(n.s.name)}" data-c="${cid}" data-z="${n.z.toFixed(1)}" data-bx="${n.x.toFixed(1)}" data-by="${n.y.toFixed(1)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)}) scale(${(1+n.z*0.0011).toFixed(3)})" style="animation-delay:${delay}ms">
-        ${deep?`<circle r="${(n.rad*1.9).toFixed(1)}" fill="${col}" fill-opacity="${(0.07*da).toFixed(3)}"/>`:''}
-        <circle class="core${deep?' pulse':''}" r="${n.rad}" fill="${col}" fill-opacity="${(n.s.depth===0?0.4:0.88)*da}" ${deep&&n.z>-30?`style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}></circle>
+        ${n.s.depth>0?`<circle r="${(n.rad*2.3).toFixed(1)}" fill="${col}" fill-opacity="${(0.11*da).toFixed(3)}"/>`:''}
+        <circle class="core${deep?' pulse':''}" r="${n.rad}" fill="${col}" fill-opacity="${(n.s.depth===0?0.4:0.92)*da}" ${deep&&n.z>-30?`style="filter:drop-shadow(0 0 ${Math.min(14,4+n.s.depth/4)}px ${col})"`:''}></circle>
       </g>`;
       labels+=`<text class="nlabel" x="${n.x.toFixed(1)}" y="${(n.y+n.rad+8).toFixed(1)}">${esc(shortName(n.s.name))}</text>`;
     }
@@ -706,6 +738,8 @@ function renderBrain(){
   }
   svg.innerHTML=`<g class="stars">${stars}</g>${defs}<g id="scene">${anatomy}<g class="ilinks" id="ilinks">${ilinks}${pulses}</g>${groups}<g id="fxlayer"></g></g>`;
   SWAY.els=[...svg.querySelectorAll('.node[data-z]')];
+  SWAY.micro=[...svg.querySelectorAll('.micro[data-z]')];
+  SWAY.mesh=[...svg.querySelectorAll('line.mesh')];
   if(!SWAY.raf) SWAY.raf=requestAnimationFrame(swayLoop);
   svg.querySelectorAll('.node').forEach(el=>{
     el.addEventListener('click',e=>{e.stopPropagation(); const cid=el.dataset.c;
