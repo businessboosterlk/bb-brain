@@ -113,6 +113,10 @@ svg.focused .stars{opacity:.35}
 .zoomctl button{width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:blur(8px);border:1px solid var(--line-2);color:var(--text-2);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:color .15s}
 .zoomctl button:hover{color:var(--text)}
 .demo-hint{position:absolute;bottom:16px;right:16px;z-index:20;font-size:11px;color:var(--text-3);background:color-mix(in srgb,var(--surface) 80%,transparent);border:1px solid var(--line);border-radius:99px;padding:6px 13px;display:none}
+.story{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:21;display:none;max-width:min(620px,90%);text-align:center;font-size:14px;color:var(--text);background:color-mix(in srgb,var(--surface-2) 88%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line-2);border-radius:var(--r-md);padding:12px 22px;box-shadow:var(--shadow);opacity:0;transition:opacity var(--dur-normal) var(--ease)}
+body.present .story{display:block}
+.story.on{opacity:1}
+.story b{color:var(--blue)}
 body.present .demo-hint{display:block}
 body.present .coach{display:none}
 .coach{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:22;font-size:12.5px;color:var(--text-2);background:color-mix(in srgb,var(--surface-2) 86%,transparent);backdrop-filter:blur(10px);border:1px solid var(--line-2);border-radius:99px;padding:9px 18px;box-shadow:var(--shadow);transition:opacity .4s var(--ease),transform .4s var(--ease);pointer-events:none}
@@ -383,6 +387,7 @@ table.r-tbl td b{color:#0e1830}
       <button onclick="backOut()" aria-label="Reset view" style="font-size:13px">⤢</button>
     </div>
     <div class="demo-hint">Auto-touring the brain · click or press Esc to take control</div>
+    <div class="story" id="story"></div>
     <div class="coach" id="coach"><b>Click any sector</b> to zoom in and explore its skills</div>
     <div class="tip" id="tip"></div>
     <aside class="panel" id="panel"></aside>
@@ -952,16 +957,30 @@ function backOut(){ if(MODE==='clients') unfocusClients(); else unfocus(); }
 
 /* ═══ auto-demo tour (present mode) ═══ */
 let demoTimer=null, demoIdx=0, demoActive=false;
+function storyLine(cid){
+  // honest, data-built captions only - numbers come straight from the scan
+  const cs=D.skills.filter(s=>s.cluster===cid);
+  const clSet=new Set(); cs.forEach(s=>(s.clients||[]).forEach(x=>clSet.add(x.c)));
+  const d=D.totals.depthByCluster[cid];
+  return `<b>${esc(C[cid].name)}</b> - ${cs.length} specialist skills, battle-tested ${d} time${d===1?'':'s'}${clSet.size?` across ${clSet.size} client${clSet.size===1?'':'s'}`:''}.`;
+}
+function setStory(html){ const s=document.getElementById('story'); if(!s)return; if(!html){s.classList.remove('on');return;} s.innerHTML=html; s.classList.add('on'); }
 function startDemo(){
   demoActive=true; demoIdx=0;
   const step=()=>{
     if(!demoActive)return;
-    focusCluster(DEMO_SEQ[demoIdx%DEMO_SEQ.length]);
-    demoTimer=setTimeout(()=>{ if(!demoActive)return; clearFocusDom(); demoTimer=setTimeout(()=>{demoIdx++;step();},1150); },4100);
+    const cid=DEMO_SEQ[demoIdx%DEMO_SEQ.length];
+    focusCluster(cid);
+    setStory(storyLine(cid));
+    demoTimer=setTimeout(()=>{ if(!demoActive)return; clearFocusDom();
+      // end of a full cycle: the closing stat beat
+      if((demoIdx+1)%DEMO_SEQ.length===0) setStory(`This brain holds <b>${D.totals.skills} skills</b> and <b>${D.totals.entries} lessons</b> learned from <b>${(D.clients||[]).length} businesses</b> - and it gets sharper every single day.`);
+      else setStory('');
+      demoTimer=setTimeout(()=>{demoIdx++;step();},(demoIdx+1)%DEMO_SEQ.length===0?3400:1150); },4100);
   };
   demoTimer=setTimeout(step,900);
 }
-function stopDemo(){ if(!demoActive)return; demoActive=false; clearTimeout(demoTimer); }
+function stopDemo(){ if(!demoActive)return; demoActive=false; clearTimeout(demoTimer); setStory(''); }
 
 /* ═══ hover mini-card - follows the pointer with a lag lerp, never teleports ═══ */
 let tipOn=false, tipT={x:0,y:0}, tipP={x:0,y:0}, tipRaf=null;
