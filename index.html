@@ -918,6 +918,7 @@ function prepBrief(name){
 `Top skills: ${cl.skills.slice(0,5).map(s=>s.s+' ('+s.n+')').join(', ')||'none'}\n\n`+
 `LATEST LESSONS WE LOGGED\n${cl.lessons.slice(0,6).map(l=>'  · '+l.date+' ['+l.skill+'] '+l.summary).join('\n')||'  · none yet'}\n\n`+
 `WHAT WAS DISCUSSED ON CLAUDE\n${cl.discussed.slice(0,8).map(d=>'  · '+d.date+(d.kind==='decision'?' [decision]':'')+' '+d.snippet).join('\n')||'  · nothing captured yet'}\n\n`+
+`FROM WHATSAPP\n${(cl.whatsapp||[]).slice(0,8).map(w=>'  · '+w.date+' '+w.sender+': '+w.snippet+(w.kind==='decision'?' [decision]':'')).join('\n')||'  · no chat exports ingested yet'}\n\n`+
 `Everything above is what the scan actually found - gaps mean nothing was logged, not that nothing happened.`;
 }
 function waBrief(name){ const b=prepBrief(name); if(!b)return; open('https://wa.me/?text='+encodeURIComponent(b.slice(0,3500)),'_blank'); }
@@ -927,7 +928,7 @@ function openClientPanel(name){
   const cchips=Object.entries(cl.clusters).sort((a,b)=>b[1]-a[1]).map(([id,n])=>`<span class="pill" style="color:${C[id]?C[id].color:''}"><span style="width:7px;height:7px;border-radius:50%;background:${C[id]?C[id].color:'#889'}"></span>${esc(C[id]?C[id].name:id)} · ${n}</span>`).join('');
   p.innerHTML=`<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
     <h2 style="color:${col}">${esc(cl.name)}</h2>
-    <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} things you discussed</span></div>
+    <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} discussed on Claude${cl.waCount?`<br>${cl.waCount} from WhatsApp`:''}</span></div>
     <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div>
     ${(function(){ /* attention flags: what this client needs, not just what happened */
       const f=[];
@@ -959,7 +960,9 @@ function openClientPanel(name){
     <div class="sec">Latest lessons from this client</div>
     ${cl.lessons.slice(0,4).map(l=>`<div class="latest" style="margin-bottom:6px"><b>${esc(l.date)}</b> · <span style="color:${C[l.cluster]?C[l.cluster].color:''}">${esc(l.skill)}</span> · ${esc(l.summary)}</div>`).join('')||'<div class="latest">none logged yet</div>'}
     <div class="sec">What you discussed on Claude</div>
-    ${cl.discussed.slice(0,5).map(d=>`<div class="latest" style="margin-bottom:6px"><b>${esc(d.date)}</b> · ${esc(d.snippet)}</div>`).join('')||'<div class="latest">nothing captured from chat yet</div>'}`;
+    ${cl.discussed.slice(0,5).map(d=>`<div class="latest" style="margin-bottom:6px"><b>${esc(d.date)}</b> · ${esc(d.snippet)}</div>`).join('')||'<div class="latest">nothing captured from chat yet</div>'}
+    <div class="sec">From WhatsApp <span class="cf worked" style="margin-left:6px">whatsapp</span></div>
+    ${(cl.whatsapp||[]).slice(0,6).map(w=>`<div class="latest" style="margin-bottom:6px"><b>${esc(w.date)}</b> · <span style="color:var(--text-3)">${esc(w.sender)}:</span> ${esc(w.snippet)}${w.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':''}</div>`).join('')||('<div class="latest">No chat exports yet. Export their WhatsApp chat (Without Media) and drop it in ~/bb-brain-inbox/'+slugOf(cl.name)+'/ - the nightly build eats it.</div>')}`;
   p.classList.add('open');
 }
 function unfocusClients(){

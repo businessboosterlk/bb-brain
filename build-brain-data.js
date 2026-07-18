@@ -422,6 +422,66 @@ function harvestChat() {
 const decisions = [];
 const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions } = harvestChat();
 
+/* ══ WHATSAPP PIPE (v1, text only): ~/bb-brain-inbox/<client-slug>/ holds WhatsApp
+   chat exports (.txt, or .zip containing one). Folder name = the client. Nightly,
+   every export is parsed; only MEANINGFUL lines survive (decision language, prices,
+   dates, length) - "ok" and "good morning" never reach the brain. Deduped by
+   date+text so re-dropping a newer export of the same chat is safe. ══ */
+const WA_INBOX = process.env.BB_INBOX || path.join(HOME, 'bb-brain-inbox');
+const slugify = n => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const WA_LINE = /^\[?(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4}),? \d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|am|pm)?\]?\s(?:- )?([^:]{1,40}):\s(.*)$/;
+const WA_JUNK = /^(ok|okay|k|yes|no|good morning|good night|gm|gn|thanks|thank you|hi|hello|noted|sure|👍|❤️|🙏|<media omitted>|image omitted|video omitted|audio omitted|sticker omitted|this message was deleted|you deleted this message|missed voice call|missed video call|null)\.?$/i;
+const WA_MEANING = /\b(lkr|rs\.?|price|quote|invoice|pay|paid|budget|deadline|due|launch|deliver|confirm|agree|decided|final|contract|meeting|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|problem|issue|complain|not happy|urgent|cancel|approve|change|revise|send|post|video|design|boost|campaign|ad|follower|lead|client|order)\b/i;
+const WA_DECISION = /\b(decided|confirm(ed)?|agreed|final|deadline|due (on|by)|launch|the price is|charge|budget|pay (on|by|half)|advance|contract|approve[d]?|cancel(led)?|lkr\s?[\d,]|rs\.?\s?[\d,]|\b\d+%)\b/i;
+function ingestWhatsApp() {
+  const perClient = {}; let files = 0, kept = 0;
+  let dirs = [];
+  try { dirs = fs.readdirSync(WA_INBOX).filter(d => { try { return fs.statSync(path.join(WA_INBOX, d)).isDirectory(); } catch (e) { return false; } }); } catch (e) { return { perClient, files, kept }; }
+  // folder slug -> roster display name, else title-cased folder (new clients allowed)
+  const bySlug = {}; for (const disp of Object.values(ROSTER)) bySlug[slugify(disp)] = disp;
+  for (const dir of dirs) {
+    const display = bySlug[dir] || dir.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    let names = [];
+    try { names = fs.readdirSync(path.join(WA_INBOX, dir)); } catch (e) { continue; }
+    for (const fn of names) {
+      const full = path.join(WA_INBOX, dir, fn);
+      let raw = null;
+      try {
+        if (fn.endsWith('.txt')) raw = fs.readFileSync(full, 'utf8');
+        else if (fn.endsWith('.zip')) raw = require('child_process').execSync(`unzip -p ${JSON.stringify(full)} '*.txt'`, { maxBuffer: 32 * 1024 * 1024 }).toString();
+        else continue;
+      } catch (e) { continue; }
+      files++;
+      const seen = new Set();
+      for (const line of raw.split('\n')) {
+        const m = line.replace(/‎/g, '').trim().match(WA_LINE);
+        if (!m) continue;
+        let [, d1, d2, yy, sender, text] = m;
+        text = text.trim();
+        if (text.length < 20 || WA_JUNK.test(text)) continue;
+        if (!WA_MEANING.test(text)) continue;                       // meaningful lines only
+        // exports are DD/MM in SL; year may be 2 or 4 digits
+        const year = yy.length === 2 ? '20' + yy : yy;
+        const date = `${year}-${String(d2).padStart(2, '0')}-${String(d1).padStart(2, '0')}`;
+        if (!/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) continue;
+        const snippet = text.replace(/\s+/g, ' ').slice(0, 160);
+        const k = date + '|' + snippet.slice(0, 40).toLowerCase();
+        if (seen.has(k)) continue; seen.add(k);
+        const kind = WA_DECISION.test(text) ? 'decision' : 'mention';
+        (perClient[display] = perClient[display] || []).push({ date, snippet, sender: sender.trim().slice(0, 30), kind });
+        kept++;
+      }
+    }
+  }
+  for (const c of Object.keys(perClient)) {
+    perClient[c].sort((a, b) => (a.kind === b.kind ? b.date.localeCompare(a.date) : a.kind === 'decision' ? -1 : 1));
+    perClient[c] = perClient[c].slice(0, 100);
+  }
+  return { perClient, files, kept };
+}
+const wa = ingestWhatsApp();
+console.log('whatsapp pipe:', wa.files ? wa.files + ' exports, ' + wa.kept + ' meaningful lines kept' : 'inbox empty');
+
 /* ══ RICH PER-CLIENT DATASET: everything the brain knows about each client,
    from skill attribution (what we did) + chat harvest (what we discussed). ══ */
 function buildClients() {
@@ -432,9 +492,11 @@ function buildClients() {
   }
   for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary, outcome: e.outcome || null });
   for (const [c, arr] of Object.entries(chatByClient)) { const r = ensure(c); r.discussed = arr; }
+  for (const [c, arr] of Object.entries(wa.perClient)) { const r = ensure(c); r.whatsapp = arr; }
   const list = Object.values(map).map(r => {
     const lessons = r.lessons.sort((a, b) => b.date.localeCompare(a.date));
-    const dates = [...lessons.map(l => l.date), ...r.discussed.map(d => d.date)].sort();
+    r.whatsapp = r.whatsapp || [];
+    const dates = [...lessons.map(l => l.date), ...r.discussed.map(d => d.date), ...r.whatsapp.map(w => w.date)].sort();
     const domCluster = Object.entries(r.clusters).sort((a, b) => b[1] - a[1])[0];
     return {
       name: r.name,
@@ -443,9 +505,11 @@ function buildClients() {
       skills: Object.entries(r.skills).sort((a, b) => b[1] - a[1]).map(([s, n]) => ({ s, n, cluster: (out.skills.find(x => x.name === s) || {}).cluster || 'intel' })),
       clusters: r.clusters,
       domCluster: domCluster ? domCluster[0] : 'intel',
+      whatsapp: r.whatsapp,
       lessonCount: r.lessons.length,
       chatCount: r.discussed.length,
-      total: r.lessons.length + r.discussed.length,
+      waCount: r.whatsapp.length,
+      total: r.lessons.length + r.discussed.length + r.whatsapp.length,
       firstSeen: dates[0] || null,
       lastActive: dates[dates.length - 1] || null,
     };
@@ -527,6 +591,7 @@ out.totals = {
   chatEntries: chatMem.length,
   chatDiscussed,
   chatDecisions: chatDecisions.length,
+  waFiles: wa.files, waFacts: wa.kept,
   clientsFull: out.clients.length,
   skills: out.skills.length,
   entries: out.skills.reduce((n, s) => n + s.depth, 0),
