@@ -6,6 +6,9 @@
 <meta name="robots" content="noindex">
 <title>BB Digital Brain</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='34' fill='%235B9DFF'/></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0d1420">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1630,6 +1633,7 @@ addEventListener('resize',()=>{ if(document.getElementById('tour').style.display
 
 renderBrain(); wireCamera(); applyCam(); routeHash();
 setTimeout(()=>startTour(false), 700);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
