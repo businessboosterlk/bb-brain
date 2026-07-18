@@ -85,6 +85,13 @@ input{font-family:inherit}
 svg.brain{display:block;width:100%;height:auto;cursor:grab;touch-action:none}
 svg.brain.panning{cursor:grabbing}
 .node{cursor:pointer}
+/* CALM BY DEFAULT: the resting brain shows only lobes, cores and labels.
+   Nodes, webs and sparks reveal when a sector is focused. */
+.node,line.mesh,.micro,.bulb,.ray{transition:opacity var(--dur-slow) var(--ease)}
+svg.calm .node{opacity:0!important;pointer-events:none}
+svg.calm line.mesh,svg.calm .micro,svg.calm .ray{opacity:0}
+svg.calm .bulb{opacity:.45}
+.membrane{cursor:pointer}
 .node circle.core{transition:transform .18s var(--ease)}
 .node:hover circle.core{transform:scale(1.25)}
 .node.hit circle.core{stroke:#fff;stroke-width:1.5}
@@ -675,14 +682,14 @@ function renderBrain(){
       const a=k/NB*2*Math.PI+mi;
       const br=R.rr*(0.30+0.10*Math.sin(k*2.7+mi));
       const bx=R.x+(R.rr*0.80)*Math.cos(a), by=R.y+(R.rr*0.80)*0.88*Math.sin(a);
-      g+=`<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${br.toFixed(1)}" fill="${col}" fill-opacity="0.045" stroke="${col}" stroke-opacity="0.16" stroke-width="1"/>`;
+      g+=`<circle class="bulb" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${br.toFixed(1)}" fill="${col}" fill-opacity="0.045" stroke="${col}" stroke-opacity="0.16" stroke-width="1"/>`;
     }
     /* blurred glow shell behind the bulbs */
     g+=`<ellipse cx="${R.x}" cy="${R.y}" rx="${R.rr*1.02}" ry="${R.rr*0.90}" fill="none" stroke="${col}" stroke-opacity="0.20" stroke-width="7" style="filter:blur(6px)"/>`;
     /* starburst rays from the core */
     for(let k=0;k<18;k++){
       const a=k/18*2*Math.PI+mi*0.6, rl=R.rr*(0.42+0.34*((k*29)%13)/13);
-      g+=`<line x1="${R.x}" y1="${R.y}" x2="${(R.x+rl*Math.cos(a)).toFixed(1)}" y2="${(R.y+rl*0.88*Math.sin(a)).toFixed(1)}" stroke="${col}" stroke-opacity="0.20" stroke-width="0.8"/>`;
+      g+=`<line class="ray" x1="${R.x}" y1="${R.y}" x2="${(R.x+rl*Math.cos(a)).toFixed(1)}" y2="${(R.y+rl*0.88*Math.sin(a)).toFixed(1)}" stroke="${col}" stroke-opacity="0.20" stroke-width="0.8"/>`;
     }
     /* bokeh orbs: the volumetric blur depth */
     for(let k=0;k<9;k++){
@@ -797,6 +804,8 @@ function renderBrain(){
     el.addEventListener('mouseleave',hideTip);
   });
   svg.querySelectorAll('.hublabel').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();focusCluster(el.dataset.cluster);}));
+  svg.querySelectorAll('.membrane').forEach(el=>el.addEventListener('click',e=>{e.stopPropagation();if(!FOCUS)focusCluster(el.dataset.c);}));
+  svg.classList.add('calm');   // resting state: just the organ - detail reveals on focus
   document.getElementById('legend').innerHTML = ORDER.map(id=>{const c=C[id];return `<button onclick="focusCluster('${id}')"><span class="dot" style="background:${c.color}"></span>${esc(c.name)}<span style="color:var(--text-3)">· ${D.totals.depthByCluster[id]}</span></button>`;}).join('');
   FIRST_PAINT=false;
 }
@@ -938,7 +947,7 @@ function focusCluster(cid){
   if(MODE!=='skills'){ setTimeout(()=>focusCluster(cid),170); return; }   // wait out a pending mode-swap fade
   dismissCoach(); hideTip(); FOCUS=cid;
   SWAY.leanT = -((REGIONS[cid]?REGIONS[cid].x:600)-600)/600*11;   // the brain turns toward the chosen sector
-  const svg=svgEl(); svg.classList.add('focused');
+  const svg=svgEl(); svg.classList.add('focused'); svg.classList.remove('calm');   // detail wakes up
   if(!document.body.classList.contains('present')){ openCluster(cid); document.getElementById('panel').classList.add('choreo'); } // open FIRST so the camera biases left; choreo delays its entrance
   animateCam(clusterBox(cid),1150);                       // 1. camera starts
   clearTimeout(focusT);
@@ -963,7 +972,7 @@ function focusCluster(cid){
 function col2(cid){ return C[cid].color; }
 function clearFocusDom(){
   FOCUS=null; clearTimeout(focusT); SWAY.leanT=0;
-  const svg=svgEl(); svg.classList.remove('focused');
+  const svg=svgEl(); svg.classList.remove('focused'); if(MODE==='skills') svg.classList.add('calm');   // back to the calm organ
   document.getElementById('panel').classList.remove('choreo');
   animateCam(HOME,900);                                   // reverse: camera first,
   const undim=()=>{                                        // un-dim follows 80ms later
