@@ -428,7 +428,7 @@ function buildClients() {
   for (const s of out.skills) for (const { c, n } of (s.clients || [])) {
     const r = ensure(c); r.skills[s.name] = (r.skills[s.name] || 0) + n; r.clusters[s.cluster] = (r.clusters[s.cluster] || 0) + n;
   }
-  for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary });
+  for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary, outcome: e.outcome || null });
   for (const [c, arr] of Object.entries(chatByClient)) { const r = ensure(c); r.discussed = arr; }
   const list = Object.values(map).map(r => {
     const lessons = r.lessons.sort((a, b) => b.date.localeCompare(a.date));

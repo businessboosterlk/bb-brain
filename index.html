@@ -339,6 +339,7 @@ table.r-tbl td b{color:#0e1830}
     <div><div class="bt">Digital <em>Brain</em></div><div class="gen" id="gen"></div></div>
   </div>
   <div class="seg" role="tablist">
+    <button id="v-today" onclick="setView('today')">Today</button>
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
     <button id="v-clients" onclick="setView('clients')">Clients</button>
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
@@ -388,6 +389,7 @@ table.r-tbl td b{color:#0e1830}
 <div class="gap" id="gap"></div>
 
 <div class="tl" id="gaps-view" style="display:none"></div>
+<div class="tl" id="today-view" style="display:none"></div>
 
 <div class="rov" id="report-ov">
   <div class="rov-bar">
@@ -862,6 +864,17 @@ function openClientPanel(name){
     <h2 style="color:${col}">${esc(cl.name)}</h2>
     <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} things you discussed</span></div>
     <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div>
+    ${(function(){ /* attention flags: what this client needs, not just what happened */
+      const f=[];
+      const silent=cl.lastActive?Math.floor((Date.now()-new Date(cl.lastActive))/86400000):999;
+      if(silent>=14) f.push(`<span class="cf stale">${silent}d since anything was captured</span>`);
+      if(cl.lessonCount===0) f.push('<span class="cf stale">talked about, never a logged lesson</span>');
+      const wins=cl.lessons.filter(l=>l.outcome==='worked').length, fails=cl.lessons.filter(l=>l.outcome==='failed').length;
+      if(cl.lessonCount>0&&!wins&&!fails) f.push('<span class="cf single">no outcome-tagged win or fail yet</span>');
+      const gq=(D.gaps||[]).filter(g=>g.question.toLowerCase().includes(cl.name.toLowerCase()));
+      if(gq.length) f.push(`<span class="cf failed">${gq.length} open question${gq.length>1?'s':''} about them</span>`);
+      return f.length?`<div class="conf-row" style="margin-top:8px">${f.join(' ')}</div>`:'';
+    })()}
     <button class="loop-cta" onclick="copyText(prepBrief('${esc(cl.name)}'),'Prep brief copied - paste it anywhere')">Prep me for ${esc(cl.name)}<span>Copies everything the brain knows: capabilities, latest lessons, what you discussed.</span></button>
     <div style="font-size:10.5px;color:var(--text-3);margin-top:6px">Direct link: <span style="color:var(--blue)">${SITE}#client/${slugOf(cl.name)}</span></div>
     <div class="sec">Capabilities we used for them</div>
@@ -1417,9 +1430,41 @@ async function submitLesson(){
   btn.disabled=false; btn.textContent='Submit for approval';
 }
 
+/* ═══ TODAY: the daily front door - what the whole team opens first ═══ */
+function daysAgo(d){ return Math.floor((Date.now()-new Date(d))/86400000); }
+function renderToday(){
+  const today=new Date().toISOString().slice(0,10);
+  const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const fresh=D.timeline.filter(e=>e.date>=yest).slice(0,12);
+  const agentFresh=((D.agentFeed&&D.agentFeed.entries)||[]).filter(a=>a.date>=yest).slice(0,6);
+  const stale=D.timeline.filter(e=>e.stale);
+  const quietClients=(D.clients||[]).filter(c=>c.lastActive&&daysAgo(c.lastActive)>=14).sort((a,b)=>b.total-a.total).slice(0,6);
+  const gaps=D.gaps===null?null:(D.gaps||[]);
+  const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
+  const item=e=>`<div class="tl-item"><span class="dot" style="background:${C[e.cluster]?C[e.cluster].color:'#889'}"></span><span class="sk" style="color:${C[e.cluster]?C[e.cluster].color:'#889'}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`;
+  document.getElementById('today-view').innerHTML=
+    `<h2 style="font-size:19px;margin-bottom:4px">Today in the brain</h2>
+     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
+     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
+       <button class="fchip" onclick="openBYS()">Before you start a task</button>
+       <button class="fchip" onclick="openLog()">Log a lesson</button>
+       <button class="fchip" onclick="document.getElementById('q').focus()">Ask the brain ( / )</button>
+       <button class="fchip" onclick="openReport()">Weekly report</button>
+     </div>`
+    +sec(`Learned in the last 2 days · ${fresh.length}${agentFresh.length?' + '+agentFresh.length+' machine':''}`,'What your teammates and the agents just learned. Read this so the next task starts smarter than the last one.',
+      (fresh.map(item).join('')+agentFresh.map(a=>item({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[],via:'agent'})).join(''))||'<div class="latest">nothing logged in the last 2 days - if work happened, lessons are being lost. Log one now.</div>')
+    +sec(`Needs a human decision · ${stale.length+(gaps===null?0:gaps.length)}`,'Stale rules to confirm or retire, and questions the brain could not answer.',
+      (stale.slice(0,4).map(item).join('')
+       +(gaps===null?'<div class="latest">gaps feed offline at last build</div>'
+         :gaps.slice(0,4).map(g=>`<div class="latest" style="margin-bottom:6px"><b>${esc(g.created_at.slice(0,10))}</b> · open question: ${esc(g.question)}</div>`).join(''))
+       )||'<div class="latest">nothing waiting - all rules fresh, no open questions</div>')
+    +sec(`Clients going quiet in the brain · ${quietClients.length}`,'No lesson or chat captured in 14+ days. Either nothing is being learned from them, or lessons are not being logged - both are problems.',
+      quietClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:#c9a15a">· ${daysAgo(c.lastActive)}d silent</span></span>`).join('')||'<div class="latest">every active client taught the brain something in the last 2 weeks</div>');
+}
+
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view'};
 function setView(v){
   const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
   const prev=VIEW; VIEW=v;
@@ -1444,11 +1489,14 @@ function applyView(v,prev){
   document.getElementById('gap').style.display = v==='brain'?'block':'none';
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
   document.getElementById('gaps-view').style.display = v==='gaps'?'block':'none';
+  document.getElementById('today-view').style.display = v==='today'?'block':'none';
+  document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain');
   document.getElementById('v-clients').classList.toggle('on',v==='clients');
   document.getElementById('v-tl').classList.toggle('on',v==='tl');
   document.getElementById('v-gaps').classList.toggle('on',v==='gaps');
   if(v==='gaps'){ renderGaps(); return; }
+  if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
   const want = v==='clients'?'clients':'skills';
