@@ -49,6 +49,17 @@ if (!prev) {
   const stillQuiet = nowSnap.quiet.length;
   lines.push('', `Still quiet 60+ days: ${stillQuiet} skills. Agent feed: ${D.agentFeed ? (D.agentFeed.online ? D.agentFeed.entries.length + ' machine learnings' : 'OFFLINE') : 'not wired'}.`);
 }
+/* decay + gaps: the two questions the digest must always ask */
+const stale = D.timeline.filter(e => e.stale);
+lines.push('', `STALE RULES TO CONFIRM: ${stale.length}` + (stale.length ? ' - open the Timeline and tap "still true" or "retire" on each:' : ''));
+lines.push(...stale.slice(0, 5).map(e => `  · [${e.skill}] ${e.summary.slice(0, 90)}`));
+if (D.gaps === null) lines.push('', 'OPEN QUESTIONS: gaps feed was OFFLINE at build time - unknown, not zero.');
+else {
+  lines.push('', `OPEN QUESTIONS THE BRAIN COULD NOT ANSWER: ${(D.gaps || []).length}` + ((D.gaps || []).length ? ' - each is an instruction on what to learn next:' : ''));
+  lines.push(...(D.gaps || []).slice(0, 5).map(g => `  · ${g.created_at.slice(0, 10)} ${g.question.slice(0, 100)}`));
+}
+if (D.reviews && !D.reviews.offline && (D.reviews.kept || D.reviews.retired))
+  lines.push('', `DECAY LOOP: ${D.reviews.kept} rules re-confirmed, ${D.reviews.retired} retired this cycle.`);
 lines.push('', 'Full brain: https://businessboosterlk.github.io/bb-brain/');
 const body = `BB DIGITAL BRAIN - WEEKLY DELTA (${nowSnap.date})\n\n` + lines.join('\n') + '\n';
 

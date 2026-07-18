@@ -208,7 +208,19 @@ body.present .coach{display:none}
 .cf.emerging{color:#8fb8ff;border:1px solid rgba(143,184,255,.35)}
 .cf.single{color:var(--text-3);border:1px solid var(--line)}
 .cf.stale{color:#c9a15a;border:1px solid rgba(201,161,90,.4)}
+.cf.worked{color:#4ade80;border:1px solid rgba(74,222,128,.35)}
+.cf.failed{color:#f87171;border:1px solid rgba(248,113,113,.4)}
 .conf-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.rvw{display:inline-flex;gap:4px;margin-left:6px}
+.rvw button{font-size:10px;font-weight:700;border:1px solid var(--line-2);border-radius:99px;padding:1px 9px;color:var(--text-2);transition:color var(--dur-fast),border-color var(--dur-fast)}
+.rvw button:hover{color:var(--text);border-color:var(--blue)}
+.qanswer{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md);margin:6px;padding:12px 14px}
+.qanswer .qa-h{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--blue);margin-bottom:8px}
+.qanswer .qa-f{font-size:12.5px;color:var(--text);line-height:1.5;padding-left:12px;position:relative;margin-bottom:8px}
+.qanswer .qa-f::before{content:"";position:absolute;left:0;top:5px;width:3px;height:12px;border-radius:2px;background:var(--blue)}
+.qanswer .qa-src{color:var(--text-3);font-size:11px}
+.qgap{margin:6px;padding:10px 14px;width:calc(100% - 12px);text-align:left;font-size:12.5px;font-weight:600;color:#c9a15a;border:1px dashed rgba(201,161,90,.5);border-radius:var(--r-md);transition:border-color var(--dur-fast)}
+.qgap:hover{border-color:#c9a15a}
 
 /* ── report modal ── */
 .overlay{position:fixed;inset:0;background:rgba(4,7,12,.72);backdrop-filter:blur(5px);z-index:90;display:none;align-items:center;justify-content:center;padding:18px}
@@ -403,6 +415,11 @@ table.r-tbl td b{color:#0e1830}
       <input class="fin" id="lg-client" placeholder="Client (who taught us this) - optional">
       <input class="fin" id="lg-skill" placeholder="Skill or area - optional (e.g. websites, decks, ads)">
       <textarea class="fin" id="lg-lesson" rows="4" placeholder="The lesson. What happened, what to do differently next time."></textarea>
+      <select class="fin" id="lg-outcome">
+        <option value="">Outcome - did it work? (optional)</option>
+        <option value="worked">It worked - do it again</option>
+        <option value="failed">It failed - never repeat</option>
+      </select>
     </div>
     <div class="actions"><button class="btn-p" id="lg-btn" onclick="submitLesson()">Submit for approval</button></div>
   </div>
@@ -429,7 +446,33 @@ const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 const BUCKETS = [[0,'New capability'],[1,'Tested'],[3,'Practiced'],[6,'Sharp'],[11,'Battle-hardened']];
 const bucket = d => { let b=BUCKETS[0][1]; for(const [min,l] of BUCKETS) if(d>=min) b=l; return d===0?'New capability':b; };
 const CONF_LBL={confirmed:'confirmed',emerging:'emerging',single:'single-event'};
-function confBadge(e){ if(!e.conf) return ''; return `<span class="cf ${e.stale?'stale':e.conf}" title="${e.stale?'Older than 90 days, not re-confirmed since':'Confidence from repetition across entries'}">${e.stale?'stale':CONF_LBL[e.conf]||e.conf}</span>`; }
+function entryKey(e){ return (e.skill+'|'+e.date+'|'+String(e.summary).slice(0,40)).toLowerCase(); }
+function confBadge(e){
+  if(!e.conf) return '';
+  let h=`<span class="cf ${e.stale?'stale':e.conf}" title="${e.stale?'Older than 90 days, not re-confirmed since':'Confidence from repetition across entries'}">${e.stale?'stale':CONF_LBL[e.conf]||e.conf}</span>`;
+  if(e.outcome) h+=` <span class="cf ${e.outcome}" title="Explicit outcome tag from the entry">${e.outcome}</span>`;
+  if(e.stale) h+=`<span class="rvw"><button onclick='reviewEntry(${JSON.stringify(entryKey(e))},"keep",this)'>still true</button><button onclick='reviewEntry(${JSON.stringify(entryKey(e))},"retire",this)'>retire</button></span>`;
+  return h;
+}
+/* decay loop: keep / retire a stale entry - verdict lands in brain_reviews, the nightly build applies it */
+async function pinOK(){
+  let p=sessionStorage.getItem('bb_pin_ok');
+  if(p==='1') return true;
+  const pin=prompt('PIN to review brain knowledge:');
+  if(!pin) return false;
+  if(!PIN_HASHES.includes(await sha256(pin.trim()))){ toast('Wrong PIN'); return false; }
+  sessionStorage.setItem('bb_pin_ok','1'); return true;
+}
+async function reviewEntry(key,verdict,btn){
+  if(!await pinOK()) return;
+  try{
+    const r=await fetch(SB_URL+'/brain_reviews',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({entry_key:key,verdict,reviewed_by:'brain-ui'})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(btn){ const row=btn.closest('.rvw'); if(row) row.innerHTML=`<span style="font-size:10px;color:${verdict==='keep'?'#4ade80':'#c9a15a'};font-weight:700">${verdict==='keep'?'re-confirmed':'will retire tonight'}</span>`; }
+    toast(verdict==='keep'?'Kept - re-confirmed as still true':'Marked to retire - removed at the next nightly build');
+  }catch(e){ toast('Could not save: '+e.message); }
+}
 const DEPTH_TIP = 'Battle-tested depth = how many logged learning iterations this skill has. It measures real-world use, not capability quality. A new skill can be excellent and still read 0.';
 const SITE = 'https://businessboosterlk.github.io/bb-brain/';
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -991,9 +1034,18 @@ let toastT;
 function toast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2000); }
 
 /* ═══ query box: fuzzy, instant, across skills / clients / clusters / learnings ═══ */
+const QSTOP=new Set(['the','a','an','do','we','how','what','is','are','for','our','of','to','in','on','and','did','does','know','about','lessons','lesson']);
 function fuzzyScore(q, text){
-  // exact substring wins big; else word-prefix; else in-order subsequence
   const t=text.toLowerCase();
+  // multi-word query = a question: every meaningful token must appear (AND), score by coverage
+  if(q.includes(' ')){
+    const toks=q.split(/\s+/).filter(w=>w.length>2&&!QSTOP.has(w));
+    if(!toks.length) return 0;
+    let sum=0;
+    for(const w of toks){ const i=t.indexOf(w); if(i===-1) return 0; sum+=60-Math.min(20,i/8); }
+    return sum/toks.length + toks.length*4;
+  }
+  // single token: exact substring wins big; else in-order subsequence
   const i=t.indexOf(q);
   if(i!==-1) return 100-(i>0?10:0)-Math.min(20,i);
   if(q.length<3) return 0;
@@ -1047,11 +1099,34 @@ function doSearch(q){
     for(const r of rows){ const idx=qHits.length; qHits.push(r);
       html+=`<div class="qi" data-qi="${idx}" onclick="qGo(${idx})"><span class="dot" style="background:${r.color}"></span><span class="nm">${hiq(r.name,q)}</span><span class="sub">${hiq(r.sub,q)}</span></div>`; }
   }
-  box.innerHTML=html||'<div class="qnone">Nothing in the brain matches that. If it should exist, that is a gap worth logging.</div>';
+  /* Ask-the-Brain: multi-word queries get a composed, sourced answer from the top facts */
+  let answer='';
+  if(q.split(/\s+/).length>=2||q.length>10){
+    const facts=R.filter(r=>r.t==='learning').slice(0,3);
+    if(facts.length){
+      answer=`<div class="qanswer"><div class="qa-h">What the brain knows</div>`+
+        facts.map(f=>{const [sk,...rest]=f.sub.split(' · ');return `<div class="qa-f">${hiq(rest.join(' · '),q)}<div class="qa-src">${esc(f.name)} · ${esc(sk)}</div></div>`;}).join('')+
+        `</div>`;
+    }
+  }
+  const gapBtn=`<button class="qgap" onclick="logGap()">The brain does not know this - log it as a gap so it gets learned</button>`;
+  box.innerHTML = html ? (answer+html) : ('<div class="qnone">Nothing in the brain matches that.</div>'+gapBtn);
   box.classList.add('open'); qSel=-1;
   if(skillHits&&skillHits.length===1&&!document.body.classList.contains('present')) openSkill(skillHits[0]);
 }
 function qGo(i){ const r=qHits[i]; if(!r)return; if(r.t!=='recent') qRemember(document.getElementById('q').value.trim().toLowerCase()); document.getElementById('qres').classList.remove('open'); r.go(); }
+/* answer-gap ledger: unanswered questions become open gaps the digest nags about */
+async function logGap(){
+  const question=document.getElementById('q').value.trim();
+  if(!question) return;
+  try{
+    const r=await fetch(SB_URL+'/brain_gaps',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({question:question.slice(0,300),asked_by:'brain-search'})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    document.getElementById('qres').classList.remove('open');
+    toast('Gap logged - it will show in the Gap radar and the weekly digest');
+  }catch(e){ toast('Could not log the gap: '+e.message); }
+}
 document.addEventListener('click',e=>{ if(!e.target.closest('.search')) document.getElementById('qres').classList.remove('open'); });
 
 /* ═══ this week + stats bar ═══ */
@@ -1241,6 +1316,15 @@ function renderTL(){
     + D.totals.clients.map(x=>`<button class="fchip${tlClient===x.c?' on':''}" onclick="tlClient='${esc(x.c)}';renderTL()">${esc(x.c)} · ${x.n}</button>`).join('');
 }
 
+async function resolveGap(id,status,btn){
+  if(!await pinOK()) return;
+  try{
+    const r=await fetch(SB_URL+'/brain_gaps?id=eq.'+id,{method:'PATCH',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({status,resolved_at:new Date().toISOString()})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(btn){ const row=btn.closest('.rvw'); if(row) row.innerHTML=`<span style="font-size:10px;color:var(--text-3);font-weight:700">${status}</span>`; }
+  }catch(e){ toast('Could not update: '+e.message); }
+}
 /* ═══ STEP 5: gap radar - where the machine is NOT learning ═══ */
 const SERVICE_LINES=[
   ['Influencer marketing','influencer'],
@@ -1267,6 +1351,10 @@ function renderGaps(){
       `<div style="display:flex;flex-wrap:wrap">${silentClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:var(--text-3)">· ${c.chatCount} chats</span></span>`).join('')||'none - every client has at least one logged lesson'}</div>`)
     +sec(`Service lines with no skill at all · ${noSkill.length}/${SERVICE_LINES.length}`,'Hand-maintained list of things BB sells or could sell, checked against every skill name and description.',
       `<div style="display:flex;flex-wrap:wrap">${noSkill.map(([l])=>`<span class="pill" style="margin:0 6px 6px 0;color:#c9a15a">${esc(l)}</span>`).join('')||'none - every listed service line has at least one matching skill'}</div>`)
+    +sec(`Open questions the brain could not answer · ${D.gaps===null?'feed offline':(D.gaps||[]).length}`,
+      'Logged from searches that found nothing. Each one is a precise instruction on what to learn next. Answer it anywhere (a lesson, a chat, a memory) and dismiss it here.',
+      D.gaps===null?'<div class="latest">The gaps feed was OFFLINE at the last build - open questions exist but are not shown, not absent.</div>'
+      :(D.gaps||[]).map(g=>`<div class="latest" style="margin-bottom:6px;display:flex;gap:10px;align-items:baseline"><span style="flex:1"><b>${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</span><span class="rvw"><button onclick="resolveGap(${g.id},'answered',this)">answered</button><button onclick="resolveGap(${g.id},'dismissed',this)">dismiss</button></span></div>`).join('')||'<div class="latest">none open - every question asked so far had an answer</div>')
     +sec(`Possible contradictions · ${(D.conflicts||[]).length} flagged`,'Same-topic entries where one side negates what the other states. A dumb keyword heuristic flags these for YOUR eye - most will be echoes, the real ones are gold. Nothing is ever auto-resolved.',
       (D.conflicts||[]).map(c=>`<div class="latest" style="margin-bottom:7px">
         <div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px">topic: ${(c.topic||[]).map(esc).join(', ')}</div>
@@ -1319,7 +1407,8 @@ async function submitLesson(){
   const btn=document.getElementById('lg-btn'); btn.disabled=true; btn.textContent='Submitting...';
   try{
     const r=await fetch(SB_URL+'/pending_learnings',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
-      body:JSON.stringify({submitted_by:name,client_name:document.getElementById('lg-client').value.trim()||null,skill_guess:document.getElementById('lg-skill').value.trim()||null,lesson})});
+      body:JSON.stringify({submitted_by:name,client_name:document.getElementById('lg-client').value.trim()||null,skill_guess:document.getElementById('lg-skill').value.trim()||null,
+        lesson: lesson + (document.getElementById('lg-outcome').value?' ['+document.getElementById('lg-outcome').value+']':'')})});
     if(!r.ok) throw new Error('HTTP '+r.status);
     document.getElementById('log-ov').classList.remove('open');
     document.getElementById('lg-lesson').value=''; document.getElementById('lg-client').value=''; document.getElementById('lg-skill').value='';
