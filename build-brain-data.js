@@ -27,6 +27,7 @@ const LEARNINGS_MAP = {
   'bb-vertical-learnings.md': 'bb-vertical-blueprint',
   'bb-quality-gate-learnings.md': 'bb-quality-gate',
   'bb-say-it-out-loud-learnings.md': 'bb-say-it-out-loud',
+  'bb-content-pipeline-learnings.md': 'bb-content-pipeline',
 };
 const EXTRA_LEARNINGS = [
   { file: path.join(HOME, 'bb-systems/FORGE-LEARNINGS.md'), skill: 'bb-system-forge' },
