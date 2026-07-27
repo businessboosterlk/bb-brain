@@ -1,6 +1,6 @@
 {
  "date": "2026-07-26",
- "entries": 392,
+ "entries": 395,
  "depthBySkill": {
   "banner-design": 0,
   "bb-anti-ai-tells": 0,
@@ -30,7 +30,7 @@
   "bb-meta-ads-copilot": 0,
   "bb-meta-ads-expert-plus": 0,
   "bb-mother-brain": 51,
-  "bb-motion-master": 6,
+  "bb-motion-master": 8,
   "bb-post-studio": 0,
   "bb-prompt-forge": 0,
   "bb-proof-spine": 0,
@@ -50,7 +50,7 @@
   "bb-tiktok-ads-expert": 0,
   "bb-vertical-blueprint": 2,
   "bb-vertical-factory": 0,
-  "bb-web-master": 180,
+  "bb-web-master": 181,
   "bb-web-seo-foundation": 0,
   "bb-website-lead-machine": 0,
   "brand": 0,
