@@ -2,17 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="robots" content="noindex">
 <title>BB Digital Brain</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='34' fill='%235B9DFF'/></svg>">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#0d1420">
+<meta name="theme-color" content="#070b12">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
+/* ── BB APP SHELL: the phone reports its own insets, we never guess a model ── */
+--sat:env(safe-area-inset-top,0px);
+--sab:env(safe-area-inset-bottom,0px);
   --bg:#070b12; --surface:#0d1420; --surface-2:#121a29; --line:rgba(160,190,255,.09); --line-2:rgba(160,190,255,.18);
   --text:#e9eef8; --text-2:#9aa8c0; --text-3:#5d6a83;
   --blue:#5B9DFF;
@@ -43,6 +49,9 @@ input{font-family:inherit}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:#1c2536;border-radius:99px;border:2px solid var(--bg)}::-webkit-scrollbar-track{background:transparent}
 
 /* ── top bar ── */
+/* the strip behind the clock and the battery. In standalone the page owns it,
+   so the page has to paint it or the content shows through. */
+.statusfill{position:fixed;top:0;left:0;right:0;height:var(--sat);z-index:60;pointer-events:none}
 .top{display:flex;align-items:center;gap:14px;padding:12px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(150%) blur(12px)}
 .brandbox{display:flex;align-items:center;gap:12px}
 .brandbox img{height:30px;width:auto;display:block}
@@ -382,6 +391,7 @@ table.r-tbl td b{color:#0e1830}
 </style>
 </head>
 <body>
+<div class="statusfill" aria-hidden="true"></div>
 
 <header class="top">
   <div class="brandbox">

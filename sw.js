@@ -1,20 +1,37 @@
-/* BB Brain service worker - offline-read cache for the shell + data.
-   Network-first so the nightly rebuild is always picked up; cache is the fallback. */
-const CACHE = 'bb-brain-v2';
-const ASSETS = ['./index.html', './brain-data.enc.js', './bb-logo.png', './manifest.json'];
+/* bb-brain service worker.
+
+   NETWORK-FIRST, so a new build always wins. A cache-first worker is how a team
+   ends up staring at a board that moved on hours ago.
+
+   THE RULE THIS EXISTS TO KEEP: never cache the database. Live rows are the
+   state of somebody's work, and a stale one gets acted on.
+*/
+const CACHE = 'bb-brain-v1';
+const SHELL = ['./', './manifest.json', './icon-192.png', './icon-512.png'];
+
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys()
+    .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+    .then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET' || !e.request.url.startsWith(self.location.origin)) return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.indexOf('/rest/v1/') > -1 || url.pathname.indexOf('/auth/v1/') > -1) return;
   e.respondWith(
-    fetch(e.request).then(r => {
-      const copy = r.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy));
-      return r;
-    }).catch(() => caches.match(e.request, { ignoreSearch: true }))
+    fetch(req)
+      .then(res => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then(hit => hit || caches.match('./')))
   );
 });
