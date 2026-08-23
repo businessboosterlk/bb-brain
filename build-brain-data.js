@@ -686,7 +686,12 @@ try {
     'window.BRAIN_ENC=' + JSON.stringify({ v: 1, salt: salt.toString('base64'), iv: iv.toString('base64'), ct: ct.toString('base64'), iter: 310000 }) + ';\n');
   console.log('encrypted artifact written (brain-data.enc.js,', Math.round(ct.length / 1024) + 'KB)');
 } catch (e) {
-  console.log('ENCRYPTION SKIPPED (' + e.message + ') - brain-data.enc.js NOT updated; do not deploy plaintext');
+  // Found 2026-08-23: a missing ~/.bb-brain-pass made this catch print a
+  // quiet 'skipped' while the nightly job reported success, so the live
+  // encrypted brain silently froze for 23 days. A build that cannot encrypt
+  // must FAIL, not shrug, or a dead brain looks alive.
+  console.error('ENCRYPTION FAILED (' + e.message + ') - refusing to finish. The live brain is NOT updated. Fix ~/.bb-brain-pass and rebuild.');
+  process.exit(1);
 }
 
 console.log('brain-data.js written:', out.totals.skills, 'skills,', out.totals.entries,
