@@ -1822,6 +1822,8 @@ function renderToday(){
   const stale=D.timeline.filter(e=>e.stale);
   const quietClients=(D.clients||[]).filter(c=>c.lastActive&&daysAgo(c.lastActive)>=14).sort((a,b)=>b.total-a.total).slice(0,6);
   const gaps=D.gaps===null?null:(D.gaps||[]);
+  const sysCut=new Date(Date.now()-3*86400000).toISOString().slice(0,10);
+  const sysFresh=((D.systems&&D.systems.events)||[]).filter(e=>e.date>=sysCut).slice(0,10);
   const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
   const item=e=>`<div class="tl-item"><span class="dot" style="background:${C[e.cluster]?C[e.cluster].color:'#889'}"></span><span class="sk" style="color:${C[e.cluster]?C[e.cluster].color:'#889'}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`;
   document.getElementById('today-view').innerHTML=
@@ -1845,6 +1847,8 @@ function renderToday(){
      </div>`
     +sec(`Learned in the last 2 days · ${fresh.length}${agentFresh.length?' + '+agentFresh.length+' machine':''}`,'What your teammates and the agents just learned. Read this so the next task starts smarter than the last one.',
       (fresh.map(item).join('')+agentFresh.map(a=>item({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[],via:'agent'})).join(''))||'<div class="latest">nothing logged in the last 2 days - if work happened, lessons are being lost. Log one now.</div>')
+    +(D.systems?sec('What moved in the systems · '+(D.systems.online?sysFresh.length:'offline'),'New logins, tasks and shoots pulled straight from the live tables at the last build.',
+      D.systems.online?(sysFresh.map(e=>`<div class="latest" style="margin-bottom:5px"><b>${esc(e.date)}</b> · ${esc(e.text)}</div>`).join('')||'<div class="latest">nothing new in the systems in the last 3 days</div>'):'<div class="latest">systems feed OFFLINE at last build: '+esc(D.systems.error||'unknown')+'</div>'):'')
     +sec(`Needs a human decision · ${stale.length+(gaps===null?0:gaps.length)}`,'Stale rules to confirm or retire, and questions the brain could not answer.',
       (stale.slice(0,4).map(item).join('')
        +(gaps===null?'<div class="latest">gaps feed offline at last build</div>'
@@ -1909,6 +1913,8 @@ function openDossier(name){
      ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
      ${secH('From WhatsApp · '+(cl.waCount||0))}
      ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||'<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>'}
+     ${secH('From the systems · '+((cl.systems||[]).length))}
+     ${(cl.systems||[]).slice(0,8).map(x=>fact(x.date,esc(x.text))).join('')||'<div class="latest">no recent system activity recorded for them</div>'}
      ${secH('From the client folder · '+(cl.docCount||0)+' docs')}
      ${(cl.docs||[]).slice(0,6).map(d=>`<div class="latest" style="margin-bottom:8px"><b>${esc(d.file)}</b> · ${d.lines} lines · updated ${esc(d.date)}${(d.flags&&d.flags.length)?d.flags.slice(0,4).map(fl=>`<div style="margin:4px 0 0 12px;color:#c9a15a;font-size:11.5px">⚑ ${esc(fl)}</div>`).join(''):''}</div>`).join('')||'<div class="latest">no BRAIN.md or ADS.md in ~/bb-consultancy/ for this client yet - that folder is where deep client knowledge lives</div>'}
      ${secH('Clients like this one')}

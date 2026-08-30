@@ -803,11 +803,63 @@ function applyReviews(reviews) {
   return { kept, retired };
 }
 
+/* ── SYSTEM EXHAUST (2026-08-30, the ninth mouth, on Thulaib's ask: "the brain must
+   know if I made a new login or an SMM asked for captions"): what the team DOES
+   inside the five systems. Read-only on the anon posture, same as the Command
+   Centre. EXPLICIT column lists only, never select=*, so a credential column added
+   to any table later can never leak into the brain. OFFLINE is a visible state in
+   the health strip, never a build failure: a network flake must not kill the feed. ── */
+async function ingestSystems() {
+  const res = { events: [], online: false, error: null, counts: {} };
+  try {
+    const [members, tasks, shoots, clientRows] = await Promise.all([
+      sbGet('/team_members?select=name,role,active,created_at&order=created_at.desc&limit=40'),
+      sbGet('/tasks?select=title,category,client_id,done,due,created_at&order=created_at.desc&limit=150'),
+      sbGet('/smm_shoots?select=title,client_id,shoot_date,status,video_count,created_at&order=created_at.desc&limit=40'),
+      sbGet('/clients?select=id,name&limit=120'),
+    ]);
+    const cname = {}; for (const c of clientRows) cname[c.id] = c.name;
+    /* live client names are ALL CAPS; route them through the alias matcher so the
+       dossier they land in is the same record every other source feeds */
+    const display = raw => { const hits = clientsIn(String(raw || '')); return hits[0] || (raw ? String(raw).toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) : null); };
+    const cutoff = Date.now() - 60 * 86400000;
+    const ev = [];
+    for (const m of members) {
+      if (new Date(m.created_at) < cutoff) continue;
+      ev.push({ date: m.created_at.slice(0, 10), sys: 'team', client: null, text: 'New team login: ' + m.name + (m.role ? ' (' + m.role + ')' : '') });
+    }
+    for (const t of tasks) {
+      if (new Date(t.created_at) < cutoff) continue;
+      const cl = t.client_id != null ? display(cname[t.client_id]) : null;
+      ev.push({ date: t.created_at.slice(0, 10), sys: 'tasks', client: cl, text: 'Task' + (cl ? ' for ' + cl : '') + ': ' + String(t.title || '').slice(0, 90) + (t.done ? ' (done)' : t.due ? ', due ' + String(t.due).slice(0, 10) : '') });
+    }
+    const soon = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    for (const s of shoots) {
+      if (new Date(s.created_at) < cutoff && !(s.shoot_date && s.shoot_date >= soon)) continue;
+      const cl = s.client_id != null ? display(cname[s.client_id]) : null;
+      ev.push({ date: s.shoot_date || s.created_at.slice(0, 10), sys: 'shoots', client: cl, text: 'Shoot' + (cl ? ' for ' + cl : '') + ': ' + String(s.title || '').slice(0, 60) + (s.status ? ' (' + s.status + ')' : '') + (s.shoot_date ? ', ' + s.shoot_date : '') });
+    }
+    ev.sort((a, b) => b.date.localeCompare(a.date));
+    res.events = ev.slice(0, 120);
+    res.online = true;
+    res.counts = { team: members.length, activeTeam: members.filter(m => m.active).length, tasks: tasks.length, shoots: shoots.length };
+  } catch (e) { res.error = String(e.message); }
+  return res;
+}
+
 Promise.all([
   fetchAgentLearnings(),
   sbGet('/brain_reviews?select=entry_key,verdict&order=created_at.asc').catch(e => ({ err: String(e.message) })),
   sbGet('/brain_gaps?select=id,question,asked_by,status,created_at&status=eq.open&order=created_at.desc&limit=50').catch(e => ({ err: String(e.message) })),
-]).then(([feed, reviews, gaps]) => {
+  ingestSystems(),
+]).then(([feed, reviews, gaps, systems]) => {
+  out.systems = systems;
+  console.log('system exhaust:', systems.online ? systems.events.length + ' events (' + JSON.stringify(systems.counts) + ')' : 'OFFLINE (' + systems.error + ')');
+  out.sources.push({ name: 'System exhaust', detail: systems.online ? systems.events.length + ' events from team, tasks and shoots' : 'OFFLINE: ' + systems.error, newest: systems.events[0] ? systems.events[0].date : null, ok: systems.online });
+  for (const e of systems.events) if (e.client) {
+    const rec = out.clients.find(c => c.name === e.client);
+    if (rec) { (rec.systems = rec.systems || []).push(e); if (rec.systems.length > 12) rec.systems.length = 12; }
+  }
   out.agentFeed = feed;
   console.log('agent feed:', feed.online ? feed.entries.length + ' machine learnings' : 'OFFLINE (' + feed.error + ')');
   if (Array.isArray(reviews)) {
