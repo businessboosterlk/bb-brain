@@ -586,6 +586,17 @@ const ORDER = ['content','web','sales','systems','strategy','intel','seo','ads']
 const DEMO_SEQ = ['content','systems','web','sales','seo','ads'];
 
 document.getElementById('gen').textContent = D.totals.skills+' skills · refreshed '+D.generated.slice(0,10);
+/* 2026-08-30: a stale brain must SHOUT. The generated stamp is the one fact that
+   cannot lie about the last successful feed, so the page itself raises the alarm. */
+(function(){
+  const ageH=(Date.now()-new Date(D.generated))/3600000;
+  if(ageH>48){
+    const b=document.createElement('div');
+    b.style.cssText='position:sticky;top:0;z-index:200;background:#a33327;color:#fff;padding:9px 16px;font-size:12.5px;text-align:center';
+    b.textContent='This brain was last fed '+Math.round(ageH/24)+' days ago. The nightly build has not run. On the Mac: cd ~/bb-brain && node build-brain-data.js, or run bb-end.sh.';
+    document.body.prepend(b);
+  }
+})();
 
 /* ═══ THE VOLUMETRIC BRAIN (reference-matched): anatomical profile facing left,
    glowing region territories, real per-node depth with parallax sway. Base x/y stay
@@ -1840,7 +1851,15 @@ function renderToday(){
          :gaps.slice(0,4).map(g=>`<div class="latest" style="margin-bottom:6px"><b>${esc(g.created_at.slice(0,10))}</b> · open question: ${esc(g.question)}</div>`).join(''))
        )||'<div class="latest">nothing waiting - all rules fresh, no open questions</div>')
     +sec(`Clients going quiet in the brain · ${quietClients.length}`,'No lesson or chat captured in 14+ days. Either nothing is being learned from them, or lessons are not being logged - both are problems.',
-      quietClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:#c9a15a">· ${daysAgo(c.lastActive)}d silent</span></span>`).join('')||'<div class="latest">every active client taught the brain something in the last 2 weeks</div>');
+      quietClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:#c9a15a">· ${daysAgo(c.lastActive)}d silent</span></span>`).join('')||'<div class="latest">every active client taught the brain something in the last 2 weeks</div>')
+    /* 2026-08-30: source health - every feeding mouth, its count and its freshness,
+       so a frozen channel is visible here instead of silently green. */
+    +(D.sources?sec('Brain health · '+D.sources.filter(s=>s.ok===true).length+' of '+D.sources.filter(s=>s.ok!==null).length+' sources feeding','Where the brain ate from at the last build ('+D.generated.slice(0,10)+'). A channel with an old date has gone quiet.',
+      D.sources.map(s=>`<div class="latest" style="margin-bottom:5px"><span style="color:${s.ok===false?'#e06c5a':s.ok===null?'var(--text-3)':'#4ADE80'}">●</span> <b>${esc(s.name)}</b> · ${esc(s.detail)}${s.newest?' · newest '+esc(s.newest):''}</div>`).join('')):'')
+    +(D.metrics?sec('The numbers canon · '+D.metrics.count+' metrics','BB-METRICS.md, updated '+esc(D.metrics.updated)+'. The one definition of every BB number. Statuses below say how far each can be trusted; never quote a number without opening the file itself.',
+      (function(){const st={};for(const m of D.metrics.entries)if(m.status)st[m.status]=(st[m.status]||0)+1;
+       return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="pill">${esc(k)} · ${n}</span>`).join('')+'</div>'
+        +D.metrics.entries.filter(m=>m.status==='UNKNOWN').slice(0,4).map(m=>`<div class="latest" style="margin-bottom:4px">UNKNOWN: <b>${esc(m.name)}</b> - do not quote this anywhere</div>`).join('');})()):'');
 }
 
 /* ═══ STEP 5: the client dossier - a full page, not a side panel ═══ */
@@ -1890,6 +1909,8 @@ function openDossier(name){
      ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
      ${secH('From WhatsApp · '+(cl.waCount||0))}
      ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||'<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>'}
+     ${secH('From the client folder · '+(cl.docCount||0)+' docs')}
+     ${(cl.docs||[]).slice(0,6).map(d=>`<div class="latest" style="margin-bottom:8px"><b>${esc(d.file)}</b> · ${d.lines} lines · updated ${esc(d.date)}${(d.flags&&d.flags.length)?d.flags.slice(0,4).map(fl=>`<div style="margin:4px 0 0 12px;color:#c9a15a;font-size:11.5px">⚑ ${esc(fl)}</div>`).join(''):''}</div>`).join('')||'<div class="latest">no BRAIN.md or ADS.md in ~/bb-consultancy/ for this client yet - that folder is where deep client knowledge lives</div>'}
      ${secH('Clients like this one')}
      ${similar.length?similar.map(x=>`<div class="latest" style="margin-bottom:6px;cursor:pointer" onclick="openDossier('${esc(x.c.name)}');setView('dossier')"><b>${esc(x.c.name)}</b> · ${x.ov} shared skill${x.ov===1?'':'s'} · ${x.c.lessons.filter(l=>l.outcome==='worked').length} proven wins</div>`).join(''):'<div class="latest">no meaningful skill overlap with other clients yet</div>'}`;
   setView('dossier');

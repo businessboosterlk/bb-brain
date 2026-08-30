@@ -260,7 +260,12 @@ function parseLearnings(file) {
    folder (one fact per file, saved during real chat sessions). Each file becomes a
    brain entry under bb-brain (Intelligence cluster): date = the file's real mtime,
    summary = its description, clients extracted from the FULL body text. ── */
-const MEMORY_DIR = path.join(HOME, '.claude/projects/-Users-thulaibhassen-learn-claude-code/memory');
+/* FIXED 2026-08-30: this pointed at -Users-thulaibhassen-learn-claude-code, the stale
+   98-file snapshot frozen 30 July, while live sessions write to -Users-thulaibhassen.
+   Third copy of the same wrong path (CLAUDE.md and sync.sh were fixed 31 July): when a
+   path is found wrong, grep the whole machine for the string. BB_MEMORY_DIR override
+   exists ONLY so the freshness guard below can be proven against the stale dir. */
+const MEMORY_DIR = process.env.BB_MEMORY_DIR || path.join(HOME, '.claude/projects/-Users-thulaibhassen/memory');
 function chatMemoryEntries() {
   const entries = [];
   if (!fs.existsSync(MEMORY_DIR)) return entries;
@@ -283,6 +288,21 @@ const allFiles = [];
 for (const [fname, skill] of Object.entries(LEARNINGS_MAP))
   allFiles.push({ file: path.join(HOME, fname), skill });
 allFiles.push(...EXTRA_LEARNINGS);
+/* ── AUTO-GLOB (2026-08-30): every ~/bb-*-learnings.md joins the brain automatically.
+   The hand map above had 11 files while 25 sat on disk, so 14 whole domains (voice,
+   board, scout, prompt-forge and the rest) never reached the brain. A NEW learnings
+   file now needs no registration. Irregular names map here; a name that derives to a
+   skill the scan does not know still ingests and prints a warning below. ── */
+const LEARNINGS_IRREGULAR = {
+  'bb-number-learnings.md': 'bb-number-lock',
+  'bb-migration-learnings.md': 'bb-machine-migration',
+  'bb-screening-learnings.md': 'bb-system-scan',
+};
+{
+  const mapped = new Set(Object.keys(LEARNINGS_MAP));
+  for (const f of fs.readdirSync(HOME).filter(f => /^bb-.+-learnings\.md$/.test(f)))
+    if (!mapped.has(f)) allFiles.push({ file: path.join(HOME, f), skill: LEARNINGS_IRREGULAR[f] || f.replace(/-learnings\.md$/, '') });
+}
 for (const { file, skill } of allFiles) {
   const { entries, undated } = parseLearnings(file);
   if (!entries.length) continue;
@@ -291,6 +311,61 @@ for (const { file, skill } of allFiles) {
 }
 const chatMem = chatMemoryEntries();
 if (chatMem.length) (learningsBySkill['bb-brain'] = learningsBySkill['bb-brain'] || []).push(...chatMem);
+
+/* ── MEMORY FRESHNESS GUARD (2026-08-30). Memories are written most working days,
+   so a newest-file older than 21 days means the build is reading a dead folder,
+   which is exactly the fault that just cost a month of learning. Per the
+   encryption lesson below: a build that cannot do its job must FAIL, not shrug. ── */
+{
+  const newest = chatMem.map(e => e.date).sort().pop() || 'none';
+  const ageDays = newest === 'none' ? Infinity : Math.round((Date.now() - new Date(newest)) / 86400000);
+  if (ageDays > 21) {
+    console.error('MEMORY SOURCE STALE - newest memory is ' + newest + ' (' + ageDays + ' days old). ' +
+      'The build is almost certainly reading a dead folder (' + MEMORY_DIR + '). Refusing to publish a frozen brain.');
+    process.exit(1);
+  }
+  console.log('chat memories:', chatMem.length, 'facts, newest', newest);
+}
+
+/* ── THE PATTERN BANKS (2026-08-30): PATTERNS.md and AD-PATTERNS.md, the distilled
+   layer the whole consultancy reasons from, never reached the brain before. Each
+   graded entry becomes a brain entry under its owning skill with the TIER stated in
+   the summary, so search and dossiers can quote what BB has actually proven. ── */
+function marketPatternEntries() {
+  const file = path.join(HOME, 'bb-consultancy/PATTERNS.md');
+  let raw; try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return []; }
+  const mtime = fs.statSync(file).mtime.toISOString().slice(0, 10);
+  const entries = [];
+  for (const block of raw.split(/\n(?=### )/)) {
+    const h = block.match(/^### (P-\d+[^\n]*)/); if (!h) continue;
+    const tier = (block.match(/\*\*Tier:\*\*\s*(HYPOTHESIS|PATTERN|PRINCIPLE)[^\n]*/) || [])[0] || '';
+    const sentence = (block.match(/\*\*Pattern:\*\*\s*([^\n]+)/) || [])[1] || '';
+    const date = (block.match(/\*\*Last strengthened:\*\*\s*(\d{4}-\d{2}-\d{2})/) || [])[1] || mtime;
+    const retired = /RETIRED/.test(block.slice(0, 200));
+    if (retired || !sentence) continue;
+    entries.push({ date, summary: (h[1].trim() + '. ' + sentence.trim()).slice(0, 220) + (tier ? ' [' + tier.replace(/\*\*/g, '').replace('Tier: ', '') + ']' : ''), body: block, via: 'file' });
+  }
+  return entries;
+}
+function adPatternEntries() {
+  const file = path.join(HOME, 'bb-consultancy/AD-PATTERNS.md');
+  let raw; try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return []; }
+  const mtime = fs.statSync(file).mtime.toISOString().slice(0, 10);
+  const entries = [];
+  for (const ln of raw.split('\n')) {
+    const t = ln.replace(/^[`\-\*\s]+/, '').trim();
+    if (!/^AP-\d+/.test(t) || /^AP-###/.test(t)) continue;
+    entries.push({ date: mtime, summary: t.replace(/`/g, '').slice(0, 220), body: t, via: 'file' });
+  }
+  return entries;
+}
+{
+  const mp = marketPatternEntries();
+  if (mp.length) (learningsBySkill['bb-mother-brain'] = learningsBySkill['bb-mother-brain'] || []).push(...mp);
+  const ap = adPatternEntries();
+  if (ap.length) (learningsBySkill['bb-meta-ads-expert-plus'] = learningsBySkill['bb-meta-ads-expert-plus'] || []).push(...ap);
+  console.log('pattern banks:', mp.length, 'market patterns,', ap.length, 'ad patterns');
+}
 
 /* ── assemble ── */
 const DAY = 86400000;
@@ -357,7 +432,11 @@ out.timeline.sort((a, b) => b.date.localeCompare(a.date));
    caps + dedupes per client. This is the "everything spoken on Claude feeds the
    brain" pipeline - runs in the nightly regenerate, no LLM needed. ══ */
 function harvestChat() {
-  const dir = MEMORY_DIR.replace(/\/memory$/, '');
+  /* 2026-08-30: was ONE project folder (and the stale one at that). Claude Code and
+     the desktop cowork sessions each write transcripts under their own folder in
+     ~/.claude/projects, so the harvest now sweeps them ALL. The 120-day window and
+     the cheap prefilter below keep the cost bounded as history grows. */
+  const projectsRoot = path.join(HOME, '.claude/projects');
   const perClient = {};
   const aliasIndex = []; // [display, [lc needles]]
   const allNeedles = [];
@@ -372,10 +451,12 @@ function harvestChat() {
   let files = [];
   try {
     const cutoff = Date.now() - 120 * 86400000; // last ~120 days, newest first (bounds cost as history grows)
-    files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')).map(f => path.join(dir, f))
+    const dirs = fs.readdirSync(projectsRoot).map(d => path.join(projectsRoot, d))
+      .filter(d => { try { return fs.statSync(d).isDirectory(); } catch (e) { return false; } });
+    files = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.jsonl')).map(f => path.join(d, f)); } catch (e) { return []; } })
       .map(p => ({ p, m: fs.statSync(p).mtimeMs })).filter(x => x.m >= cutoff)
       .sort((a, b) => b.m - a.m).map(x => x.p);
-  } catch (e) { return { perClient, discussed: 0 }; }
+  } catch (e) { return { perClient, discussed: 0, decisions: [], filesScanned: 0 }; }
   const seen = new Set();
   let discussed = 0;
   for (const f of files) {
@@ -418,10 +499,11 @@ function harvestChat() {
     perClient[cl] = perClient[cl].slice(0, 25);
   }
   decisions.sort((a, b) => b.date.localeCompare(a.date));
-  return { perClient, discussed, decisions: decisions.slice(0, 60) };
+  return { perClient, discussed, decisions: decisions.slice(0, 60), filesScanned: files.length };
 }
 const decisions = [];
-const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions } = harvestChat();
+const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions, filesScanned: chatFilesScanned } = harvestChat();
+console.log('chat harvest:', chatFilesScanned || 0, 'transcript files swept,', chatDiscussed, 'client mentions kept');
 
 /* ══ WHATSAPP PIPE (v1, text only): ~/bb-brain-inbox/<client-slug>/ holds WhatsApp
    chat exports (.txt, or .zip containing one). Folder name = the client. Nightly,
@@ -497,6 +579,58 @@ function ingestWhatsApp() {
 const wa = ingestWhatsApp();
 console.log('whatsapp pipe:', wa.files ? wa.files + ' exports, ' + wa.kept + ' meaningful lines kept' : 'inbox empty');
 
+/* ── CLIENT FOLDER DOCS (2026-08-30): each client's own knowledge files (BRAIN.md,
+   ADS.md and any sibling .md) join the dossier. What gets pulled is deliberately
+   thin and high-value: the section map, and the WARNING / landmine / UNKNOWN lines,
+   because those are the lines a person about to act on a client must see. Every doc
+   carries its file name and real mtime, so a stale dossier says so. ── */
+function ingestClientDocs() {
+  const perClient = {}; let filesRead = 0;
+  const cdir = path.join(HOME, 'bb-consultancy');
+  for (const [key, display] of Object.entries(ROSTER)) {
+    const folder = path.join(cdir, key);
+    let names = []; try { names = fs.readdirSync(folder).filter(f => f.endsWith('.md')); } catch (e) { continue; }
+    const docs = [];
+    for (const fn of names) {
+      const full = path.join(folder, fn);
+      let raw; try { raw = fs.readFileSync(full, 'utf8'); } catch (e) { continue; }
+      filesRead++;
+      const heads = [], flags = [];
+      for (const ln of raw.split('\n')) {
+        const t = ln.trim();
+        if (/^##\s/.test(t) && heads.length < 14) heads.push(t.replace(/^#+\s*/, '').slice(0, 80));
+        else if (/(⚠️|🔴|MUST NOT|UNKNOWN|NEVER |never mention|never say|never merge|never name)/.test(t) && t.length > 25 && flags.length < 10)
+          flags.push(t.replace(/^[>\-*\s]+/, '').replace(/\*\*/g, '').slice(0, 170));
+      }
+      docs.push({ file: fn, date: fs.statSync(full).mtime.toISOString().slice(0, 10), lines: raw.split('\n').length, sections: heads, flags });
+    }
+    if (docs.length) perClient[display] = docs.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  return { perClient, filesRead };
+}
+const clientDocs = ingestClientDocs();
+console.log('client folders:', Object.keys(clientDocs.perClient).length, 'clients,', clientDocs.filesRead, 'docs read');
+
+/* ── THE NUMBERS CANON (2026-08-30): BB-METRICS.md is the one definition of every BB
+   number and the brain could not quote a line of it. Each metric ships with its VALUE
+   and STATUS so the app can show which numbers are VERIFIED and which are UNKNOWN,
+   and the standing rule (read the file before quoting) travels with the data. ── */
+function ingestMetrics() {
+  const file = path.join(HOME, 'bb-consultancy/BB-METRICS.md');
+  let raw; try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return null; }
+  const updated = fs.statSync(file).mtime.toISOString().slice(0, 10);
+  const entries = [];
+  for (const block of raw.split(/\n(?=### )/)) {
+    const h = block.match(/^### (.+)/); if (!h) continue;
+    const value = ((block.match(/\*\*Values?\.?\*\*\s*([^\n]+)/) || [])[1] || '').replace(/\*\*/g, '').trim().slice(0, 100) || null;
+    const status = (block.match(/\*\*Status\.?\*\*\s*\**([A-Z][A-Z-]+)/) || block.match(/Status\.\s*\**([A-Z][A-Z-]+)/) || [])[1] || null;
+    entries.push({ name: h[1].replace(/[#*]/g, '').trim().slice(0, 70), value, status });
+  }
+  return { file: '~/bb-consultancy/BB-METRICS.md', updated, count: entries.length, entries: entries.slice(0, 80) };
+}
+const metricsCanon = ingestMetrics();
+console.log('numbers canon:', metricsCanon ? metricsCanon.count + ' metrics, updated ' + metricsCanon.updated : 'BB-METRICS.md NOT FOUND');
+
 /* ══ RICH PER-CLIENT DATASET: everything the brain knows about each client,
    from skill attribution (what we did) + chat harvest (what we discussed). ══ */
 function buildClients() {
@@ -508,6 +642,7 @@ function buildClients() {
   for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary, outcome: e.outcome || null });
   for (const [c, arr] of Object.entries(chatByClient)) { const r = ensure(c); r.discussed = arr; }
   for (const [c, arr] of Object.entries(wa.perClient)) { const r = ensure(c); r.whatsapp = arr; }
+  for (const [c, docs] of Object.entries(clientDocs.perClient)) { const r = ensure(c); r.docs = docs; }
   const list = Object.values(map).map(r => {
     const lessons = r.lessons.sort((a, b) => b.date.localeCompare(a.date));
     r.whatsapp = r.whatsapp || [];
@@ -521,6 +656,8 @@ function buildClients() {
       clusters: r.clusters,
       domCluster: domCluster ? domCluster[0] : 'intel',
       whatsapp: r.whatsapp,
+      docs: r.docs || [],
+      docCount: (r.docs || []).length,
       lessonCount: r.lessons.length,
       chatCount: r.discussed.length,
       waCount: r.whatsapp.length,
@@ -533,6 +670,28 @@ function buildClients() {
 }
 out.clients = buildClients();
 out.decisions = chatDecisions;   // recent decisions/facts pulled from chat (item 1)
+out.metrics = metricsCanon;      // the numbers canon, with per-metric status
+
+/* ── SOURCE HEALTH (2026-08-30): every feeding mouth reports what it read and how
+   fresh it is, so a frozen channel is VISIBLE in the app instead of silently green.
+   A single "refreshed" date cannot reveal that a source went dark; this can. ── */
+{
+  const newestOf = arr => arr.map(e => e.date).filter(Boolean).sort().pop() || null;
+  const learnDates = []; for (const es of Object.values(learningsBySkill)) for (const e of es) if (e.date && e.via !== 'chat') learnDates.push(e.date);
+  out.sources = [
+    { name: 'Skill rulebooks', detail: skills.length + ' skills scanned', newest: null, ok: skills.length > 50 },
+    { name: 'Learnings files', detail: allFiles.length + ' files feeding ' + Object.keys(learningsBySkill).length + ' skills', newest: learnDates.sort().pop() || null, ok: allFiles.length >= 25 },
+    { name: 'Chat memories', detail: chatMem.length + ' facts', newest: newestOf(chatMem), ok: chatMem.length > 0 },
+    { name: 'Chat transcripts', detail: (chatFilesScanned || 0) + ' sessions swept, ' + chatDiscussed + ' client mentions', newest: newestOf(chatDecisions), ok: (chatFilesScanned || 0) > 0 },
+    { name: 'WhatsApp inbox', detail: wa.files ? wa.files + ' exports, ' + wa.kept + ' lines kept' : 'no exports yet - a habit, not a fault', newest: null, ok: null },
+    { name: 'Pattern banks', detail: (learningsBySkill['bb-mother-brain'] || []).filter(e => /^P-\d/.test(e.summary)).length + ' market + ' + (learningsBySkill['bb-meta-ads-expert-plus'] || []).filter(e => /^AP-\d/.test(e.summary)).length + ' ad patterns', newest: null, ok: true },
+    { name: 'Client folders', detail: Object.keys(clientDocs.perClient).length + ' clients, ' + clientDocs.filesRead + ' docs', newest: null, ok: clientDocs.filesRead > 0 },
+    { name: 'Numbers canon', detail: metricsCanon ? metricsCanon.count + ' metrics' : 'BB-METRICS.md missing', newest: metricsCanon ? metricsCanon.updated : null, ok: !!metricsCanon },
+  ];
+  console.log('source health:'); for (const s of out.sources) console.log(' ', (s.ok === false ? 'XX' : s.ok === null ? '--' : 'ok'), s.name + ':', s.detail + (s.newest ? ', newest ' + s.newest : ''));
+  const unknownSkills = Object.keys(learningsBySkill).filter(k => !skills.some(s => s.name === k));
+  for (const k of unknownSkills) console.log('WARNING: learnings ingested for a skill the scan does not know (entries dropped from the UI):', k);
+}
 
 /* ── STEP 3: contradiction detection - same-topic entries with opposing guidance.
    Heuristic only (keyword overlap >= 3 significant tokens + one side carries negation
