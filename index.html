@@ -401,6 +401,7 @@ table.r-tbl td b{color:#0e1830}
   <div class="seg" role="tablist">
     <button id="v-today" onclick="setView('today')">Today</button>
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
+    <button id="v-explore" onclick="setView('explore')">Explore</button>
     <button id="v-clients" onclick="setView('clients')">Clients</button>
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
     <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
@@ -454,6 +455,24 @@ table.r-tbl td b{color:#0e1830}
 <div class="tl" id="gaps-view" style="display:none"></div>
 <div class="tl" id="today-view" style="display:none"></div>
 <div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
+<div class="tl" id="explore-view" style="display:none;max-width:none">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="x3d-chips"></div>
+  <div id="x3d-stage" style="position:relative;height:calc(100vh - 230px);min-height:420px;background:#05070c;border:1px solid var(--line);border-radius:14px;overflow:hidden">
+    <canvas id="x3d-canvas" style="position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none"></canvas>
+    <div id="x3d-tags" style="position:absolute;inset:0;pointer-events:none"></div>
+    <div id="x3d-hover" style="position:fixed;display:none;z-index:60;pointer-events:none;background:rgba(8,11,18,.92);border:1px solid rgba(160,190,255,.25);color:#dfe8f6;font-size:11.5px;padding:4px 9px;border-radius:7px;transform:translate(12px,14px)"></div>
+    <div id="x3d-loader" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#05070c;z-index:5;transition:opacity .5s">
+      <div id="x3d-copy" style="color:#8fa2c0;font-size:12.5px">Waking the brain</div>
+      <div style="width:220px;height:2px;background:rgba(140,170,220,.15);border-radius:2px"><div id="x3d-bar" style="width:4%;height:100%;background:linear-gradient(90deg,#5B9DFF,#A78BFA);border-radius:2px;transition:width .3s"></div></div>
+    </div>
+    <div style="position:absolute;right:12px;top:12px;display:flex;gap:6px;z-index:6">
+      <button class="tbtn" id="x3d-spin" onclick="BBX.toggleSpin()" style="font-size:11.5px">Pause spin</button>
+      <button class="tbtn" onclick="BBX.reset()" style="font-size:11.5px">Whole brain</button>
+    </div>
+    <div style="position:absolute;left:12px;bottom:10px;z-index:6;color:#5c6a82;font-size:10.5px">3D anatomy: Brain Project, Z-Anatomy and BodyParts3D / DBCLS, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer" style="color:#7d8ba3">CC BY-SA 4.0</a>. The BB knowledge mapping is separate from the anatomy model.</div>
+  </div>
+  <p style="font-size:12px;color:var(--text-3);margin-top:8px">Tap a territory to light its sector and open its live record. Tap a neuron to open that skill. Drag to turn, pinch or scroll to zoom.</p>
+</div>
 
 <div class="rov" id="report-ov">
   <div class="rov-bar">
@@ -1928,7 +1947,7 @@ function openDossier(name){
 
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',dossier:'dossier-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',dossier:'dossier-view',explore:'explore-view'};
 function setView(v){
   const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
   const prev=VIEW; VIEW=v;
@@ -1953,6 +1972,8 @@ function applyView(v,prev){
   document.getElementById('gap').style.display = v==='brain'?'block':'none';
   document.getElementById('tl-view').style.display = v==='tl'?'block':'none';
   document.getElementById('gaps-view').style.display = v==='gaps'?'block':'none';
+  document.getElementById('explore-view').style.display = v==='explore'?'block':'none';
+  document.getElementById('v-explore').classList.toggle('on',v==='explore');
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
   document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
@@ -1964,6 +1985,7 @@ function applyView(v,prev){
   if(v==='dossier'){ return; }
   if(DOSSIER&&v!=='dossier'){ DOSSIER=null; if(location.hash.startsWith('#client')) history.replaceState(null,'','#'); }
   if(v==='gaps'){ renderGaps(); return; }
+  if(v==='explore'){ BBX.open(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
@@ -2100,6 +2122,258 @@ function applyTheme(t){
 }
 function toggleTheme(){ const t=document.body.classList.contains('light')?'dark':'light'; try{localStorage.setItem('bb_theme',t);}catch(e){} applyTheme(t); }
 applyTheme((function(){try{return localStorage.getItem('bb_theme')||'dark';}catch(e){return 'dark';}})());
+
+/* ═══ EXPLORE: the 3D brain. Adapted 2026-08-30 from BB's own commissioned prototype
+   via the bb-scout measured spec. The mechanism: sector focus dims everything else
+   rather than moving the chosen thing, skills materialise as pulsing neurons inside
+   the lit territory, and the camera glides while the panels stay still. Wired to
+   LIVE BRAIN_DATA, never a snapshot. Panels are the app's real ones: a territory
+   opens openCluster, a neuron opens openSkill. Anatomy model CC BY-SA 4.0, see
+   assets/brain/ATTRIBUTION.md; the licence note renders in the view itself. ═══ */
+const BBX=(function(){
+  let started=false, ready=false, spinOn=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let scene,camera,renderer,controls,root,techRig,particles,raycaster,pointerV;
+  let surfaceMeshes=[],groups={},sectorCentres={},neuronRoot=null,neuronMeshes=[],selectedNeuron=null,cameraTween=null,pointerStart=null,activeSector=null;
+  const REGIONS=(D.clusters||[]).map(c=>({id:c.id,name:c.name,colour:c.color,
+    skills:D.skills.filter(s=>s.cluster===c.id).sort((a,b)=>b.depth-a.depth).map(s=>s.name)}));
+  const regionById=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
+  const $=id=>document.getElementById(id);
+  function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('failed '+src)); document.head.appendChild(s); }); }
+  function fail(msg){ $('x3d-copy').textContent=msg; $('x3d-bar').style.width='100%'; $('x3d-bar').style.background='#e06c5a'; }
+  function open(){
+    if(started){ return; } started=true;
+    $('x3d-chips').innerHTML=REGIONS.map(r=>`<button class="tbtn" data-x3dchip="${r.id}" onclick="BBX.select('${r.id}')" style="font-size:11.5px;border-color:${r.colour}33"><span style="color:${r.colour}">●</span> ${esc(r.name)} · ${r.skills.length}</button>`).join('');
+    (async()=>{
+      try{
+        $('x3d-copy').textContent='Fetching the 3D engine';
+        await loadScript('https://unpkg.com/three@0.137.0/build/three.min.js');
+        await loadScript('https://unpkg.com/three@0.137.0/examples/js/controls/OrbitControls.js');
+        await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/GLTFLoader.js');
+        await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/DRACOLoader.js');
+        init();
+      }catch(e){ fail('The 3D engine could not load. Check the connection and reopen Explore.'); started=false; }
+    })();
+  }
+  function init(){
+    const canvas=$('x3d-canvas'), stage=$('x3d-stage');
+    renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
+    renderer.setClearColor(0x000000,0);
+    renderer.outputEncoding=THREE.sRGBEncoding;
+    renderer.toneMapping=THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure=1.24;
+    scene=new THREE.Scene();
+    camera=new THREE.PerspectiveCamera(35,1,.01,100);
+    camera.position.set(0,.1,7.3);
+    controls=new THREE.OrbitControls(camera,renderer.domElement);
+    controls.enableDamping=true; controls.dampingFactor=.055; controls.enablePan=false;
+    controls.minDistance=3.15; controls.maxDistance=10.5;
+    controls.autoRotate=spinOn; controls.autoRotateSpeed=.48;
+    scene.add(new THREE.HemisphereLight(0xcfe7ff,0x090b12,.72));
+    const key=new THREE.DirectionalLight(0xf2f7ff,1.45); key.position.set(4,6,7); scene.add(key);
+    const cyan=new THREE.DirectionalLight(0x61dbff,1.5); cyan.position.set(-6,2,-6); scene.add(cyan);
+    const magenta=new THREE.DirectionalLight(0xff4fa3,.82); magenta.position.set(5,-3,-4); scene.add(magenta);
+    root=new THREE.Group(); root.rotation.y=-.3; scene.add(root);
+    techRig=new THREE.Group(); scene.add(techRig);
+    [{r:2.18,rot:[.18,.18,0],colour:0x5b9dff,opacity:.18},{r:2.42,rot:[1.28,.4,0],colour:0xff57ad,opacity:.11},{r:2.62,rot:[.7,1.24,.2],colour:0x8fcaff,opacity:.07}].forEach(spec=>{
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(spec.r,.008,5,170),new THREE.MeshBasicMaterial({color:spec.colour,transparent:true,opacity:spec.opacity,blending:THREE.AdditiveBlending,depthWrite:false}));
+      ring.rotation.set(...spec.rot); techRig.add(ring);
+    });
+    const pts=[]; let seed=7291; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+    for(let i=0;i<180;i++){ const radius=2.45+rnd()*1.5, theta=rnd()*Math.PI*2, phi=Math.acos(2*rnd()-1);
+      pts.push(radius*Math.sin(phi)*Math.cos(theta),radius*Math.cos(phi)*.7,radius*Math.sin(phi)*Math.sin(theta)); }
+    const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
+    particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0x8cc9ff,size:.018,transparent:true,opacity:.28,blending:THREE.AdditiveBlending,depthWrite:false}));
+    scene.add(particles);
+    neuronRoot=new THREE.Group(); scene.add(neuronRoot);
+    raycaster=new THREE.Raycaster(); pointerV=new THREE.Vector2();
+    const SOLID=new Set(['cortex','cerebellum','brainstem','deep_grey','diencephalon','white_matter']);
+    const draco=new THREE.DRACOLoader();
+    draco.setDecoderPath('./assets/brain/draco/');
+    draco.setDecoderConfig({type:'js'}); /* the js decoder ships in the repo; the wasm wrapper does not */
+    const loader=new THREE.GLTFLoader(); loader.setDRACOLoader(draco);
+    loader.load('./assets/brain/brain.glb',gltf=>{
+      const model=gltf.scene; root.add(model);
+      model.traverse(o=>{ if(!o.isMesh)return;
+        const cat=(o.userData&&o.userData.bx_cat)||(o.parent&&o.parent.userData&&o.parent.userData.bx_cat)||'other';
+        if(!SOLID.has(cat)){ o.visible=false; return; }
+        surfaceMeshes.push(o); });
+      /* Normalise EXACTLY: scale and rotate first, then measure the WORLD centre and
+         subtract it in root space. The prototype subtracted the raw centre before
+         scaling, and since translation is applied after scale, the whole brain ended
+         up ~19 units off origin. Every select tween flew into empty space. Found by
+         frame-stepping with the debug handle: all mesh centres read length 19. */
+      const rawBox=new THREE.Box3(); surfaceMeshes.forEach(m=>rawBox.expandByObject(m));
+      model.scale.setScalar(1.76/(rawBox.getBoundingSphere(new THREE.Sphere()).radius||1));
+      model.rotation.y=Math.PI; model.updateMatrixWorld(true); root.updateMatrixWorld(true);
+      const scaledBox=new THREE.Box3(); surfaceMeshes.forEach(m=>scaledBox.expandByObject(m));
+      model.position.sub(root.worldToLocal(scaledBox.getCenter(new THREE.Vector3())));
+      model.updateMatrixWorld(true); root.updateMatrixWorld(true);
+      const cb=new THREE.Box3(); surfaceMeshes.forEach(m=>cb.expandByObject(m));
+      const brainCentre=cb.getCenter(new THREE.Vector3()), brainSize=cb.getSize(new THREE.Vector3());
+      const spatialOrder=['content','strategy','seo','intel','web','sales','ads','systems'];
+      groups=Object.fromEntries(REGIONS.map(r=>[r.id,[]]));
+      surfaceMeshes.forEach(m=>{
+        const c=new THREE.Box3().setFromObject(m).getCenter(new THREE.Vector3());
+        const dx=(c.x-brainCentre.x)/Math.max(.01,brainSize.x), dz=(c.z-brainCentre.z)/Math.max(.01,brainSize.z), dy=(c.y-brainCentre.y)/Math.max(.01,brainSize.y);
+        const angle=(Math.atan2(dz,dx)+Math.PI*2)%(Math.PI*2);
+        const regionId=spatialOrder[Math.min(3,Math.floor(angle/(Math.PI/2)))*2+(dy>=-.02?0:1)];
+        const colour=new THREE.Color((regionById[regionId]||{colour:'#c9d4e8'}).colour);
+        m.material=new THREE.MeshPhysicalMaterial({color:colour.clone().multiplyScalar(.58),emissive:colour.clone().multiplyScalar(.24),metalness:.46,roughness:.28,clearcoat:1,clearcoatRoughness:.16,transparent:true,opacity:.82,depthWrite:true,side:THREE.FrontSide});
+        m.userData.bbRegion=regionId; m.userData.bbColour=colour; m.userData.baseOpacity=.82; m.userData.targetOpacity=.82; m.userData.worldCentre=c;
+        (groups[regionId]=groups[regionId]||[]).push(m);
+      });
+      /* Centres come from the MEAN of member mesh centres with far outliers dropped,
+         never from a bounding box: the model's spinal cord meshes extend metres past
+         the brain and a box that includes them parks the camera in empty space.
+         Found by frame-stepping the select tween, camera landed at y=19. */
+      const robustCentre=id=>{
+        const pts=(groups[id]||[]).map(m=>m.userData.worldCentre).filter(p=>p.length()<=2.4);
+        if(!pts.length)return brainCentre.clone();
+        const c=new THREE.Vector3(); pts.forEach(p=>c.add(p)); return c.multiplyScalar(1/pts.length);
+      };
+      REGIONS.forEach(r=>{ sectorCentres[r.id]=robustCentre(r.id); });
+      buildTags();
+      ready=true;
+      $('x3d-bar').style.width='100%'; $('x3d-copy').textContent='Neural sectors ready.';
+      setTimeout(()=>{ $('x3d-loader').style.opacity='0'; setTimeout(()=>$('x3d-loader').style.display='none',500); },320);
+    },ev=>{ if(!ev.total)return; const p=Math.min(96,Math.max(4,ev.loaded/ev.total*100));
+      $('x3d-bar').style.width=p+'%'; $('x3d-copy').textContent='Waking the brain '+Math.round(p)+'%';
+    },err=>{ console.error('explore model load failed',err); fail('The brain model could not load. Reopen Explore to retry.'); started=false; });
+    canvas.addEventListener('pointerdown',e=>{ pointerStart={x:e.clientX,y:e.clientY}; });
+    canvas.addEventListener('pointerup',e=>{
+      if(!pointerStart)return;
+      const moved=Math.abs(e.clientX-pointerStart.x)+Math.abs(e.clientY-pointerStart.y); pointerStart=null;
+      if(moved>7)return;
+      const hit=raycast(e);
+      if(hit&&hit.object.userData.skill){ selectedNeuron=hit.object; if(typeof openSkill==='function') openSkill(hit.object.userData.skill); }
+      else if(hit&&hit.object.userData.bbRegion){ select(hit.object.userData.bbRegion); }
+    });
+    canvas.addEventListener('pointermove',e=>{
+      if(!ready||pointerStart){ $('x3d-hover').style.display='none'; return; }
+      const hit=raycast(e); const h=$('x3d-hover');
+      if(!hit){ canvas.style.cursor='grab'; h.style.display='none'; return; }
+      canvas.style.cursor='pointer';
+      const ud=hit.object.userData;
+      h.textContent=ud.skill?ud.skill.replace(/^bb-/,'').replace(/-/g,' '):(regionById[ud.bbRegion]||{}).name||'';
+      h.style.display='block'; h.style.left=e.clientX+'px'; h.style.top=e.clientY+'px';
+    });
+    canvas.addEventListener('pointerleave',()=>{ $('x3d-hover').style.display='none'; });
+    controls.addEventListener('start',()=>{ controls.autoRotate=false; });
+    controls.addEventListener('end',()=>{ controls.autoRotate=spinOn; });
+    const resize=()=>{ const r=stage.getBoundingClientRect(); if(!r.width||!r.height)return;
+      renderer.setSize(r.width,r.height,false); camera.aspect=r.width/r.height; camera.updateProjectionMatrix(); };
+    new ResizeObserver(resize).observe(stage); resize();
+    requestAnimationFrame(tick);
+  }
+  function raycast(e){
+    const rect=$('x3d-canvas').getBoundingClientRect();
+    pointerV.x=(e.clientX-rect.left)/rect.width*2-1; pointerV.y=-(e.clientY-rect.top)/rect.height*2+1;
+    raycaster.setFromCamera(pointerV,camera);
+    return raycaster.intersectObjects(neuronMeshes,false)[0]||raycaster.intersectObjects(surfaceMeshes.filter(m=>m.material.opacity>.045),false)[0]||null;
+  }
+  function clearNeurons(){
+    while(neuronRoot.children.length){ const c=neuronRoot.children.pop();
+      if(c.geometry&&c.geometry.dispose)c.geometry.dispose();
+      if(c.material&&c.material.dispose)c.material.dispose(); }
+    neuronMeshes=[]; selectedNeuron=null;
+  }
+  function buildNeurons(regionId){
+    clearNeurons();
+    const region=regionById[regionId], sectorMeshes=groups[regionId]||[];
+    if(!region||!sectorMeshes.length||!region.skills.length)return;
+    const centre=sectorCentres[regionId].clone();
+    let positions=sectorMeshes.map(m=>m.userData.worldCentre.clone()).filter(p=>p.length()<=2.4);
+    if(!positions.length)positions=[centre.clone()];
+    const nodeGeo=new THREE.IcosahedronGeometry(.043,1);
+    const linePos=[];
+    region.skills.forEach((skill,i)=>{
+      const p=positions[(i*7+i*i)%positions.length].clone().lerp(centre,.22+(i%4)*.035);
+      const phase=i*2.399;
+      p.x+=Math.sin(phase)*.025; p.y+=Math.cos(phase*.7)*.022; p.z+=Math.sin(phase*1.3)*.025;
+      const node=new THREE.Mesh(nodeGeo,new THREE.MeshBasicMaterial({color:region.colour,transparent:true,opacity:.94,blending:THREE.AdditiveBlending,depthWrite:false}));
+      node.position.copy(p); node.userData.skill=skill; node.userData.bbRegion=regionId; node.userData.phase=phase;
+      node.userData.baseScale=i%5===0?1.25:1; node.scale.setScalar(node.userData.baseScale);
+      neuronRoot.add(node); neuronMeshes.push(node);
+      if(i){ const prev=neuronMeshes[i-1].position; linePos.push(prev.x,prev.y,prev.z,p.x,p.y,p.z); }
+      if(i%3===0) linePos.push(centre.x,centre.y,centre.z,p.x,p.y,p.z);
+    });
+    const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(linePos,3));
+    neuronRoot.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:region.colour,transparent:true,opacity:.24,blending:THREE.AdditiveBlending,depthWrite:false})));
+    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.105,2),new THREE.MeshBasicMaterial({color:region.colour,wireframe:true,transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false}));
+    core.position.copy(centre); neuronRoot.add(core);
+  }
+  function select(regionId){
+    if(!ready)return;
+    activeSector=regionId;
+    surfaceMeshes.forEach(m=>{
+      const match=m.userData.bbRegion===regionId;
+      m.userData.targetOpacity=match?.46:.055;
+      m.material.depthWrite=false;
+      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(match?.52:.015);
+    });
+    buildNeurons(regionId);
+    const sel=(groups[regionId]||[]).map(m=>m.userData.worldCentre).filter(p=>p.length()<=2.4);
+    if(sel.length){
+      const centre=sectorCentres[regionId].clone();
+      const radius=Math.min(1.4,Math.max(.46,Math.sqrt(sel.reduce((a,p)=>Math.max(a,p.distanceToSquared(centre)),0))));
+      const dir=camera.position.clone().sub(controls.target).normalize();
+      cameraTween={start:performance.now(),duration:820,fromPosition:camera.position.clone(),toPosition:centre.clone().add(dir.multiplyScalar(Math.min(6.8,Math.max(3.35,radius*3.25)))),fromTarget:controls.target.clone(),toTarget:centre};
+      controls.autoRotate=false; spinOn=false; syncSpin();
+    }
+    document.querySelectorAll('[data-x3dchip]').forEach(b=>b.classList.toggle('on',b.dataset.x3dchip===regionId));
+    document.querySelectorAll('[data-x3dtag]').forEach(b=>b.classList.toggle('on',b.dataset.x3dtag===regionId));
+    if(typeof openCluster==='function'&&!document.body.classList.contains('present')) openCluster(regionId);
+  }
+  function reset(){
+    if(!ready)return;
+    clearNeurons(); activeSector=null;
+    surfaceMeshes.forEach(m=>{ m.userData.targetOpacity=m.userData.baseOpacity; m.material.depthWrite=true;
+      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(.24); });
+    document.querySelectorAll('[data-x3dchip],[data-x3dtag]').forEach(b=>b.classList.remove('on'));
+    cameraTween={start:performance.now(),duration:850,fromPosition:camera.position.clone(),toPosition:new THREE.Vector3(0,.1,7.3),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(0,0,0)};
+  }
+  function buildTags(){
+    $('x3d-tags').innerHTML=REGIONS.map(r=>`<button data-x3dtag="${r.id}" onclick="BBX.select('${r.id}')" style="pointer-events:auto;position:absolute;transform:translate(-50%,-50%);background:rgba(8,11,18,.78);border:1px solid ${r.colour}55;color:#dfe8f6;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;transition:opacity .3s">${esc(r.name)}</button>`).join('');
+  }
+  function updateTags(){
+    const rect=$('x3d-stage').getBoundingClientRect();
+    document.querySelectorAll('[data-x3dtag]').forEach(tag=>{
+      const centre=sectorCentres[tag.dataset.x3dtag]; if(!centre)return;
+      const p=centre.clone().project(camera);
+      tag.style.left=Math.max(55,Math.min(rect.width-55,(p.x*.5+.5)*rect.width))+'px';
+      tag.style.top=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))+'px';
+      tag.style.opacity=p.z<1?(tag.classList.contains('on')?'1':'.72'):'0';
+    });
+  }
+  const easeOut=v=>1-Math.pow(1-v,4);
+  function tick(now){
+    requestAnimationFrame(tick);
+    if(document.hidden||VIEW!=='explore'||!renderer)return;
+    frame(now);
+  }
+  function frame(now){
+    if(cameraTween){
+      const pr=Math.min(1,(now-cameraTween.start)/cameraTween.duration), a=easeOut(pr);
+      camera.position.lerpVectors(cameraTween.fromPosition,cameraTween.toPosition,a);
+      controls.target.lerpVectors(cameraTween.fromTarget,cameraTween.toTarget,a);
+      if(pr===1)cameraTween=null;
+    }
+    surfaceMeshes.forEach(m=>{ m.material.opacity+=(m.userData.targetOpacity-m.material.opacity)*.085; });
+    neuronMeshes.forEach((node,i)=>{
+      const pulse=1+Math.sin(now*.003+node.userData.phase)*.12;
+      node.scale.setScalar(node.userData.baseScale*pulse*(node===selectedNeuron?1.72:1));
+      node.material.opacity=node===selectedNeuron?1:.82+Math.sin(now*.0025+i)*.15;
+    });
+    techRig.rotation.y+=.00042; techRig.rotation.z-=.00018; particles.rotation.y-=.00016;
+    controls.update(); updateTags(); renderer.render(scene,camera);
+  }
+  function syncSpin(){ const b=$('x3d-spin'); if(b) b.textContent=spinOn?'Pause spin':'Spin'; }
+  function toggleSpin(){ spinOn=!spinOn; if(controls)controls.autoRotate=spinOn; syncSpin(); }
+  function dbg(){ return { cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, wcSample:(groups.web||[]).slice(0,6).map(m=>+m.userData.worldCentre.length().toFixed(2)), centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
+  function step(n){ const t=performance.now(); for(let i=0;i<(n||1);i++) frame(t+i*16.7); return dbg(); }
+  return { open, select, reset, toggleSpin, dbg, step };
+})();
 </script>
 
 <script>
