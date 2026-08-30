@@ -1849,6 +1849,8 @@ function renderToday(){
       (fresh.map(item).join('')+agentFresh.map(a=>item({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[],via:'agent'})).join(''))||'<div class="latest">nothing logged in the last 2 days - if work happened, lessons are being lost. Log one now.</div>')
     +(D.systems?sec('What moved in the systems · '+(D.systems.online?sysFresh.length:'offline'),'New logins, tasks and shoots pulled straight from the live tables at the last build.',
       D.systems.online?(sysFresh.map(e=>`<div class="latest" style="margin-bottom:5px"><b>${esc(e.date)}</b> · ${esc(e.text)}</div>`).join('')||'<div class="latest">nothing new in the systems in the last 3 days</div>'):'<div class="latest">systems feed OFFLINE at last build: '+esc(D.systems.error||'unknown')+'</div>'):'')
+    +((D.waCrosscheck&&D.waCrosscheck.totalAsks)?sec('WhatsApp asks checked against the task book','Of '+D.waCrosscheck.totalAsks+' asks found in chat exports, '+D.waCrosscheck.totalMatched+' became tasks ('+D.waCrosscheck.totalMatchedDone+' done). These did not:',
+      Object.entries(D.waCrosscheck.perClient).flatMap(([n,cc])=>cc.open.map(o=>`<div class="latest" style="margin-bottom:5px"><b>${esc(o.date)}</b> · ${esc(n)}: ${esc(o.snippet)}</div>`)).join('')||'<div class="latest">every ask in the exports has a matching task</div>'):'')
     +sec(`Needs a human decision · ${stale.length+(gaps===null?0:gaps.length)}`,'Stale rules to confirm or retire, and questions the brain could not answer.',
       (stale.slice(0,4).map(item).join('')
        +(gaps===null?'<div class="latest">gaps feed offline at last build</div>'
@@ -1913,6 +1915,7 @@ function openDossier(name){
      ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
      ${secH('From WhatsApp · '+(cl.waCount||0))}
      ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||'<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>'}
+     ${cl.waCheck?secH('WhatsApp asks vs the task book')+`<div class="latest" style="margin-bottom:6px">${cl.waCheck.asks} asks in the exports · ${cl.waCheck.matched} became tasks · ${cl.waCheck.matchedDone} of those done</div>`+cl.waCheck.open.map(o=>`<div class="latest" style="margin-bottom:6px;color:#c9a15a"><b>${esc(o.date)}</b> · no task found: ${esc(o.snippet)}</div>`).join(''):''}
      ${secH('From the systems · '+((cl.systems||[]).length))}
      ${(cl.systems||[]).slice(0,8).map(x=>fact(x.date,esc(x.text))).join('')||'<div class="latest">no recent system activity recorded for them</div>'}
      ${secH('From the client folder · '+(cl.docCount||0)+' docs')}

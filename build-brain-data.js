@@ -812,11 +812,15 @@ function applyReviews(reviews) {
 async function ingestSystems() {
   const res = { events: [], online: false, error: null, counts: {} };
   try {
-    const [members, tasks, shoots, clientRows] = await Promise.all([
+    /* graphic_projects: NEVER select image_url or thumb_url, that is the 92MB base64
+       landmine. Named light columns only, here and everywhere. */
+    const [members, tasks, shoots, clientRows, videos, graphics] = await Promise.all([
       sbGet('/team_members?select=name,role,active,created_at&order=created_at.desc&limit=40'),
-      sbGet('/tasks?select=title,category,client_id,done,due,created_at&order=created_at.desc&limit=150'),
+      sbGet('/tasks?select=title,category,client_id,done,due,created_at&order=created_at.desc&limit=400'),
       sbGet('/smm_shoots?select=title,client_id,shoot_date,status,video_count,created_at&order=created_at.desc&limit=40'),
       sbGet('/clients?select=id,name&limit=120'),
+      sbGet('/video_projects?select=title,client_id,current_stage,deadline,created_at&order=created_at.desc&limit=60'),
+      sbGet('/graphic_projects?select=title,client_name,client_id,current_stage,type,created_at&order=created_at.desc&limit=60'),
     ]);
     const cname = {}; for (const c of clientRows) cname[c.id] = c.name;
     /* live client names are ALL CAPS; route them through the alias matcher so the
@@ -839,10 +843,53 @@ async function ingestSystems() {
       const cl = s.client_id != null ? display(cname[s.client_id]) : null;
       ev.push({ date: s.shoot_date || s.created_at.slice(0, 10), sys: 'shoots', client: cl, text: 'Shoot' + (cl ? ' for ' + cl : '') + ': ' + String(s.title || '').slice(0, 60) + (s.status ? ' (' + s.status + ')' : '') + (s.shoot_date ? ', ' + s.shoot_date : '') });
     }
+    for (const v of videos) {
+      if (new Date(v.created_at) < cutoff) continue;
+      const cl = v.client_id != null ? display(cname[v.client_id]) : null;
+      ev.push({ date: v.created_at.slice(0, 10), sys: 'video', client: cl, text: 'Video' + (cl ? ' for ' + cl : '') + ': ' + String(v.title || '').slice(0, 80) + (v.current_stage ? ' (' + v.current_stage + ')' : '') });
+    }
+    for (const g of graphics) {
+      if (new Date(g.created_at) < cutoff) continue;
+      const cl = display(g.client_name || (g.client_id != null ? cname[g.client_id] : null));
+      ev.push({ date: g.created_at.slice(0, 10), sys: 'graphic', client: cl, text: 'Design' + (cl ? ' for ' + cl : '') + ': ' + String(g.title || '').slice(0, 80) + (g.current_stage ? ' (' + g.current_stage + ')' : '') });
+    }
     ev.sort((a, b) => b.date.localeCompare(a.date));
     res.events = ev.slice(0, 120);
     res.online = true;
-    res.counts = { team: members.length, activeTeam: members.filter(m => m.active).length, tasks: tasks.length, shoots: shoots.length };
+    res.counts = { team: members.length, activeTeam: members.filter(m => m.active).length, tasks: tasks.length, shoots: shoots.length, videos: videos.length, graphics: graphics.length };
+
+    /* ── WHATSAPP ASKS vs THE TASK BOOK (2026-08-30, Thulaib's cross-check: "if we
+       share the WhatsApp stuff you can cross check with the task book"). Every
+       meaningful WhatsApp line that reads like an ASK is checked for a task row on
+       the same client, created from 2 days before to 7 days after, sharing a real
+       keyword. What survives is the list that matters: ASKED IN THE CHAT, ABSENT
+       FROM THE BOOK. Empty inbox = the check sleeps, it never invents. ── */
+    const WA_ASK = /(can you|could you|please|pls\b|need |want you|make |create |send |share |post |boost|design |edit |change |fix |update |schedule|upload|caption|video for|story for)/i;
+    const crosscheck = { perClient: {}, totalAsks: 0, totalMatched: 0, totalMatchedDone: 0, totalOpen: 0 };
+    for (const [clName, lines] of Object.entries(wa.perClient)) {
+      const cc = { asks: 0, matched: 0, matchedDone: 0, open: [] };
+      for (const ln of lines) {
+        if (!WA_ASK.test(ln.snippet)) continue;
+        cc.asks++; crosscheck.totalAsks++;
+        const askKw = kwOf(ln.snippet);
+        const lo = new Date(+new Date(ln.date) - 2 * 86400000).toISOString().slice(0, 10);
+        const hi = new Date(+new Date(ln.date) + 7 * 86400000).toISOString().slice(0, 10);
+        const hit = tasks.find(t => {
+          if (t.client_id == null || display(cname[t.client_id]) !== clName) return false;
+          const td = t.created_at.slice(0, 10);
+          if (td < lo || td > hi) return false;
+          const tkw = kwOf(String(t.title || '') + ' ' + String(t.category || ''));
+          for (const w of askKw) if (tkw.has(w)) return true;
+          return false;
+        });
+        if (hit) { cc.matched++; crosscheck.totalMatched++; if (hit.done) { cc.matchedDone++; crosscheck.totalMatchedDone++; } }
+        else if (cc.open.length < 5) cc.open.push({ date: ln.date, snippet: ln.snippet.slice(0, 120) });
+      }
+      crosscheck.totalOpen += cc.open.length;
+      if (cc.asks) crosscheck.perClient[clName] = cc;
+    }
+    res.crosscheck = crosscheck;
+    if (crosscheck.totalAsks) console.log('wa crosscheck:', crosscheck.totalAsks, 'asks,', crosscheck.totalMatched, 'in the task book (' + crosscheck.totalMatchedDone + ' done),', crosscheck.totalOpen, 'open');
   } catch (e) { res.error = String(e.message); }
   return res;
 }
@@ -859,6 +906,11 @@ Promise.all([
   for (const e of systems.events) if (e.client) {
     const rec = out.clients.find(c => c.name === e.client);
     if (rec) { (rec.systems = rec.systems || []).push(e); if (rec.systems.length > 12) rec.systems.length = 12; }
+  }
+  out.waCrosscheck = systems.crosscheck || null;
+  if (systems.crosscheck) for (const [n, cc] of Object.entries(systems.crosscheck.perClient)) {
+    const rec = out.clients.find(c => c.name === n);
+    if (rec) rec.waCheck = cc;
   }
   out.agentFeed = feed;
   console.log('agent feed:', feed.online ? feed.entries.length + ' machine learnings' : 'OFFLINE (' + feed.error + ')');
