@@ -281,6 +281,12 @@ body.present .coach{display:none}
 
 /* ── present mode ── */
 body.present .top,.present .week,.present .gap,.present .panel,.present .tl,.present .legend,.present .stats{display:none!important}
+/* Present rides the 3D brain now (2026-08-30). The rule above hides every .tl and
+   the 3D view is one, so it gets its own door. Chips, rail, cards and hints stay
+   out of the show; the stage grows into the freed space. */
+body.present #explore-view{display:block!important}
+body.present #x3d-chips,body.present #x3d-hint,body.present #x3d-rail,body.present #x3d-card{display:none!important}
+body.present #x3d-stage{height:calc(100dvh - 300px);min-height:360px}
 .hero{display:none}
 body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
 .hero img{height:40px;margin:0 auto 14px;display:block}
@@ -467,6 +473,7 @@ table.r-tbl td b{color:#0e1830}
   <div id="x3d-stage" style="position:relative;height:calc(100vh - 230px);height:calc(100dvh - 230px);min-height:420px;background:#05070c;border:1px solid var(--line);border-radius:14px;overflow:hidden">
     <canvas id="x3d-canvas" style="position:absolute;inset:0;width:100%;height:100%;cursor:grab;touch-action:none"></canvas>
     <div id="x3d-tags" style="position:absolute;inset:0;pointer-events:none"></div>
+    <div id="x3d-nlabels" style="position:absolute;inset:0;pointer-events:none"></div>
     <div id="x3d-hover" style="position:fixed;display:none;z-index:60;pointer-events:none;background:rgba(8,11,18,.92);border:1px solid rgba(160,190,255,.25);color:#dfe8f6;font-size:11.5px;padding:4px 9px;border-radius:7px;transform:translate(12px,14px)"></div>
     <div id="x3d-loader" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#05070c;z-index:5;transition:opacity .5s">
       <div id="x3d-copy" style="color:#8fa2c0;font-size:12.5px">Waking the brain</div>
@@ -1962,7 +1969,7 @@ function setView(v){
   /* 2026-08-30, the merge: Brain and Clients ARE the 3D now. The constellation
      stays as the Present-mode surface and the automatic fallback when the 3D
      engine cannot load (bb-3d-ux gate 6: the scene may fail, the data may not). */
-  if((v==='brain'||v==='clients')&&!document.body.classList.contains('present')&&!window.X3D_FALLBACK){
+  if((v==='brain'||v==='clients')&&!window.X3D_FALLBACK){
     BBX.setMode(v==='clients'?'clients':'brain'); v='explore';
   }
   const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
@@ -2030,8 +2037,8 @@ function togglePresent(on){
        <div class="num"><b>${D.totals.entries}</b><span>lessons learned from real work</span></div>
        <div class="num"><b>${D.totals.chatEntries||0}</b><span>facts absorbed from conversations</span></div>
        <div class="num"><b>${D.totals.clients.length}</b><span>clients it has learned from</span></div>`;
-    startDemo();
-  } else { stopDemo(); clearFocusDom(); }
+    if(window.X3D_FALLBACK){ startDemo(); } else { BBX.startShow(); }
+  } else { stopDemo(); BBX.stopShow(); clearFocusDom(); }
 }
 /* ═══ modal focus management: trap Tab inside the open overlay, restore focus on close ═══ */
 let lastFocus=null;
@@ -2202,6 +2209,7 @@ const BBX=(function(){
     techRig=new THREE.Group(); scene.add(techRig);
     [{r:2.18,rot:[.18,.18,0],colour:0x5b9dff,opacity:.18},{r:2.42,rot:[1.28,.4,0],colour:0xff57ad,opacity:.11},{r:2.62,rot:[.7,1.24,.2],colour:0x8fcaff,opacity:.07}].forEach(spec=>{
       const ring=new THREE.Mesh(new THREE.TorusGeometry(spec.r,.008,5,170),new THREE.MeshBasicMaterial({color:spec.colour,transparent:true,opacity:spec.opacity,blending:THREE.AdditiveBlending,depthWrite:false}));
+      ring.userData.baseOp=spec.opacity;
       ring.rotation.set(...spec.rot); techRig.add(ring);
     });
     const pts=[]; let seed=7291; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
@@ -2261,6 +2269,7 @@ const BBX=(function(){
       buildTags();
       ready=true;
       applyMode(pendingMode);
+      if(showOn)showBeat();   // Present was entered while the model was still loading
       $('x3d-bar').style.width='100%'; $('x3d-copy').textContent='Neural sectors ready.';
       setTimeout(()=>{ $('x3d-loader').style.opacity='0'; setTimeout(()=>$('x3d-loader').style.display='none',500); },320);
     },ev=>{ if(!ev.total)return; const p=Math.min(96,Math.max(4,ev.loaded/ev.total*100));
@@ -2314,6 +2323,31 @@ const BBX=(function(){
       if(c.geometry&&c.geometry.dispose)c.geometry.dispose();
       if(c.material&&c.material.dispose)c.material.dispose(); }
     neuronMeshes=[]; hitProxies=[]; selectedNeuron=null;
+    if($('x3d-nlabels'))$('x3d-nlabels').innerHTML='';
+  }
+  /* ── the skills SHOW THEMSELVES: the deepest twelve of the lit sector carry
+     floating name pills projected onto their neurons, tappable, greedy-spaced so
+     they never pile up. The rest stay one glance away in the rail. ── */
+  function buildNeuronLabels(regionId){
+    const r=regionById[regionId], wrap=$('x3d-nlabels'); if(!r||!wrap){if(wrap)wrap.innerHTML='';return;}
+    const depthOf=Object.fromEntries(D.skills.map(s=>[s.name,s.depth||0]));
+    const top=new Set(r.skills.slice().sort((a,b)=>(depthOf[b]||0)-(depthOf[a]||0)).slice(0,12));
+    wrap.innerHTML=neuronMeshes.filter(n=>top.has(n.userData.skill)).map(n=>
+      `<button data-x3dnl="${esc(n.userData.skill)}" onclick="BBX.focusSkill('${esc(n.userData.skill)}')" style="pointer-events:auto;position:absolute;transform:translate(-50%,-135%);background:rgba(6,9,15,.86);border:1px solid ${r.colour}55;color:#eef3fb;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;white-space:nowrap;transition:opacity .25s">${esc(hum(n.userData.skill))}</button>`).join('');
+  }
+  function updateNeuronLabels(rect){
+    const placed=[];
+    document.querySelectorAll('[data-x3dnl]').forEach(el=>{
+      const node=neuronMeshes.find(n=>n.userData.skill===el.dataset.x3dnl);
+      if(!node){el.style.opacity='0';return;}
+      const p=node.position.clone().project(camera);
+      if(p.z>=1){el.style.opacity='0';el.style.pointerEvents='none';return;}
+      const x=(p.x*.5+.5)*rect.width, y=(-p.y*.5+.5)*rect.height;
+      if(placed.some(q=>Math.abs(q.x-x)<76&&Math.abs(q.y-y)<22)){el.style.opacity='0';el.style.pointerEvents='none';return;}
+      placed.push({x,y});
+      el.style.left=x+'px'; el.style.top=y+'px';
+      el.style.opacity=node===selectedNeuron?'1':'.88'; el.style.pointerEvents='auto';
+    });
   }
   function buildNeurons(regionId){
     clearNeurons();
@@ -2348,13 +2382,19 @@ const BBX=(function(){
   function select(regionId){
     if(!ready)return;
     activeSector=regionId;
+    /* Apple-grade focus is CONTRAST: the chosen territory owns the frame, the rest
+       recedes to a whisper and even the ambient rings step back (2026-08-30, on
+       Thulaib's "only that section should highlight" note). */
     surfaceMeshes.forEach(m=>{
       const match=m.userData.bbRegion===regionId;
-      m.userData.targetOpacity=match?.46:.055;
+      m.userData.targetOpacity=match?.5:.035;
       m.material.depthWrite=false;
-      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(match?.52:.015);
+      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(match?.58:.008);
     });
+    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp*.3; });
+    particles.material.opacity=.1;
     buildNeurons(regionId);
+    buildNeuronLabels(regionId);
     const sel=(groups[regionId]||[]).map(m=>m.userData.worldCentre).filter(p=>p.length()<=2.4);
     if(sel.length){
       const centre=sectorCentres[regionId].clone();
@@ -2478,6 +2518,8 @@ const BBX=(function(){
     clearNeurons(); activeSector=null; hideRail(); hideCard();
     surfaceMeshes.forEach(m=>{ m.userData.targetOpacity=m.userData.baseOpacity; m.material.depthWrite=true;
       m.material.emissive.copy(m.userData.bbColour).multiplyScalar(.24); });
+    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
+    particles.material.opacity=.28;
     document.querySelectorAll('[data-x3dchip],[data-x3dtag]').forEach(b=>b.classList.remove('on'));
     cameraTween={start:performance.now(),duration:850,fromPosition:camera.position.clone(),toPosition:new THREE.Vector3(0,.1,7.3),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(0,0,0)};
   }
@@ -2491,8 +2533,9 @@ const BBX=(function(){
       const p=centre.clone().project(camera);
       tag.style.left=Math.max(55,Math.min(rect.width-55,(p.x*.5+.5)*rect.width))+'px';
       tag.style.top=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))+'px';
-      tag.style.opacity=p.z<1?(tag.classList.contains('on')?'1':'.72'):'0';
+      tag.style.opacity=p.z<1?(tag.classList.contains('on')?'1':activeSector?'.18':'.72'):'0';
     });
+    updateNeuronLabels(rect);
   }
   const easeOut=v=>1-Math.pow(1-v,4);
   function tick(now){
@@ -2525,10 +2568,25 @@ const BBX=(function(){
   }
   function syncSpin(){ const b=$('x3d-spin'); if(b) b.textContent=spinOn?'Pause spin':'Spin'; }
   function toggleSpin(){ spinOn=!spinOn; if(controls)controls.autoRotate=spinOn; syncSpin(); }
-  function dbg(){ return { mode, cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
+  /* ── PRESENT rides the 3D: an eight-beat show, one sector every eight seconds,
+     the same live-data captions the constellation demo used (setStory + storyLine),
+     rail and cards hidden by the present CSS so only the brain and the words speak. ── */
+  let showOn=false, showTimer=null, showIdx=0;
+  function showBeat(){
+    if(!showOn||!ready)return;
+    const r=REGIONS[showIdx%REGIONS.length]; showIdx++;
+    select(r.id);
+    try{ if(typeof setStory==='function'&&typeof storyLine==='function') setStory(storyLine(r.id)); }catch(e){}
+    showTimer=setTimeout(showBeat,8000);
+  }
+  function startShow(){ showOn=true; showIdx=0; if(ready)showBeat(); }
+  function stopShow(){ if(!showOn)return; showOn=false; clearTimeout(showTimer);
+    try{ if(typeof setStory==='function')setStory(''); }catch(e){}
+    if(ready)reset(); }
+  function dbg(){ return { mode, showOn, labels:document.querySelectorAll('[data-x3dnl]').length, cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
   function step(n){ const t=performance.now(); for(let i=0;i<(n||1);i++) frame(t+i*16.7); return dbg(); }
   function setMode(m){ pendingMode=m; if(ready&&mode!==m)applyMode(m); }
-  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard };
+  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, startShow, stopShow, showBeat };
 })();
 </script>
 
