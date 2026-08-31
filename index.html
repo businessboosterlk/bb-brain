@@ -1997,6 +1997,19 @@ function setView(v){
      engine cannot load (bb-3d-ux gate 6: the scene may fail, the data may not). */
   if((v==='brain'||v==='clients')&&!window.X3D_FALLBACK){
     BBX.setMode(v==='clients'?'clients':'brain'); v='explore';
+  }else if(window.X3D_FALLBACK&&(v==='brain'||v==='clients')){
+    /* fallback is ONE-SHOT: this visit shows the constellation with a notice,
+       the next tap of Brain retries the 3D from scratch */
+    window.X3D_FALLBACK=false;
+    const bv=document.getElementById('brain-view');
+    if(bv&&!document.getElementById('x3d-fellback')){
+      const n=document.createElement('div');
+      n.id='x3d-fellback';
+      n.style.cssText='position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:40;background:#2a2114;border:1px solid #c9a15a55;color:#e8d9b8;font-size:12px;padding:7px 14px;border-radius:9px';
+      n.textContent='The 3D brain could not load, showing the classic view. Tap Brain to try again.';
+      bv.style.position='relative'; bv.prepend(n);
+      setTimeout(()=>{ n.remove(); },9000);
+    }
   }
   const sameContainer=VIEW_EL[VIEW]===VIEW_EL[v];
   const prev=VIEW; VIEW=v;
@@ -2655,6 +2668,12 @@ const BBX=(function(){
   function setMode(m){ pendingMode=m; if(ready&&mode!==m)applyMode(m); }
   return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, startShow, stopShow, showBeat, toggleRail };
 })();
+/* ═══ THE LANDING STATE IS A ROUTE TOO (2026-08-31). The page's built-in default
+   is the old constellation, and nothing ever called setView on a plain load, so
+   the LIVE SITE opened on the old brain while every test drove the app through
+   its functions and passed. Found by Thulaib on the live page, twice. Route the
+   default through setView once at boot so the 3D IS the landing state. ═══ */
+if(!location.hash.startsWith('#client')&&VIEW==='brain'&&!document.body.classList.contains('present')){ setView('brain'); }
 </script>
 
 <script>
