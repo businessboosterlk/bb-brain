@@ -1887,6 +1887,14 @@ function renderToday(){
       D.systems.online?(sysFresh.map(e=>`<div class="latest" style="margin-bottom:5px"><b>${esc(e.date)}</b> · ${esc(e.text)}</div>`).join('')||'<div class="latest">nothing new in the systems in the last 3 days</div>'):'<div class="latest">systems feed OFFLINE at last build: '+esc(D.systems.error||'unknown')+'</div>'):'')
     +((D.waCrosscheck&&D.waCrosscheck.totalAsks)?sec('WhatsApp asks checked against the task book','Of '+D.waCrosscheck.totalAsks+' asks found in chat exports, '+D.waCrosscheck.totalMatched+' became tasks ('+D.waCrosscheck.totalMatchedDone+' done). These did not:',
       Object.entries(D.waCrosscheck.perClient).flatMap(([n,cc])=>cc.open.map(o=>`<div class="latest" style="margin-bottom:5px"><b>${esc(o.date)}</b> · ${esc(n)}: ${esc(o.snippet)}</div>`)).join('')||'<div class="latest">every ask in the exports has a matching task</div>'):'')
+    +(function(){
+      const unused=D.skills.filter(s=>s.depth===0);
+      const quiet=D.skills.filter(s=>s.depth>0&&s.quiet);
+      if(!unused.length&&!quiet.length)return '';
+      const row=s=>`<div class="latest" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span>${esc(humanSkill(s.name))} <span style="color:var(--text-3)">· ${esc((C[s.cluster]||{}).name||s.cluster)} · ${s.depth?'gone quiet':'never used'}</span></span><button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(s.name)}')">Push to team</button></div>`;
+      return sec('Skills nobody is using · '+unused.length+' never used, '+quiet.length+' gone quiet','Capability BB pays for and does not receive. Push one and a ready WhatsApp nudge is copied, with the exact phrase that runs the skill. Depth counts logged uses, never quality.',
+        unused.slice(0,6).map(row).join('')+quiet.slice(0,4).map(row).join('')+((unused.length+quiet.length)>10?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">+ ${unused.length+quiet.length-10} more in Gap radar</div>`:''));
+    })()
     +sec(`Needs a human decision · ${stale.length+(gaps===null?0:gaps.length)}`,'Stale rules to confirm or retire, and questions the brain could not answer.',
       (stale.slice(0,4).map(item).join('')
        +(gaps===null?'<div class="latest">gaps feed offline at last build</div>'
@@ -1903,6 +1911,24 @@ function renderToday(){
        return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="pill">${esc(k)} · ${n}</span>`).join('')+'</div>'
         +D.metrics.entries.filter(m=>m.status==='UNKNOWN').slice(0,4).map(m=>`<div class="latest" style="margin-bottom:4px">UNKNOWN: <b>${esc(m.name)}</b> - do not quote this anywhere</div>`).join('');})()):'');
 }
+
+/* ═══ USAGE DRIVE (2026-08-30, Thulaib: "if a skill has not been used, push it
+   to the team"): a skill that exists and is never used is paid-for capability
+   the team is not receiving. One tap copies a WhatsApp-ready nudge naming the
+   skill, what it does and the exact phrase that runs it. The action lives where
+   the team lives. Depth counts logged uses, never quality. ═══ */
+function humanSkill(n){return String(n).replace(/^bb-/,'').replace(/^webdev-/,'').split('-').map(w=>({seo:'SEO',geo:'GEO',aeo:'AEO',ai:'AI',ux:'UX',ui:'UI',crm:'CRM',cms:'CMS','3d':'3D'})[w]||w.charAt(0).toUpperCase()+w.slice(1)).join(' ');}
+function skillNudgeText(name){
+  const s=D.skills.find(x=>x.name===name); if(!s)return '';
+  const quietDays=s.latest?Math.round((Date.now()-new Date(s.latest.date))/86400000):null;
+  const state=s.depth===0?'has NEVER been used':'has been quiet for '+quietDays+' days';
+  return 'BB BRAIN NUDGE · '+humanSkill(name)+'\n'
+    +'This skill exists in the machine and '+state+'.\n'
+    +'What it does: '+String(s.desc||'').replace(/\s+/g,' ').slice(0,160).trim()+'\n'
+    +'Say this to Claude to run it: "'+(s.trigger||('Use the '+name+' skill'))+'"\n'
+    +'On the next task that fits, run it and log the lesson so the brain grows. Reply here with the client name once it has run.';
+}
+function pushSkillNudge(name){ copyText(skillNudgeText(name),'Nudge copied. Paste it in the team WhatsApp group.'); }
 
 /* ═══ STEP 5: the client dossier - a full page, not a side panel ═══ */
 let DOSSIER=null;
@@ -2157,6 +2183,7 @@ const BBX=(function(){
   let scene,camera,renderer,controls,root,techRig,particles,raycaster,pointerV;
   let surfaceMeshes=[],groups={},sectorCentres={},neuronRoot=null,neuronMeshes=[],hitProxies=[],selectedNeuron=null,cameraTween=null,pointerStart=null,activeSector=null;
   let mode='brain', pendingMode='brain', clientRoot=null, clientNodes=[], clientProxies=[], selectedClient=null;
+  const catsUsed=new Set();
   const noMotion=()=>(typeof REDUCED!=='undefined'&&REDUCED)||matchMedia('(prefers-reduced-motion: reduce)').matches;
   const hum=n=>String(n).replace(/^bb-/,'').replace(/^webdev-/,'').split('-').map(w=>({seo:'SEO',geo:'GEO',aeo:'AEO',ai:'AI',ux:'UX',ui:'UI',crm:'CRM',cms:'CMS','3d':'3D'})[w]||w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
   const REGIONS=(D.clusters||[]).map(c=>({id:c.id,name:c.name,colour:c.color,
@@ -2183,7 +2210,7 @@ const BBX=(function(){
         await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/GLTFLoader.js');
         await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/DRACOLoader.js');
         init();
-      }catch(e){ fail('The 3D engine could not load. Check the connection and reopen Explore.'); started=false; }
+      }catch(e){ fail('The 3D engine could not load. Check the connection, then tap Brain to retry.'); started=false; }
     })();
   }
   function init(){
@@ -2201,13 +2228,26 @@ const BBX=(function(){
     controls.enableDamping=true; controls.dampingFactor=.055; controls.enablePan=false;
     controls.minDistance=3.15; controls.maxDistance=10.5;
     controls.autoRotate=spinOn; controls.autoRotateSpeed=.48;
-    scene.add(new THREE.HemisphereLight(0xcfe7ff,0x090b12,.72));
-    const key=new THREE.DirectionalLight(0xf2f7ff,1.45); key.position.set(4,6,7); scene.add(key);
-    const cyan=new THREE.DirectionalLight(0x61dbff,1.5); cyan.position.set(-6,2,-6); scene.add(cyan);
-    const magenta=new THREE.DirectionalLight(0xff4fa3,.82); magenta.position.set(5,-3,-4); scene.add(magenta);
+    /* Robotic light rig (2026-08-30, the perfection pass): neutral engineering
+       light, no coloured washes. Cluster colour is DATA and comes from the
+       materials; the cyan and magenta stage lights that painted everything
+       pink-blue are gone. Precise key, cool fill, quiet rim. */
+    scene.add(new THREE.HemisphereLight(0xdfe9f5,0x0a0c11,.55));
+    const key=new THREE.DirectionalLight(0xf5f8ff,1.25); key.position.set(4,6,7); scene.add(key);
+    const fill=new THREE.DirectionalLight(0x9fb4d9,.5); fill.position.set(-6,2,-6); scene.add(fill);
+    const rim=new THREE.DirectionalLight(0xc9d4e4,.55); rim.position.set(0,-5,-6); scene.add(rim);
+    /* A quiet studio environment so the metal actually reflects something: three
+       soft panels, nothing more. This is what turns metalness into chrome. */
+    try{
+      const pm=new THREE.PMREMGenerator(renderer);
+      const es=new THREE.Scene();
+      const panel=(w,h,x,y,z,glow)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial()); m.material.color.setScalar(glow); m.position.set(x,y,z); m.lookAt(0,0,0); es.add(m); };
+      panel(6,4, 0,8,0, 2.4); panel(5,3, -8,2,4, 1.2); panel(5,3, 8,-2,-4, .7);
+      scene.environment=pm.fromScene(es,.04).texture; pm.dispose();
+    }catch(e){}
     root=new THREE.Group(); root.rotation.y=-.3; scene.add(root);
     techRig=new THREE.Group(); scene.add(techRig);
-    [{r:2.18,rot:[.18,.18,0],colour:0x5b9dff,opacity:.18},{r:2.42,rot:[1.28,.4,0],colour:0xff57ad,opacity:.11},{r:2.62,rot:[.7,1.24,.2],colour:0x8fcaff,opacity:.07}].forEach(spec=>{
+    [{r:2.18,rot:[.18,.18,0],colour:0x6b7f9c,opacity:.11},{r:2.42,rot:[1.28,.4,0],colour:0x8494ad,opacity:.06},{r:2.62,rot:[.7,1.24,.2],colour:0x93a5c2,opacity:.04}].forEach(spec=>{
       const ring=new THREE.Mesh(new THREE.TorusGeometry(spec.r,.008,5,170),new THREE.MeshBasicMaterial({color:spec.colour,transparent:true,opacity:spec.opacity,blending:THREE.AdditiveBlending,depthWrite:false}));
       ring.userData.baseOp=spec.opacity;
       ring.rotation.set(...spec.rot); techRig.add(ring);
@@ -2216,7 +2256,7 @@ const BBX=(function(){
     for(let i=0;i<180;i++){ const radius=2.45+rnd()*1.5, theta=rnd()*Math.PI*2, phi=Math.acos(2*rnd()-1);
       pts.push(radius*Math.sin(phi)*Math.cos(theta),radius*Math.cos(phi)*.7,radius*Math.sin(phi)*Math.sin(theta)); }
     const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
-    particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0x8cc9ff,size:.018,transparent:true,opacity:.28,blending:THREE.AdditiveBlending,depthWrite:false}));
+    particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0xa9bbd6,size:.016,transparent:true,opacity:.16,blending:THREE.AdditiveBlending,depthWrite:false}));
     scene.add(particles);
     neuronRoot=new THREE.Group(); scene.add(neuronRoot);
     raycaster=new THREE.Raycaster(); pointerV=new THREE.Vector2();
@@ -2230,6 +2270,7 @@ const BBX=(function(){
       model.traverse(o=>{ if(!o.isMesh)return;
         const cat=(o.userData&&o.userData.bx_cat)||(o.parent&&o.parent.userData&&o.parent.userData.bx_cat)||'other';
         if(!SOLID.has(cat)){ o.visible=false; return; }
+        o.userData.anatomyCat=cat; catsUsed.add(cat);
         surfaceMeshes.push(o); });
       /* Normalise EXACTLY: scale and rotate first, then measure the WORLD centre and
          subtract it in root space. The prototype subtracted the raw centre before
@@ -2252,7 +2293,9 @@ const BBX=(function(){
         const angle=(Math.atan2(dz,dx)+Math.PI*2)%(Math.PI*2);
         const regionId=spatialOrder[Math.min(3,Math.floor(angle/(Math.PI/2)))*2+(dy>=-.02?0:1)];
         const colour=new THREE.Color((regionById[regionId]||{colour:'#c9d4e8'}).colour);
-        m.material=new THREE.MeshPhysicalMaterial({color:colour.clone().multiplyScalar(.58),emissive:colour.clone().multiplyScalar(.24),metalness:.46,roughness:.28,clearcoat:1,clearcoatRoughness:.16,transparent:true,opacity:.82,depthWrite:true,side:THREE.FrontSide});
+        /* graphite and dark glass: the base is engineered near-monochrome, the
+           cluster colour reads as a controlled tint and BLOOMS only on selection */
+        m.material=new THREE.MeshPhysicalMaterial({color:colour.clone().multiplyScalar(.42),emissive:colour.clone().multiplyScalar(.14),metalness:.7,roughness:.32,clearcoat:1,clearcoatRoughness:.22,transparent:true,opacity:.82,depthWrite:true,side:THREE.FrontSide});
         m.userData.bbRegion=regionId; m.userData.bbColour=colour; m.userData.baseOpacity=.82; m.userData.targetOpacity=.82; m.userData.worldCentre=c;
         (groups[regionId]=groups[regionId]||[]).push(m);
       });
@@ -2274,7 +2317,7 @@ const BBX=(function(){
       setTimeout(()=>{ $('x3d-loader').style.opacity='0'; setTimeout(()=>$('x3d-loader').style.display='none',500); },320);
     },ev=>{ if(!ev.total)return; const p=Math.min(96,Math.max(4,ev.loaded/ev.total*100));
       $('x3d-bar').style.width=p+'%'; $('x3d-copy').textContent='Waking the brain '+Math.round(p)+'%';
-    },err=>{ console.error('explore model load failed',err); fail('The brain model could not load. Reopen Explore to retry.'); started=false; });
+    },err=>{ console.error('3D model load failed',err); fail('The brain model could not load. Tap Brain to retry.'); started=false; });
     canvas.addEventListener('pointerdown',e=>{ pointerStart={x:e.clientX,y:e.clientY}; });
     canvas.addEventListener('pointerup',e=>{
       if(!pointerStart)return;
@@ -2337,13 +2380,15 @@ const BBX=(function(){
   }
   function updateNeuronLabels(rect){
     const placed=[];
+    const rail=$('x3d-rail');
+    const railEdge=(rail&&rail.style.display!=='none')?rail.getBoundingClientRect().width+42:0;
     document.querySelectorAll('[data-x3dnl]').forEach(el=>{
       const node=neuronMeshes.find(n=>n.userData.skill===el.dataset.x3dnl);
       if(!node){el.style.opacity='0';return;}
       const p=node.position.clone().project(camera);
       if(p.z>=1){el.style.opacity='0';el.style.pointerEvents='none';return;}
       const x=(p.x*.5+.5)*rect.width, y=(-p.y*.5+.5)*rect.height;
-      if(placed.some(q=>Math.abs(q.x-x)<76&&Math.abs(q.y-y)<22)){el.style.opacity='0';el.style.pointerEvents='none';return;}
+      if(x<railEdge||placed.some(q=>Math.abs(q.x-x)<76&&Math.abs(q.y-y)<22)){el.style.opacity='0';el.style.pointerEvents='none';return;}
       placed.push({x,y});
       el.style.left=x+'px'; el.style.top=y+'px';
       el.style.opacity=node===selectedNeuron?'1':'.88'; el.style.pointerEvents='auto';
@@ -2409,24 +2454,40 @@ const BBX=(function(){
   }
   /* ── the in-stage skill rail: every skill of the lit sector, one tap from its
      record, per bb-3d-ux gate 3 DRILL and gate 4 (detail reads inside the scene) ── */
+  let railListOpen=true;
   function renderRail(regionId){
     const r=regionById[regionId]; const rail=$('x3d-rail'); if(!r){rail.style.display='none';return;}
     const bySkill=Object.fromEntries(D.skills.map(s=>[s.name,s]));
+    /* on a narrow stage the list starts collapsed so the brain stays visible;
+       the header chip opens it. Depth 0 reads amber: paid-for and never used. */
+    const narrow=$('x3d-stage').getBoundingClientRect().width<560;
+    railListOpen=!narrow;
     rail.innerHTML=`<button onclick="openCluster('${esc(regionId)}')" style="background:none;border:none;cursor:pointer;text-align:left;font-size:11px;color:#8fa2c0;padding:2px 4px 6px">${esc(r.name)} · ${r.skills.length} skills · full record →</button>`+
+      (narrow?`<button id="x3d-rail-toggle" onclick="BBX.toggleRail()" style="background:none;border:1px solid rgba(150,180,230,.2);border-radius:8px;cursor:pointer;text-align:left;font-size:11.5px;color:#dfe8f6;padding:8px;min-height:40px">Show the ${r.skills.length} skills</button>`:'')+
+      `<div id="x3d-rail-list" style="display:${railListOpen?'block':'none'}">`+
       r.skills.map(sk=>{const s=bySkill[sk]||{depth:0};
-        return `<button data-x3drail="${esc(sk)}" onclick="BBX.focusSkill('${esc(sk)}')" style="display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;background:none;border:none;border-radius:8px;padding:7px 8px;min-height:40px;cursor:pointer;color:#dfe8f6;font-size:12px">${esc(hum(sk))}<span style="color:${r.colour};font-size:10.5px">${s.depth||0}</span></button>`;}).join('');
+        return `<button data-x3drail="${esc(sk)}" onclick="BBX.focusSkill('${esc(sk)}')" style="display:flex;width:100%;justify-content:space-between;gap:8px;align-items:center;text-align:left;background:none;border:none;border-radius:8px;padding:7px 8px;min-height:40px;cursor:pointer;color:#dfe8f6;font-size:12px">${esc(hum(sk))}<span style="color:${s.depth?r.colour:'#c9a15a'};font-size:10.5px">${s.depth||0}</span></button>`;}).join('')+
+      `</div>`;
     rail.style.display='flex';
+  }
+  function toggleRail(){
+    railListOpen=!railListOpen;
+    const list=$('x3d-rail-list'), btn=$('x3d-rail-toggle');
+    if(list)list.style.display=railListOpen?'block':'none';
+    if(btn)btn.textContent=railListOpen?'Hide the list':'Show the skills';
   }
   function hideRail(){ $('x3d-rail').style.display='none'; }
   function hideCard(){ $('x3d-card').style.display='none'; selectedClient=null; }
   function showSkillCard(sk){
     const s=D.skills.find(x=>x.name===sk); if(!s)return;
     const r=regionById[s.cluster]||{colour:'#c9d4e8',name:s.cluster};
+    const needsPush=s.depth===0||s.quiet;
     $('x3d-card').innerHTML=
-      `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px;color:#fff">${esc(hum(sk))}</b><button onclick="BBX.hideCard()" style="background:none;border:none;color:#8fa2c0;cursor:pointer;font-size:15px">×</button></div>
-       <div style="font-size:11px;color:${r.colour};margin:2px 0 8px">${esc(r.name)} · depth ${s.depth}${s.hasLoop?' · learning loop on':''}</div>
-       ${s.latest?`<div style="font-size:11.5px;color:#b9c6da;line-height:1.5;margin-bottom:8px"><b style="color:#8fa2c0">${esc(s.latest.date)}</b> · ${esc(String(s.latest.summary).slice(0,150))}</div>`:'<div style="font-size:11.5px;color:#8fa2c0;margin-bottom:8px">No logged uses yet. A new capability, not a weakness.</div>'}
-       <button class="tbtn" onclick="openSkill('${esc(sk)}')" style="font-size:11.5px">Full record</button>`;
+      `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px;color:#fff">${esc(hum(sk))}</b><button onclick="BBX.hideCard()" style="background:none;border:none;color:#8fa2c0;cursor:pointer;font-size:15px;padding:2px 8px">×</button></div>
+       <div style="font-size:11px;color:${r.colour};margin:2px 0 8px">${esc(r.name)} · depth ${s.depth} (logged uses, never quality)${s.hasLoop?' · learning loop on':''}</div>
+       ${s.depth===0?'<div style="font-size:11px;color:#c9a15a;margin:0 0 8px">Never used. Push it to the team so it earns its place.</div>':s.quiet?'<div style="font-size:11px;color:#c9a15a;margin:0 0 8px">Quiet for over 60 days.</div>':''}
+       ${s.latest?`<div style="font-size:11.5px;color:#b9c6da;line-height:1.5;margin-bottom:8px"><b style="color:#8fa2c0">${esc(s.latest.date)}</b> · ${esc(String(s.latest.summary).slice(0,150))}</div>`:''}
+       <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="tbtn" onclick="openSkill('${esc(sk)}')" style="font-size:11.5px">Full record</button>${needsPush?`<button class="tbtn" onclick="pushSkillNudge('${esc(sk)}')" style="font-size:11.5px;border-color:#c9a15a55">Push to team</button>`:''}</div>`;
     $('x3d-card').style.display='block';
     document.querySelectorAll('[data-x3drail]').forEach(b=>b.style.background=b.dataset.x3drail===sk?'rgba(140,170,230,.12)':'none');
   }
@@ -2463,8 +2524,10 @@ const BBX=(function(){
       $('x3d-chips').style.display='flex';
       $('x3d-hint').textContent='Tap a territory to light its sector: its skills appear as neurons and in the list. Tap a neuron or a list row to read that skill inside the brain. Drag to turn, pinch or scroll to zoom, tap empty space to step back.';
       clearClientNodes();
-      surfaceMeshes.forEach(x=>{ x.userData.targetOpacity=x.userData.baseOpacity; x.material.depthWrite=true; x.material.emissive.copy(x.userData.bbColour).multiplyScalar(.24); });
+      surfaceMeshes.forEach(x=>{ x.userData.targetOpacity=x.userData.baseOpacity; x.material.depthWrite=true; x.material.emissive.copy(x.userData.bbColour).multiplyScalar(.14); });
     }
+    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
+    if(particles)particles.material.opacity=.16;
     document.getElementById('v-brain').classList.toggle('on',m==='brain');
     document.getElementById('v-clients').classList.toggle('on',m==='clients');
   }
@@ -2517,9 +2580,9 @@ const BBX=(function(){
     if(!ready)return;
     clearNeurons(); activeSector=null; hideRail(); hideCard();
     surfaceMeshes.forEach(m=>{ m.userData.targetOpacity=m.userData.baseOpacity; m.material.depthWrite=true;
-      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(.24); });
+      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(.14); });
     techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
-    particles.material.opacity=.28;
+    particles.material.opacity=.16;
     document.querySelectorAll('[data-x3dchip],[data-x3dtag]').forEach(b=>b.classList.remove('on'));
     cameraTween={start:performance.now(),duration:850,fromPosition:camera.position.clone(),toPosition:new THREE.Vector3(0,.1,7.3),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(0,0,0)};
   }
@@ -2551,17 +2614,21 @@ const BBX=(function(){
       if(pr===1)cameraTween=null;
     }
     surfaceMeshes.forEach(m=>{ m.material.opacity+=(m.userData.targetOpacity-m.material.opacity)*.085; });
-    const still=noMotion();   // bb-3d-ux gate 6: reduced motion kills pulses and drift
-    neuronMeshes.forEach((node,i)=>{
-      const pulse=still?1:1+Math.sin(now*.003+node.userData.phase)*.12;
-      node.scale.setScalar(node.userData.baseScale*pulse*(node===selectedNeuron?1.72:1));
-      node.material.opacity=node===selectedNeuron?1:still?.82:.82+Math.sin(now*.0025+i)*.15;
+    const still=noMotion();   // bb-3d-ux gate 6: reduced motion kills drift entirely
+    /* Restraint pass 2026-08-30: neurons no longer all pulse. The field holds a
+       calm steady state; ONLY the selected node breathes, because glow is a
+       response the user caused, never ambient decoration. */
+    neuronMeshes.forEach(node=>{
+      const sel=node===selectedNeuron;
+      const breathe=sel&&!still?1+Math.sin(now*.003)*.06:1;
+      node.scale.setScalar(node.userData.baseScale*(sel?1.7:1)*breathe);
+      node.material.opacity=sel?1:.85;
     });
-    clientNodes.forEach((node,i)=>{
-      const pulse=still?1:1+Math.sin(now*.0024+node.userData.phase)*.09;
-      const sel=node.userData.client===selectedClient?1.6:1;
-      node.scale.setScalar(pulse*sel);
-      node.material.opacity=node.userData.client===selectedClient?1:still?.85:.78+Math.sin(now*.002+i)*.14;
+    clientNodes.forEach(node=>{
+      const sel=node.userData.client===selectedClient;
+      const breathe=sel&&!still?1+Math.sin(now*.0026)*.05:1;
+      node.scale.setScalar((sel?1.6:1)*breathe);
+      node.material.opacity=sel?1:.8;
     });
     if(!still){ techRig.rotation.y+=.00042; techRig.rotation.z-=.00018; particles.rotation.y-=.00016; }
     controls.update(); updateTags(); renderer.render(scene,camera);
@@ -2583,10 +2650,10 @@ const BBX=(function(){
   function stopShow(){ if(!showOn)return; showOn=false; clearTimeout(showTimer);
     try{ if(typeof setStory==='function')setStory(''); }catch(e){}
     if(ready)reset(); }
-  function dbg(){ return { mode, showOn, labels:document.querySelectorAll('[data-x3dnl]').length, cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
+  function dbg(){ return { mode, showOn, labels:document.querySelectorAll('[data-x3dnl]').length, sectors:Object.fromEntries(REGIONS.map(r=>[r.id,(groups[r.id]||[]).length])), cats:[...catsUsed], cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
   function step(n){ const t=performance.now(); for(let i=0;i<(n||1);i++) frame(t+i*16.7); return dbg(); }
   function setMode(m){ pendingMode=m; if(ready&&mode!==m)applyMode(m); }
-  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, startShow, stopShow, showBeat };
+  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, startShow, stopShow, showBeat, toggleRail };
 })();
 </script>
 
