@@ -1649,7 +1649,7 @@ Push ${pushPicks.length?pushPicks.join(', '):'the top unused skills'} to the tea
         <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Clients on record</div><div class="v">${D.totals.clientsFull||(D.clients||[]).length}</div><div class="d${clActiveThisWk?'':' flat'}">${clActiveThisWk?'▲ '+clActiveThisWk+' active this week':'none active this week'}</div></div>
         <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Chat facts absorbed</div><div class="v">${D.totals.chatDiscussed||0}</div><div class="d flat">from your conversations</div></div>
       </div>
-      <div class="r-kick">What the brain absorbed this cycle</div>
+      <div class="r-kick">What the brain has absorbed</div>
       <div class="r-abs">
         <div class="a"><b>${D.totals.chatDiscussed||0}</b>facts from Claude chats</div>
         <div class="a"><b>${waTotal}</b>facts from WhatsApp exports</div>
@@ -1670,7 +1670,7 @@ Push ${pushPicks.length?pushPicks.join(', '):'the top unused skills'} to the tea
           <li><b>${lastWk}</b> lessons learned this week${wkDelta?', '+(wkDelta>0?'up':'down')+' '+Math.abs(wkDelta)+' on last week':''}.</li>
           <li>Busiest skill: <b>${top?humanSkill(top[0]):'none yet'}</b>${top?' ('+top[1]+' lessons)':''}.</li>
           <li>Top teacher all-time: <b>${(D.clients||[])[0]?(D.clients||[])[0].name:'none yet'}</b>${(D.clients||[])[0]?' ('+(D.clients||[])[0].total+' entries)':''}.</li>
-          <li><b>${D.totals.chatDiscussed||0}</b> things discussed on Claude were absorbed into client memory this cycle.</li>
+          <li><b>${D.totals.chatDiscussed||0}</b> facts absorbed from conversations across the last 120 days.</li>
         </ul></div>
         <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next steps</h3><ul>
           <li>Push the top unused skills to the team from Today. <b>${D.skills.filter(s=>s.depth===0).length}</b> have never logged a use.</li><li>Install learning loops in <b>${thin.name}</b> (depth ${thin.d}) so it starts compounding.</li>

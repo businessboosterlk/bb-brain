@@ -63,7 +63,10 @@ const DISPLAY_OVERRIDES = {
 function buildRoster() {
   const roster = {}; // key -> display name
   const cdir = path.join(HOME, 'bb-consultancy');
-  const skipFolders = ['design-test'];
+  /* WORKING FOLDERS ARE NOT CLIENTS (2026-08-31): the auto-join rule turned
+     cards, contracts and the mold folders into client rows, and BB sat in its
+     own client table. A folder here is tooling or BB itself, never a client. */
+  const skipFolders = ['design-test', '__pycache__', 'cards', 'contracts', 'proof-spine', 'client-brain-schema', 'video-plan', 'bb-growth-plan', 'business-booster'];
   if (fs.existsSync(cdir)) for (const d of fs.readdirSync(cdir)) {
     try {
       if (d.startsWith('.') || skipFolders.includes(d) || !fs.statSync(path.join(cdir, d)).isDirectory()) continue;
