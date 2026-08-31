@@ -1558,36 +1558,51 @@ function openReport(){
   const quiet=D.skills.filter(s=>s.quiet&&s.hasLoop).map(s=>s.name);
   // zero-loop skills in the thickest-but-loopless clusters
   const zeroLoopClusters=ranked.filter(r=>r.d===0).map(r=>r.name);
+  /* Rewritten 2026-08-31 after Thulaib called the old version embarrassing. It
+     carried em dashes and decorative bar lines, the exact tells this machine bans,
+     plus next steps frozen in the constellation era. House style now, and the
+     report says what the brain actually does today: systems movement, the usage
+     drive and the cross-check. */
+  const unusedAll=D.skills.filter(s=>s.depth===0);
+  const quietAll=D.skills.filter(s=>s.depth>0&&s.quiet);
+  const sysWk=((D.systems&&D.systems.events)||[]).filter(e=>e.date>=mondayStr);
+  const sysCounts={}; sysWk.forEach(e=>{sysCounts[e.sys]=(sysCounts[e.sys]||0)+1;});
+  const sysLine=Object.entries(sysCounts).map(([k,n])=>({team:'new logins',tasks:'tasks',shoots:'shoots',video:'video projects',graphic:'design projects'}[k]+' '+n)).join(' · ');
+  const cc=D.waCrosscheck&&D.waCrosscheck.totalAsks?D.waCrosscheck:null;
+  const pushPicks=unusedAll.slice(0,3).map(s=>humanSkill(s.name));
   const txt =
-`BB DIGITAL BRAIN — WEEKLY BRIEFING
-Week of ${mondayStr}  ·  ${SITE}
+`BB DIGITAL BRAIN, WEEKLY BRIEFING
+Week of ${mondayStr} · ${SITE}
 
-━━ THE HEADLINE ━━
-${wk.length} lessons learned this week.  ${clRows.length} client${clRows.length===1?'':'s'} moved the needle.
-Newest capability: ${newest.name} (added ${newest.mtime}).
+THE HEADLINE
+${wk.length} lesson${wk.length===1?'':'s'} learned this week${clRows.length?' from '+clRows.length+' client'+(clRows.length===1?'':'s'):''}.
+Newest capability: ${humanSkill(newest.name)} (added ${newest.mtime}).
 
-━━ WHERE WE GREW (this week) ━━
-${grew.length?grew.map(g=>'  • '+g).join('\n'):'  • no new lessons logged this week'}
-Busiest skill: ${top?top[0]+' — '+top[1]+' lessons':'none'}.
+WHERE WE GREW
+${grew.length?grew.map(g=>'- '+g).join('\n'):'- no new lessons logged this week, which is itself the finding'}
+${top?'Busiest skill: '+humanSkill(top[0])+', '+top[1]+' lessons.':''}
 
-━━ CLIENT ACTIVITY (this week) ━━
-${clRows.length?clRows.slice(0,10).map(([c,n])=>'  • '+c+' — '+n+' lesson/chat entr'+(n===1?'y':'ies')).join('\n'):'  • no client-tagged activity logged this week'}
-All-time top teachers: ${(D.clients||[]).slice(0,5).map(c=>c.name+' ('+c.total+')').join(', ')}.
+CLIENT ACTIVITY THIS WEEK
+${clRows.length?clRows.slice(0,10).map(([c,n])=>'- '+c+', '+n+' entr'+(n===1?'y':'ies')).join('\n'):'- nothing client-tagged this week'}
+Top teachers all time: ${(D.clients||[]).slice(0,5).map(c=>c.name+' ('+c.total+')').join(', ')}.
 
-━━ THE MACHINE, RIGHT NOW ━━
-  • ${D.totals.skills} skills · ${D.totals.entries} total lessons · ${D.totals.clientsFull||(D.clients||[]).length} clients on record
-  • ${D.totals.chatDiscussed||0} things you discussed on Claude were absorbed into client memory
-  • Learning loops live on ${loops}/${D.totals.skills} skills
-  • Strongest capability: ${thick.name} (depth ${thick.d})
+WHAT MOVED IN THE SYSTEMS
+${sysWk.length?'- '+sysWk.length+' events from the live tables this week: '+sysLine:'- the systems feed logged nothing new this week'}
+${cc?'- WhatsApp cross-check: '+cc.totalAsks+' asks in the exports, '+cc.totalMatched+' became tasks, '+cc.totalOpen+' still have no task':''}
 
-━━ WHAT NEEDS A DECISION ━━
-  • Thinnest area: ${thin.name} (depth ${thin.d}). ${thin.d===0?'Real capability, zero battle-testing on record — install its learning loops or deprioritize it on purpose.':'Consider feeding it.'}
-${zeroLoopClusters.length?'  • Whole areas not logging yet: '+zeroLoopClusters.join(', ')+'. Open each in the brain and copy its grow plan.':''}
-${quiet.length?'  • Quiet 60+ days (was active, now idle): '+quiet.slice(0,6).join(', ')+'.':''}
+SKILLS NOBODY IS USING
+- ${unusedAll.length} never used and ${quietAll.length} gone quiet, out of ${D.totals.skills}.
+- The Brain holds these whether we use them or not. Open Today and push the top ones to this group.
 
-━━ ONE MOVE FOR NEXT WEEK ━━
-Install learning loops on the top 3 skills in "${thin.name}" so the machine starts
-compounding there too. (Open the brain → click ${thin.name} → Copy the grow plan.)`;
+THE MACHINE RIGHT NOW
+- ${D.totals.skills} skills · ${D.totals.entries} lessons · ${D.totals.clientsFull||(D.clients||[]).length} clients on record
+- ${D.totals.chatDiscussed||0} facts absorbed from Claude chats
+- learning loops on ${loops} of ${D.totals.skills} skills
+- deepest area: ${thick.name} (depth ${thick.d}; depth counts logged uses, never quality)
+- thinnest area: ${thin.name} (depth ${thin.d})
+
+ONE MOVE FOR NEXT WEEK
+Push ${pushPicks.length?pushPicks.join(', '):'the top unused skills'} to the team from the Today page, then watch the unused count next week. It should fall every single week.`;
   document.getElementById('report-txt').value=txt;
 
   /* ── weekly momentum: entries per week over the last 8 ISO weeks ── */
@@ -1613,7 +1628,7 @@ compounding there too. (Open the brain → click ${thin.name} → Copy the grow 
   const maxD=Math.max(1,dranked[0].d);
   const bars=dranked.map(r=>`<div class="r-bar"><span class="lb">${esc(r.name)}</span><span class="tr"><span class="fl" style="width:${Math.max(2,100*r.d/maxD)}%;background:${r.color}"></span></span><span class="n">${r.d}</span></div>`).join('');
   // top clients table
-  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.waCount||0}</td><td class="r">${c.lastActive||'—'}</td></tr>`).join('');
+  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.waCount||0}</td><td class="r">${c.lastActive||'none'}</td></tr>`).join('');
   const logo=document.querySelector('.brandbox img').src;
   const dstr=D.generated.slice(0,10);
   /* masthead motif: a mini constellation of the real cluster colors */
@@ -1629,7 +1644,7 @@ compounding there too. (Open the brain → click ${thin.name} → Copy the grow 
     <div class="r-body">
       <div class="r-kick">The machine right now</div>
       <div class="r-kpis">
-        <div class="r-kpi"><div class="k">Lessons learned</div><div class="v">${D.totals.entries}</div><div class="d${wkDelta>0?'':' flat'}">${wkDelta>0?'▲ +'+wkDelta:(wkDelta<0?'▼ '+wkDelta:'—')} vs last week</div></div>
+        <div class="r-kpi"><div class="k">Lessons learned</div><div class="v">${D.totals.entries}</div><div class="d${wkDelta>0?'':' flat'}">${wkDelta>0?'▲ +'+wkDelta:(wkDelta<0?'▼ '+wkDelta:'level')} vs last week</div></div>
         <div class="r-kpi" style="border-left-color:#8b5cf6"><div class="k">Skills mapped</div><div class="v">${D.totals.skills}</div><div class="d flat">newest: ${esc(newest.name.replace(/^bb-/,''))}</div></div>
         <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Clients on record</div><div class="v">${D.totals.clientsFull||(D.clients||[]).length}</div><div class="d${clActiveThisWk?'':' flat'}">${clActiveThisWk?'▲ '+clActiveThisWk+' active this week':'none active this week'}</div></div>
         <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Chat facts absorbed</div><div class="v">${D.totals.chatDiscussed||0}</div><div class="d flat">from your conversations</div></div>
@@ -1638,13 +1653,13 @@ compounding there too. (Open the brain → click ${thin.name} → Copy the grow 
       <div class="r-abs">
         <div class="a"><b>${D.totals.chatDiscussed||0}</b>facts from Claude chats</div>
         <div class="a"><b>${waTotal}</b>facts from WhatsApp exports</div>
-        <div class="a"><b>${(D.agentFeed&&D.agentFeed.online)?D.agentFeed.entries.length:'—'}</b>machine-agent learnings</div>
+        <div class="a"><b>${(D.agentFeed&&D.agentFeed.online)?D.agentFeed.entries.length:'offline'}</b>machine-agent learnings</div>
         <div class="a"><b>${(D.decisions||[]).length}</b>decisions captured</div>
       </div>
       <div class="r-kick">Momentum and depth</div>
       <div class="r-grid2">
         <div class="r-card"><h3>Learning momentum</h3><div class="cap">Lessons added per week · last 8 weeks</div>${spark}</div>
-        <div class="r-card"><h3>Capability depth</h3><div class="cap">Battle-tested iterations by area</div>${bars}</div>
+        <div class="r-card"><h3>Capability depth</h3><div class="cap">Logged uses by area, never a quality score</div>${bars}</div>
       </div>
       <div class="r-kick">Top clients teaching the brain</div>
       <table class="r-tbl"><thead><tr><th>Client</th><th class="r">Total</th><th class="r">Lessons</th><th class="r">Discussed</th><th class="r">WhatsApp</th><th class="r">Last active</th></tr></thead><tbody>${clientRows||'<tr><td colspan="6" style="color:#8a93a6">none yet</td></tr>'}</tbody></table>
@@ -1653,15 +1668,15 @@ compounding there too. (Open the brain → click ${thin.name} → Copy the grow 
       <div class="r-insights">
         <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Key insights</h3><ul>
           <li><b>${lastWk}</b> lessons learned this week${wkDelta?', '+(wkDelta>0?'up':'down')+' '+Math.abs(wkDelta)+' on last week':''}.</li>
-          <li>Busiest skill: <b>${top?top[0]:'—'}</b>${top?' ('+top[1]+' lessons)':''}.</li>
-          <li>Top teacher all-time: <b>${(D.clients||[])[0]?(D.clients||[])[0].name:'—'}</b>${(D.clients||[])[0]?' ('+(D.clients||[])[0].total+' entries)':''}.</li>
+          <li>Busiest skill: <b>${top?humanSkill(top[0]):'none yet'}</b>${top?' ('+top[1]+' lessons)':''}.</li>
+          <li>Top teacher all-time: <b>${(D.clients||[])[0]?(D.clients||[])[0].name:'none yet'}</b>${(D.clients||[])[0]?' ('+(D.clients||[])[0].total+' entries)':''}.</li>
           <li><b>${D.totals.chatDiscussed||0}</b> things discussed on Claude were absorbed into client memory this cycle.</li>
         </ul></div>
         <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next steps</h3><ul>
-          <li>Install learning loops in <b>${thin.name}</b> (depth ${thin.d}) so it starts compounding.</li>
+          <li>Push the top unused skills to the team from Today. <b>${D.skills.filter(s=>s.depth===0).length}</b> have never logged a use.</li><li>Install learning loops in <b>${thin.name}</b> (depth ${thin.d}) so it starts compounding.</li>
           ${zeroLoopClusters.length?'<li>Areas not logging yet: <b>'+zeroLoopClusters.join(', ')+'</b>. Open each in the brain and copy its grow plan.</li>':''}
           <li>Keep naming the client in every lesson so client memory keeps growing on its own.</li>
-          <li>Learning loops now live on <b>${loops}/${D.totals.skills}</b> skills — push toward full coverage.</li>
+          <li>Learning loops live on <b>${loops} of ${D.totals.skills}</b> skills.</li>
         </ul></div>
       </div>
     </div>
