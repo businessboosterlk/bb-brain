@@ -954,6 +954,15 @@ try {
     '/* AUTO-GENERATED encrypted brain data - useless without the team passcode */\n' +
     'window.BRAIN_ENC=' + JSON.stringify({ v: 1, salt: salt.toString('base64'), iv: iv.toString('base64'), ct: ct.toString('base64'), iter: 310000 }) + ';\n');
   console.log('encrypted artifact written (brain-data.enc.js,', Math.round(ct.length / 1024) + 'KB)');
+  /* CACHE-BUST (2026-08-31): GitHub Pages caches files for 10 minutes and a
+     browser can hold them longer, which is how a fresh deploy kept showing old
+     data. Every build stamps the data reference, so a fresh document always
+     pulls the data built with it. */
+  const ihPath = path.join(__dirname, 'index.html');
+  let ih = fs.readFileSync(ihPath, 'utf8');
+  ih = ih.replace(/brain-data\.enc\.js(\?v=\d+)?/, 'brain-data.enc.js?v=' + Date.now());
+  fs.writeFileSync(ihPath, ih);
+  console.log('data reference stamped in index.html');
 } catch (e) {
   // Found 2026-08-23: a missing ~/.bb-brain-pass made this catch print a
   // quiet 'skipped' while the nightly job reported success, so the live
