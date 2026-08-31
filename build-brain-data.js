@@ -857,6 +857,9 @@ async function ingestSystems() {
     res.events = ev.slice(0, 120);
     res.online = true;
     res.counts = { team: members.length, activeTeam: members.filter(m => m.active).length, tasks: tasks.length, shoots: shoots.length, videos: videos.length, graphics: graphics.length };
+    /* the live roster feeds the person picker (2026-08-31): names and roles only,
+       never anything credential-shaped */
+    res.team = members.filter(m => m.active).map(m => ({ name: String(m.name || '').trim(), role: m.role || '' })).filter(m => m.name);
 
     /* ── WHATSAPP ASKS vs THE TASK BOOK (2026-08-30, Thulaib's cross-check: "if we
        share the WhatsApp stuff you can cross check with the task book"). Every

@@ -425,6 +425,7 @@ table.r-tbl td b{color:#0e1830}
   <button class="tbtn" onclick="openReport()">Weekly report</button>
   <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
   <button class="tbtn" id="btn-theme" onclick="toggleTheme()" aria-label="Switch theme">Light</button>
+  <button class="tbtn" id="btn-person" onclick="openPersonPicker(true)" aria-label="Switch person" style="display:none"></button>
   <button class="tbtn" id="btn-help" onclick="openHelp()" aria-label="Help and shortcuts" style="padding:8px 12px">?</button>
 </header>
 
@@ -486,6 +487,7 @@ table.r-tbl td b{color:#0e1830}
       <button class="tbtn" onclick="BBX.reset()" style="font-size:11.5px">Whole brain</button>
     </div>
     <div id="x3d-crumb" style="position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:7;display:flex;gap:4px;align-items:center;background:rgba(6,9,15,.78);border:1px solid rgba(150,180,230,.14);border-radius:99px;padding:3px 10px;font-size:11px;color:#8fa2c0"></div>
+    <div id="x3d-show-panel" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:min(320px,42%);z-index:7;display:none;padding:16px;background:rgba(6,9,15,.84);border:1px solid rgba(150,180,230,.16);border-radius:14px;backdrop-filter:blur(8px)"></div>
     <div id="x3d-rail" style="position:absolute;left:12px;top:12px;bottom:64px;width:min(240px,46%);z-index:7;display:none;flex-direction:column;gap:4px;overflow-y:auto;padding:10px;background:rgba(6,9,15,.82);border:1px solid rgba(150,180,230,.14);border-radius:12px;backdrop-filter:blur(6px)"></div>
     <div id="x3d-card" style="position:absolute;right:12px;bottom:46px;width:min(320px,72%);z-index:8;display:none;padding:14px;background:rgba(7,10,17,.92);border:1px solid rgba(150,180,230,.2);border-radius:12px;backdrop-filter:blur(8px)"></div>
     <div style="position:absolute;left:12px;bottom:10px;z-index:6;color:#5c6a82;font-size:10.5px">3D anatomy: Brain Project, Z-Anatomy and BodyParts3D / DBCLS, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer" style="color:#7d8ba3">CC BY-SA 4.0</a>. The BB knowledge mapping is separate from the anatomy model.</div>
@@ -506,6 +508,18 @@ table.r-tbl td b{color:#0e1830}
 </div>
 <textarea id="report-txt" style="position:fixed;left:-9999px" aria-hidden="true"></textarea>
 
+<div class="overlay" id="person-ov">
+  <div style="width:400px;max-width:94vw;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:22px;max-height:86dvh;overflow-y:auto;overscroll-behavior:contain">
+    <h3 style="font-size:16px;margin-bottom:4px">Who is using the Brain?</h3>
+    <p style="font-size:12px;color:var(--text-3);margin-bottom:14px">This signs your lessons and pushes on this device. The team passcode you already entered is what keeps the Brain locked; this is identity, not a second lock.</p>
+    <div id="person-list"></div>
+    <input class="fin" id="person-other" placeholder="Or type your name" style="margin-top:10px">
+    <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+      <button class="tbtn" onclick="pickPerson(document.getElementById('person-other').value.trim())" style="font-size:12px">Continue</button>
+      <button onclick="pickPerson('')" style="background:none;border:none;color:var(--text-3);font-size:11.5px;cursor:pointer">Skip for now</button>
+    </div>
+  </div>
+</div>
 <div class="overlay" id="log-ov">
   <div class="modal" style="max-width:480px">
     <button class="close-p" onclick="document.getElementById('log-ov').classList.remove('open')" aria-label="Close">×</button>
@@ -1798,7 +1812,35 @@ const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZ
 async function sha256(t){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 /* OS Academy pattern: name + PIN. PINs stored as SHA-256 only. */
 const PIN_HASHES=['3e34b5dc434bcf3186f089d362691cfac1b17231601f2f402dc79015be878d83','478c4ffb1cbcea37956a748e6c19d8eadd0a47e86f5e308d26cad39453b5d1ab','0ffe1abd1a08215353c233d6e009613e95eec4253832a761af28ff37ac5a150c','edee29f882543b956620b26d0ee0e7e950399b1c4222f5de05e06425b4c995e9'];
-function openLog(){ document.getElementById('log-ov').classList.add('open'); setTimeout(()=>document.getElementById('lg-name').focus(),80); }
+/* ═══ THE PERSON LAYER (2026-08-31, Thulaib: "lets add a login"). The team
+   passcode stays the real wall, because a public page cannot hold a secret and
+   the encrypted data IS the lock. This layer answers WHO: picked once per
+   device from the live roster, it signs lessons and pushes and greets on Today.
+   Identity, not a second lock, and the picker says so in plain words. ═══ */
+function getPerson(){ try{return localStorage.getItem('bb_person')||'';}catch(e){return '';} }
+function titleName(n){ return String(n).toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
+function openPersonPicker(manual){
+  const roster=[{name:'Thulaib',role:'CEO'},{name:'Shiara',role:'Co-founder'}]
+    .concat(((D.systems&&D.systems.team)||[]).map(t=>({name:titleName(t.name),role:t.role})))
+    .filter((p,i,a)=>a.findIndex(x=>x.name===p.name)===i);
+  document.getElementById('person-list').innerHTML=roster.map(p=>
+    `<button onclick="pickPerson('${esc(p.name)}')" style="display:flex;width:100%;justify-content:space-between;align-items:center;gap:10px;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:11px 4px;min-height:44px;cursor:pointer;color:var(--text);font-size:13.5px">${esc(p.name)}<span style="color:var(--text-3);font-size:11px">${esc(p.role||'')}</span></button>`).join('');
+  document.getElementById('person-ov').classList.add('open');
+  if(manual)try{localStorage.removeItem('bb_person_asked');}catch(e){}
+}
+function pickPerson(name){
+  try{ if(name)localStorage.setItem('bb_person',name); localStorage.setItem('bb_person_asked','1'); }catch(e){}
+  document.getElementById('person-ov').classList.remove('open');
+  syncPersonChip();
+  startTour(false);
+}
+function syncPersonChip(){
+  const b=document.getElementById('btn-person'), p=getPerson();
+  if(!b)return;
+  b.style.display='inline-block';
+  b.textContent=p?('You: '+p):'Sign in';
+}
+function openLog(){ document.getElementById('log-ov').classList.add('open'); const nf=document.getElementById('lg-name'); if(nf&&!nf.value&&getPerson())nf.value=getPerson(); setTimeout(()=>document.getElementById(nf&&nf.value?'lg-pin':'lg-name').focus(),80); }
 async function submitLesson(){
   const name=document.getElementById('lg-name').value.trim();
   const pin=document.getElementById('lg-pin').value.trim();
@@ -1866,7 +1908,7 @@ function renderToday(){
   const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
   const item=e=>`<div class="tl-item"><span class="dot" style="background:${C[e.cluster]?C[e.cluster].color:'#889'}"></span><span class="sk" style="color:${C[e.cluster]?C[e.cluster].color:'#889'}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`;
   document.getElementById('today-view').innerHTML=
-    `<h2 style="font-size:19px;margin-bottom:4px">Today in the brain</h2>
+    `<h2 style="font-size:19px;margin-bottom:4px">${getPerson()?esc(getPerson())+', today in the brain':'Today in the brain'}</h2>
      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
      ${installCard()}${visitDelta()}
      ${(function(){ /* who taught the brain this week - real (by Name) tags only */
@@ -1929,7 +1971,8 @@ function skillNudgeText(name){
     +'This skill exists in the machine and '+state+'.\n'
     +'What it does: '+String(s.desc||'').replace(/\s+/g,' ').slice(0,160).trim()+'\n'
     +'Say this to Claude to run it: "'+(s.trigger||('Use the '+name+' skill'))+'"\n'
-    +'On the next task that fits, run it and log the lesson so the brain grows. Reply here with the client name once it has run.';
+    +'On the next task that fits, run it and log the lesson so the brain grows. Reply here with the client name once it has run.'
+    +(getPerson()?'\nPushed by '+getPerson()+' via the BB Brain.':'');
 }
 function pushSkillNudge(name){ copyText(skillNudgeText(name),'Nudge copied. Paste it in the team WhatsApp group.'); }
 
@@ -2175,7 +2218,11 @@ function openHelp(){ document.getElementById('help-ov').classList.add('open'); }
 addEventListener('resize',()=>{ if(document.getElementById('tour').style.display==='block') placeTour(); },{passive:true});
 
 renderBrain(); wireCamera(); applyCam(); routeHash();
-setTimeout(()=>startTour(false), 700);
+setTimeout(()=>{
+  syncPersonChip();
+  if(!getPerson()&&!localStorage.getItem('bb_person_asked')){ openPersonPicker(false); }
+  else{ startTour(false); }
+}, 700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 /* theme toggle, persisted */
 /* (script is inert text/plain until the lock boots it - see the boot script at the end of body) */
@@ -2696,11 +2743,25 @@ const BBX=(function(){
     const r=REGIONS[showIdx%REGIONS.length]; showIdx++;
     select(r.id);
     try{ if(typeof setStory==='function'&&typeof storyLine==='function') setStory(storyLine(r.id)); }catch(e){}
+    /* the sector column (2026-08-31, Thulaib: the old Present showed what each
+       section IS and its dated record): live counts and the sector's most recent
+       dated lessons, so the show reads as evidence, never as decoration */
+    try{
+      const skills=D.skills.filter(s=>s.cluster===r.id);
+      const depth=skills.reduce((a,s)=>a+(s.depth||0),0);
+      const recent=D.timeline.filter(e=>e.cluster===r.id&&e.date).slice(0,4);
+      $('x3d-show-panel').innerHTML=
+        `<div style="font-size:15px;color:#fff;margin-bottom:2px">${esc(r.name)}</div>
+         <div style="font-size:11px;color:${r.colour};margin-bottom:10px">${skills.length} skills · depth ${depth} · depth counts logged uses, never quality</div>
+         ${recent.map(e=>`<div style="font-size:11.5px;color:#b9c6da;line-height:1.5;margin-bottom:7px"><b style="color:#8fa2c0">${esc(e.date)}</b> · ${esc(String(e.summary).slice(0,110))}</div>`).join('')||'<div style="font-size:11.5px;color:#8fa2c0">No dated lessons in this sector yet.</div>'}`;
+      $('x3d-show-panel').style.display='block';
+    }catch(e){}
     showTimer=setTimeout(showBeat,8000);
   }
   function startShow(){ showOn=true; showIdx=0; if(ready)showBeat(); }
   function stopShow(){ if(!showOn)return; showOn=false; clearTimeout(showTimer);
     try{ if(typeof setStory==='function')setStory(''); }catch(e){}
+    const sp=$('x3d-show-panel'); if(sp){sp.style.display='none';sp.innerHTML='';}
     if(ready)reset(); }
   function dbg(){ return { mode, showOn, labels:document.querySelectorAll('[data-x3dnl]').length, sectors:Object.fromEntries(REGIONS.map(r=>[r.id,(groups[r.id]||[]).length])), cats:[...catsUsed], cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
   function step(n){ const t=performance.now(); for(let i=0;i<(n||1);i++) frame(t+i*16.7); return dbg(); }
