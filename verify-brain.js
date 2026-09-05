@@ -30,6 +30,9 @@ if (d) {
   { const BBS = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana/i; let opens = 0, bb = 0;
     for (const cc of Object.values(((d.systems || {}).crosscheck || {}).perClient || {})) for (const o of (cc.open || [])) { opens++; if (BBS.test(o.sender || '')) bb++; }
     ok('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }
+  { let b = null; try { b = JSON.parse(fs.readFileSync(path.join(HERE, 'bridge-last.json'), 'utf8')); } catch (e) {}
+    const age = b ? (Date.now() - Date.parse(b.at)) / 36e5 : 999;
+    ok('chat-ask bridge ran', !!b && b.ok && age < 26, b ? (b.sent + ' asks sent, ' + b.inserted + ' new, ' + b.skipped + ' known, ' + b.rejected + ' rejected, ' + age.toFixed(1) + 'h ago' + (b.error ? ', ' + b.error : '')) : 'bridge-last.json missing'); }
   ok('no phantom clients', !hit.length, names.length + ' clients, phantoms: ' + (hit.join(', ') || 'none'));
   ok('client count sane', names.length >= 15 && names.length <= 60, names.length + ' records');
   ok('systems feed online', d.systems && d.systems.online, d.systems ? (d.systems.online ? d.systems.events.length + ' events' : 'OFFLINE ' + d.systems.error) : 'missing');
@@ -56,6 +59,19 @@ try {
   const out = cp.execFileSync('python3', [path.join(process.env.HOME, '.claude/skills/bb-rock-solid/guard.py'), path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
   ok('rock-solid guard', /PASS/.test(out), out.trim().split('\n').pop());
 } catch (e) { ok('rock-solid guard', false, String(e.stdout || e.message).trim().split('\n').pop()); }
+/* the cinematic layer (2026-09-05): static invariants the page must keep */
+const bbx = html.slice(html.indexOf('const BBX=(function(){'), html.indexOf('/* ═══ THE LANDING STATE IS A ROUTE TOO'));
+ok('3D: engine block present', bbx.length > 20000, bbx.length + ' chars');
+ok('3D: cinematic entrance present', /function beginEntrance\(/.test(bbx) && /bb_x3d_entered/.test(bbx), 'beginEntrance + session flag');
+ok('3D: reduced motion skips the journey', /if\(reduced&&!force\)\{ settleHome\(\); return; \}/.test(bbx), 'guard present');
+ok('3D: replay control present', /id="x3d-replay"/.test(html) && /function replay\(/.test(bbx), 'button + function');
+ok('3D: one animation loop', (bbx.match(/requestAnimationFrame\(tick\)/g) || []).length === 2 && !/setInterval\(/.test(bbx), (bbx.match(/requestAnimationFrame\(/g) || []).length + ' rAF calls, 2 drive the loop');
+const vers = [...new Set(html.match(/three@[\d.]+/g) || [])];
+ok('3D: one Three.js version', vers.length <= 1 && /THREE_VER='0\.137\.0'/.test(bbx), vers.join(', ') || 'every URL built from THREE_VER');
+ok('3D: glow stack lazy and optional', /UnrealBloomPass\.js/.test(bbx) && /Q\.bloom=false/.test(bbx), 'bloom loads with the engine, fails soft');
+ok('3D: adaptive quality tiers', /high:\{bloom:true/.test(bbx) && /low:\{bloom:false/.test(bbx) && /function demote\(/.test(bbx), 'three tiers plus the frame watchdog');
+ok('3D: fallback untouched', /window\.X3D_FALLBACK=true/.test(bbx) && /x3d-fellback/.test(html), 'fail() plus the one-shot notice');
+ok('3D: no emoji in stage copy', !/[\u{1F300}-\u{1FAFF}]/u.test(html.slice(html.indexOf('id="explore-view"'), html.indexOf('id="report-ov"'))), 'stage markup scanned');
 const fails = R.filter(r => !r.p);
 for (const r of R) console.log((r.p ? 'ok ' : 'XX ') + r.n + ' · ' + r.d);
 console.log('VERIFY-BRAIN: ' + (R.length - fails.length) + ' of ' + R.length + ' green' + (fails.length ? ' · FAILED: ' + fails.map(f => f.n).join(', ') : ''));

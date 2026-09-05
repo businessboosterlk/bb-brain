@@ -909,11 +909,9 @@ async function ingestSystems() {
     const WA_ASK = /(can you|could you|can we|could we|please|pls\b|kindly|need (a|an|the|to|you)|want (a|an|the|to|you)|make (a|an|the|it|sure)|create |send (me|us|the|a)|share (the|a|me|us)|post (this|the|it|these)|boost|design |edit |change (this|the|it|that)|fix |update (the|this)|schedule|upload|remove |add |include |replace )/i;
     const WA_REPLY = /^(will|sure|noted|ok|okay|done|yes|yep|got it|thanks|thank you|great|good morning|good afternoon|good evening|hi |hello)/i;
     const BB_SENDER = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana|farhath|rajeewa|thulka|kaneesha|umanda/i;
-    const idOf = {}; for (const [id, nm] of Object.entries(cname)) { const dn = display(nm); if (dn && idOf[dn] == null) idOf[dn] = +id; }
-    const fp = (c, d, t) => require('crypto').createHash('sha1').update(c + '|' + d + '|' + String(t).slice(0, 80).toLowerCase()).digest('hex');
     const crosscheck = { perClient: {}, totalAsks: 0, totalMatched: 0, totalMatchedDone: 0, totalOpen: 0 };
     for (const [clName, lines] of Object.entries(wa.perClient)) {
-      const cc = { asks: 0, matched: 0, matchedDone: 0, open: [], openAll: [] };
+      const cc = { asks: 0, matched: 0, matchedDone: 0, open: [] };
       for (const ln of lines) {
         if (BB_SENDER.test(ln.sender || '')) continue;                 // only the client's asks
         if (WA_REPLY.test(ln.snippet) || !WA_ASK.test(ln.snippet)) continue;
@@ -930,10 +928,7 @@ async function ingestSystems() {
           return false;
         });
         if (hit) { cc.matched++; crosscheck.totalMatched++; if (hit.done) { cc.matchedDone++; crosscheck.totalMatchedDone++; } }
-        else {
-          if (cc.open.length < 10) cc.open.push({ date: ln.date, sender: (ln.sender || '').slice(0, 24), snippet: ln.snippet.slice(0, 140) });
-          cc.openAll.push({ hash: fp(clName, ln.date, ln.snippet), client_id: idOf[clName] == null ? null : idOf[clName], client_name: clName, asked_on: ln.date, sender: (ln.sender || '').slice(0, 40), snippet: ln.snippet.slice(0, 200) });
-        }
+        else if (cc.open.length < 10) cc.open.push({ date: ln.date, sender: (ln.sender || '').slice(0, 24), snippet: ln.snippet.slice(0, 140) });
       }
       crosscheck.totalOpen += cc.open.length;
       if (cc.asks) crosscheck.perClient[clName] = cc;

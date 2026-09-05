@@ -291,6 +291,22 @@ body.present .top,.present .week,.present .gap,.present .panel,.present .tl,.pre
 body.present #explore-view{display:block!important}
 body.present #x3d-chips,body.present #x3d-hint,body.present #x3d-rail,body.present #x3d-card{display:none!important}
 body.present #x3d-stage{height:calc(100dvh - 300px);min-height:360px}
+/* ── the cinematic stage (2026-09-05): controls hidden until the entrance settles,
+   one cue inside the composition, phone rows that never overlap ── */
+#explore-view .x3d-ui,#explore-view #x3d-chips{transition:opacity .6s var(--ease)}
+#explore-view.entering .x3d-ui,#explore-view.entering #x3d-chips{opacity:0;pointer-events:none}
+#explore-view.entering #x3d-skip{display:inline-block!important}
+#x3d-cue.show{opacity:1!important}
+.x3d-short{display:none}
+@media (max-width:760px){
+  #x3d-crumb{left:12px!important;transform:none!important;top:54px!important;max-width:72%;overflow:hidden;white-space:nowrap}
+  #x3d-rail{top:94px!important}
+}
+@media (max-width:560px){
+  #x3d-attrib{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%}
+  .x3d-long{display:none}.x3d-short{display:inline}
+}
+body.present #x3d-cue,body.present #x3d-replay,body.present #x3d-skip{display:none!important}
 .hero{display:none}
 body.present .hero{display:block;text-align:center;padding:28px 20px 4px}
 .hero img{height:40px;margin:0 auto 14px;display:block}
@@ -494,19 +510,22 @@ table.r-tbl td b{color:#0e1830}
       <div id="x3d-copy" style="color:#8fa2c0;font-size:12.5px">Waking the brain</div>
       <div style="width:220px;height:2px;background:rgba(140,170,220,.15);border-radius:2px"><div id="x3d-bar" style="width:4%;height:100%;background:linear-gradient(90deg,#5B9DFF,#A78BFA);border-radius:2px;transition:width .3s"></div></div>
     </div>
-    <div style="position:absolute;right:12px;top:12px;display:flex;gap:6px;z-index:6">
+    <div class="x3d-ui" style="position:absolute;right:12px;top:12px;display:flex;gap:6px;z-index:6">
       <button class="tbtn" onclick="BBX.zoom(1)" style="font-size:13px;min-width:38px" aria-label="Zoom in">+</button>
       <button class="tbtn" onclick="BBX.zoom(-1)" style="font-size:13px;min-width:38px" aria-label="Zoom out">&minus;</button>
-      <button class="tbtn" id="x3d-spin" onclick="BBX.toggleSpin()" style="font-size:11.5px">Pause spin</button>
+      <button class="tbtn" id="x3d-spin" onclick="BBX.toggleSpin()" style="font-size:11.5px" aria-label="Pause or resume the idle spin"><span class="x3d-long">Pause spin</span><span class="x3d-short">Pause</span></button>
       <button class="tbtn" onclick="BBX.reset()" style="font-size:11.5px">Whole brain</button>
+      <button class="tbtn" id="x3d-replay" onclick="BBX.replay()" style="font-size:11.5px" aria-label="Replay the entrance">Replay</button>
     </div>
-    <div id="x3d-crumb" style="position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:7;display:flex;gap:4px;align-items:center;background:rgba(6,9,15,.78);border:1px solid rgba(150,180,230,.14);border-radius:99px;padding:3px 10px;font-size:11px;color:#8fa2c0"></div>
+    <button class="tbtn" id="x3d-skip" onclick="BBX.skip()" style="position:absolute;right:12px;top:12px;z-index:9;display:none;font-size:11.5px">Skip</button>
+    <div id="x3d-cue" style="position:absolute;left:14px;bottom:40px;z-index:6;display:none;opacity:0;transition:opacity .6s var(--ease);color:#dfe8f6;font-size:13px;text-shadow:0 1px 12px rgba(0,0,0,.7);pointer-events:none">Select a territory to light it.</div>
+    <div id="x3d-crumb" class="x3d-ui" style="position:absolute;left:50%;transform:translateX(-50%);top:12px;z-index:7;display:flex;gap:4px;align-items:center;background:rgba(6,9,15,.78);border:1px solid rgba(150,180,230,.14);border-radius:99px;padding:3px 10px;font-size:11px;color:#8fa2c0"></div>
     <div id="x3d-show-panel" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:min(320px,42%);z-index:7;display:none;padding:16px;background:rgba(6,9,15,.84);border:1px solid rgba(150,180,230,.16);border-radius:14px;backdrop-filter:blur(8px)"></div>
     <div id="x3d-rail" style="position:absolute;left:12px;top:12px;bottom:64px;width:min(240px,46%);z-index:7;display:none;flex-direction:column;gap:4px;overflow-y:auto;padding:10px;background:rgba(6,9,15,.82);border:1px solid rgba(150,180,230,.14);border-radius:12px;backdrop-filter:blur(6px)"></div>
     <div id="x3d-card" style="position:absolute;right:12px;bottom:46px;width:min(320px,72%);z-index:8;display:none;padding:14px;background:rgba(7,10,17,.92);border:1px solid rgba(150,180,230,.2);border-radius:12px;backdrop-filter:blur(8px)"></div>
-    <div style="position:absolute;left:12px;bottom:10px;z-index:6;color:#5c6a82;font-size:10.5px">3D anatomy: Brain Project, Z-Anatomy and BodyParts3D / DBCLS, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer" style="color:#7d8ba3">CC BY-SA 4.0</a>. The BB knowledge mapping is separate from the anatomy model.</div>
+    <div id="x3d-attrib" style="position:absolute;left:12px;bottom:10px;z-index:6;color:#5c6a82;font-size:10.5px">3D anatomy: Brain Project, Z-Anatomy and BodyParts3D / DBCLS, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer" style="color:#7d8ba3">CC BY-SA 4.0</a>. The BB knowledge mapping is separate from the anatomy model.</div>
   </div>
-  <p id="x3d-hint" style="font-size:12px;color:var(--text-3);margin-top:8px">Tap a territory to light its sector: its skills appear as neurons and in the list. Tap a neuron or a list row to read that skill inside the brain. Drag to turn, pinch or scroll to zoom, tap empty space to step back.</p>
+  <p id="x3d-hint" style="font-size:12px;color:var(--text-3);margin-top:8px">Tap a territory to light it. Drag to turn, pinch or scroll to zoom, tap empty space to step back.</p>
 </div>
 
 <div class="rov" id="report-ov">
@@ -610,7 +629,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788618920711"></script>
+<script src="brain-data.enc.js?v=1788619610548"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2258,17 +2277,50 @@ applyTheme((function(){try{return localStorage.getItem('bb_theme')||'dark';}catc
    opens openCluster, a neuron opens openSkill. Anatomy model CC BY-SA 4.0, see
    assets/brain/ATTRIBUTION.md; the licence note renders in the view itself. ═══ */
 const BBX=(function(){
+  /* ═══ THE CINEMATIC BRAIN (2026-09-05). Same engine, same model, same selection
+     grammar as the 30 August merge. What changed: a control-room rig (graphite
+     chrome, cool rim, fog), a persistent neural web with travelling signals, bloom
+     behind one adaptive quality gate, camera ARCS instead of straight zooms, the
+     selected region turning to face the viewer and lifting a whisper off its
+     neighbours, neurons and rail revealed only once the camera is close and a
+     one-time entrance per session that starts inside a fibre and pulls back to
+     the whole brain. One animation loop. The constellation fallback is untouched. ═══ */
   let started=false, ready=false, spinOn=!matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let scene,camera,renderer,controls,root,techRig,particles,raycaster,pointerV;
+  let scene,camera,renderer,controls,root,techRig,particles,raycaster,pointerV,model=null,doResize=null;
   let surfaceMeshes=[],groups={},sectorCentres={},neuronRoot=null,neuronMeshes=[],hitProxies=[],selectedNeuron=null,cameraTween=null,pointerStart=null,activeSector=null;
   let mode='brain', pendingMode='brain', clientRoot=null, clientNodes=[], clientProxies=[], selectedClient=null;
+  let composer=null,bloomPass=null,bloomOn=false,rimA=null,rimB=null,fibreRoot=null,fxRoot=null,fibres=[],pulses=[],pulseGeo=null,neuronReveal=0,neuronLines=null,motionOverride=null,cardFor=null;
+  let ENT=null, cueDone=false, frameAvg=16.7, lastTick=0, lastFrameNow=0, bootAt=0;
   const catsUsed=new Set();
-  const noMotion=()=>(typeof REDUCED!=='undefined'&&REDUCED)||matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const THREE_VER='0.137.0';
+  const CDN=p=>'https://unpkg.com/three@'+THREE_VER+'/'+p;
+  /* the home framing: 6.4 on a landscape stage (asserted in the harness through dbg().homeD), pushed
+     back on a portrait stage so the complete brain fits between the phone's edges */
+  const homeDist=()=>{ const a=camera?camera.aspect:1; return a>=1?6.4:Math.min(10.5,+(6.4*(1/a)*.86).toFixed(3)); };
+  const homePos=()=>new THREE.Vector3(0,.1,homeDist());
+  const ENTERED_KEY='bb_x3d_entered';
+  /* ADAPTIVE QUALITY: one tier decided up front from the device, one demotion
+     available at runtime when real frames run slow. Bloom, fibre count, particle
+     count, pulse count and the pixel-ratio cap all hang off it. Essential
+     interaction never depends on the tier. */
+  const Q=(function(){
+    const coarse=matchMedia('(pointer:coarse)').matches, small=Math.min(screen.width||1024,screen.height||768)<768;
+    const cores=navigator.hardwareConcurrency||4, mem=navigator.deviceMemory||4;
+    let tier=(!coarse&&!small)?'high':((cores>=6&&mem>=4)?'mid':'low');
+    try{ const s=sessionStorage.getItem('bb_x3d_tier'); if(s==='low'||s==='mid')tier=s; }catch(e){}
+    const T={high:{bloom:true,bloomScale:1,fibres:44,particles:240,pulses:6,pixel:1.7},
+             mid:{bloom:true,bloomScale:.5,fibres:26,particles:120,pulses:4,pixel:1.5},
+             low:{bloom:false,bloomScale:.5,fibres:14,particles:60,pulses:2,pixel:1.25}};
+    return Object.assign({tier},T[tier]);
+  })();
+  const noMotion=()=>motionOverride!==null?motionOverride:((typeof REDUCED!=='undefined'&&REDUCED)||matchMedia('(prefers-reduced-motion: reduce)').matches);
   const hum=n=>String(n).replace(/^bb-/,'').replace(/^webdev-/,'').split('-').map(w=>({seo:'SEO',geo:'GEO',aeo:'AEO',ai:'AI',ux:'UX',ui:'UI',crm:'CRM',cms:'CMS','3d':'3D'})[w]||w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
   const REGIONS=(D.clusters||[]).map(c=>({id:c.id,name:c.name,colour:c.color,
     skills:D.skills.filter(s=>s.cluster===c.id).sort((a,b)=>b.depth-a.depth).map(s=>s.name)}));
   const regionById=Object.fromEntries(REGIONS.map(r=>[r.id,r]));
   const $=id=>document.getElementById(id);
+  const mulberry=s=>()=>{ s|=0; s=s+0x6D2B79F5|0; let t=Math.imul(s^s>>>15,1|s); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+  const perp=v=>{ const p=new THREE.Vector3(-v.z,0,v.x); if(p.lengthSq()<1e-6)p.set(1,0,0); return p.normalize(); };
   function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('failed '+src)); document.head.appendChild(s); }); }
   function fail(msg){
     $('x3d-copy').textContent=msg+' Showing the constellation instead.';
@@ -2284,60 +2336,74 @@ const BBX=(function(){
     (async()=>{
       try{
         $('x3d-copy').textContent='Fetching the 3D engine';
-        await loadScript('https://unpkg.com/three@0.137.0/build/three.min.js');
-        await loadScript('https://unpkg.com/three@0.137.0/examples/js/controls/OrbitControls.js');
-        await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/GLTFLoader.js');
-        await loadScript('https://unpkg.com/three@0.137.0/examples/js/loaders/DRACOLoader.js');
+        await loadScript(CDN('build/three.min.js'));
+        await Promise.all(['examples/js/controls/OrbitControls.js','examples/js/loaders/GLTFLoader.js','examples/js/loaders/DRACOLoader.js'].map(p=>loadScript(CDN(p))));
+        /* the glow stack is optional: if any part fails the brain renders flat
+           and every interaction still works. Composer first because the passes
+           extend THREE.Pass at load time. */
+        if(Q.bloom){
+          try{
+            await Promise.all(['examples/js/postprocessing/EffectComposer.js','examples/js/shaders/CopyShader.js','examples/js/shaders/LuminosityHighPassShader.js'].map(p=>loadScript(CDN(p))));
+            await Promise.all(['examples/js/postprocessing/RenderPass.js','examples/js/postprocessing/ShaderPass.js','examples/js/postprocessing/UnrealBloomPass.js'].map(p=>loadScript(CDN(p))));
+          }catch(e){ console.warn('glow stack unavailable, rendering without bloom',e); Q.bloom=false; }
+        }
         init();
       }catch(e){ fail('The 3D engine could not load. Check the connection, then tap Brain to retry.'); started=false; }
     })();
   }
   function init(){
     const canvas=$('x3d-canvas'), stage=$('x3d-stage');
-    renderer=new THREE.WebGLRenderer({canvas,alpha:true,antialias:true,powerPreference:'high-performance'});
-    renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.7));
-    renderer.setClearColor(0x000000,0);
+    renderer=new THREE.WebGLRenderer({canvas,alpha:false,antialias:!Q.bloom,powerPreference:'high-performance'});
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,Q.pixel));
+    renderer.setClearColor(0x05070c,1);
     renderer.outputEncoding=THREE.sRGBEncoding;
     renderer.toneMapping=THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure=1.24;
+    renderer.toneMappingExposure=1.15;
     scene=new THREE.Scene();
+    scene.fog=new THREE.FogExp2(0x05070c,.038);
     camera=new THREE.PerspectiveCamera(35,1,.01,100);
-    camera.position.set(0,.1,7.3);
+    camera.position.set(0,.1,6.4);
     controls=new THREE.OrbitControls(camera,renderer.domElement);
     controls.enableDamping=true; controls.dampingFactor=.055; controls.enablePan=false;
     controls.minDistance=3.15; controls.maxDistance=10.5;
-    controls.autoRotate=spinOn; controls.autoRotateSpeed=.48;
-    /* Robotic light rig (2026-08-30, the perfection pass): neutral engineering
-       light, no coloured washes. Cluster colour is DATA and comes from the
-       materials; the cyan and magenta stage lights that painted everything
-       pink-blue are gone. Precise key, cool fill, quiet rim. */
-    scene.add(new THREE.HemisphereLight(0xdfe9f5,0x0a0c11,.55));
-    const key=new THREE.DirectionalLight(0xf5f8ff,1.25); key.position.set(4,6,7); scene.add(key);
-    const fill=new THREE.DirectionalLight(0x9fb4d9,.5); fill.position.set(-6,2,-6); scene.add(fill);
-    const rim=new THREE.DirectionalLight(0xc9d4e4,.55); rim.position.set(0,-5,-6); scene.add(rim);
-    /* A quiet studio environment so the metal actually reflects something: three
-       soft panels, nothing more. This is what turns metalness into chrome. */
+    controls.autoRotate=spinOn; controls.autoRotateSpeed=.3;
+    /* CONTROL-ROOM RIG (2026-09-05): a quiet neutral key, a cool fill and two
+       strong cool rims from behind so the chrome silhouette reads as an edge of
+       light. No coloured washes on the front: sector colour is DATA and only the
+       active sector is allowed to carry it. */
+    scene.add(new THREE.HemisphereLight(0xb9cdea,0x05070c,.22));
+    const key=new THREE.DirectionalLight(0xeef3ff,.9); key.position.set(4,6,7); scene.add(key);
+    const fill=new THREE.DirectionalLight(0x6f8fc4,.3); fill.position.set(-6,2,-6); scene.add(fill);
+    rimA=new THREE.DirectionalLight(0x7fb0ff,2.2); rimA.position.set(0,2.5,-7); scene.add(rimA);
+    rimB=new THREE.DirectionalLight(0x4f7fd6,1.1); rimB.position.set(-6,-3,-4); scene.add(rimB);
+    /* A cool studio dome so the metal reflects something: a bright blue panel
+       above and behind (the chrome edge), two soft side panels, a dim floor. */
     try{
       const pm=new THREE.PMREMGenerator(renderer);
       const es=new THREE.Scene();
-      const panel=(w,h,x,y,z,glow)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial()); m.material.color.setScalar(glow); m.position.set(x,y,z); m.lookAt(0,0,0); es.add(m); };
-      panel(6,4, 0,8,0, 2.4); panel(5,3, -8,2,4, 1.2); panel(5,3, 8,-2,-4, .7);
+      const panel=(w,h,x,y,z,col,glow)=>{ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color:new THREE.Color(col).multiplyScalar(glow)})); m.position.set(x,y,z); m.lookAt(0,0,0); es.add(m); };
+      panel(7,4, 0,8,-3, 0x9fc4ff, 2.6); panel(5,3, -8,2,4, 0xc9d8f2, 1.1); panel(5,3, 8,-2,-4, 0x6f8fc4, .8); panel(9,2, 0,-7,2, 0x3c4d70, .5);
       scene.environment=pm.fromScene(es,.04).texture; pm.dispose();
     }catch(e){}
     root=new THREE.Group(); root.rotation.y=-.3; scene.add(root);
     techRig=new THREE.Group(); scene.add(techRig);
-    [{r:2.18,rot:[.18,.18,0],colour:0x6b7f9c,opacity:.11},{r:2.42,rot:[1.28,.4,0],colour:0x8494ad,opacity:.06},{r:2.62,rot:[.7,1.24,.2],colour:0x93a5c2,opacity:.04}].forEach(spec=>{
+    [{r:2.18,rot:[.18,.18,0],colour:0x6b7f9c,opacity:.07},{r:2.42,rot:[1.28,.4,0],colour:0x8494ad,opacity:.04},{r:2.62,rot:[.7,1.24,.2],colour:0x93a5c2,opacity:.03}].forEach(spec=>{
       const ring=new THREE.Mesh(new THREE.TorusGeometry(spec.r,.008,5,170),new THREE.MeshBasicMaterial({color:spec.colour,transparent:true,opacity:spec.opacity,blending:THREE.AdditiveBlending,depthWrite:false}));
       ring.userData.baseOp=spec.opacity;
-      ring.rotation.set(...spec.rot); techRig.add(ring);
+      ring.rotation.set(spec.rot[0],spec.rot[1],spec.rot[2]); techRig.add(ring);
     });
+    /* soft atmospheric particles: a radial sprite so they read as motes in air,
+       never as hard squares; count by tier */
+    const spriteTex=(()=>{ try{ const c=document.createElement('canvas'); c.width=c.height=32; const g=c.getContext('2d'); const gr=g.createRadialGradient(16,16,0,16,16,16); gr.addColorStop(0,'rgba(255,255,255,1)'); gr.addColorStop(.35,'rgba(255,255,255,.45)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,0,32,32); return new THREE.CanvasTexture(c); }catch(e){ return null; } })();
     const pts=[]; let seed=7291; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
-    for(let i=0;i<180;i++){ const radius=2.45+rnd()*1.5, theta=rnd()*Math.PI*2, phi=Math.acos(2*rnd()-1);
+    for(let i=0;i<Q.particles;i++){ const radius=2.3+rnd()*1.9, theta=rnd()*Math.PI*2, phi=Math.acos(2*rnd()-1);
       pts.push(radius*Math.sin(phi)*Math.cos(theta),radius*Math.cos(phi)*.7,radius*Math.sin(phi)*Math.sin(theta)); }
     const pg=new THREE.BufferGeometry(); pg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
-    particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0xa9bbd6,size:.016,transparent:true,opacity:.16,blending:THREE.AdditiveBlending,depthWrite:false}));
+    particles=new THREE.Points(pg,new THREE.PointsMaterial({color:0xa9bbd6,size:spriteTex?.05:.016,map:spriteTex||null,transparent:true,opacity:.14,blending:THREE.AdditiveBlending,depthWrite:false}));
     scene.add(particles);
     neuronRoot=new THREE.Group(); scene.add(neuronRoot);
+    fxRoot=new THREE.Group(); fxRoot.renderOrder=5; scene.add(fxRoot);
+    pulseGeo=new THREE.SphereGeometry(.02,8,8);
     raycaster=new THREE.Raycaster(); pointerV=new THREE.Vector2();
     const SOLID=new Set(['cortex','cerebellum','brainstem','deep_grey','diencephalon','white_matter']);
     const draco=new THREE.DRACOLoader();
@@ -2345,7 +2411,7 @@ const BBX=(function(){
     draco.setDecoderConfig({type:'js'}); /* the js decoder ships in the repo; the wasm wrapper does not */
     const loader=new THREE.GLTFLoader(); loader.setDRACOLoader(draco);
     loader.load('./assets/brain/brain.glb',gltf=>{
-      const model=gltf.scene; root.add(model);
+      model=gltf.scene; root.add(model);
       model.traverse(o=>{ if(!o.isMesh)return;
         const cat=(o.userData&&o.userData.bx_cat)||(o.parent&&o.parent.userData&&o.parent.userData.bx_cat)||'other';
         if(!SOLID.has(cat)){ o.visible=false; return; }
@@ -2353,7 +2419,7 @@ const BBX=(function(){
         surfaceMeshes.push(o); });
       /* Normalise EXACTLY: scale and rotate first, then measure the WORLD centre and
          subtract it in root space. The prototype subtracted the raw centre before
-         scaling, and since translation is applied after scale, the whole brain ended
+         scaling and since translation is applied after scale, the whole brain ended
          up ~19 units off origin. Every select tween flew into empty space. Found by
          frame-stepping with the debug handle: all mesh centres read length 19. */
       const rawBox=new THREE.Box3(); surfaceMeshes.forEach(m=>rawBox.expandByObject(m));
@@ -2372,10 +2438,14 @@ const BBX=(function(){
         const angle=(Math.atan2(dz,dx)+Math.PI*2)%(Math.PI*2);
         const regionId=spatialOrder[Math.min(3,Math.floor(angle/(Math.PI/2)))*2+(dy>=-.02?0:1)];
         const colour=new THREE.Color((regionById[regionId]||{colour:'#c9d4e8'}).colour);
-        /* graphite and dark glass: the base is engineered near-monochrome, the
-           cluster colour reads as a controlled tint and BLOOMS only on selection */
-        m.material=new THREE.MeshPhysicalMaterial({color:colour.clone().multiplyScalar(.42),emissive:colour.clone().multiplyScalar(.14),metalness:.7,roughness:.32,clearcoat:1,clearcoatRoughness:.22,transparent:true,opacity:.82,depthWrite:true,side:THREE.FrontSide});
-        m.userData.bbRegion=regionId; m.userData.bbColour=colour; m.userData.baseOpacity=.82; m.userData.targetOpacity=.82; m.userData.worldCentre=c;
+        /* BLACK CHROME AT REST: graphite carrying a 10 percent whisper of its
+           sector colour and almost no emission, so the whole brain reads as one
+           dark engineered object. The sector colour is only allowed to bloom
+           when that sector is active. */
+        const graphite=new THREE.Color(0x151a22).lerp(colour,.07);
+        m.material=new THREE.MeshPhysicalMaterial({color:graphite,emissive:colour.clone().multiplyScalar(.02),metalness:.88,roughness:.26,clearcoat:1,clearcoatRoughness:.18,envMapIntensity:1.35,transparent:true,opacity:.96,depthWrite:true,side:THREE.FrontSide});
+        m.userData.bbRegion=regionId; m.userData.bbColour=colour; m.userData.graphite=graphite; m.userData.baseOpacity=.96; m.userData.targetOpacity=.96; m.userData.worldCentre=c;
+        m.userData.basePos=m.position.clone(); m.userData.sep=0; m.userData.sepTarget=0; m.userData.sepDir=null;
         (groups[regionId]=groups[regionId]||[]).push(m);
       });
       /* Centres come from the MEAN of member mesh centres with far outliers dropped,
@@ -2388,8 +2458,17 @@ const BBX=(function(){
         const c=new THREE.Vector3(); pts.forEach(p=>c.add(p)); return c.multiplyScalar(1/pts.length);
       };
       REGIONS.forEach(r=>{ sectorCentres[r.id]=robustCentre(r.id); });
-      buildTags();
-      ready=true;
+      /* the separation direction of every mesh, expressed in its parent's space
+         so that ONE world unit outward is exactly one world unit after the model
+         scale. Deep regions near the core do not separate. */
+      surfaceMeshes.forEach(m=>{
+        const c=sectorCentres[m.userData.bbRegion]; if(!c||c.length()<.3||!m.parent)return;
+        const dirW=c.clone().normalize();
+        const a=m.parent.worldToLocal(c.clone()), b=m.parent.worldToLocal(c.clone().add(dirW));
+        m.userData.sepDir=b.sub(a);
+      });
+      buildTags(); buildFibres(); buildPost();
+      ready=true; bootAt=performance.now();
       applyMode(pendingMode);
       if(showOn)showBeat();   // Present was entered while the model was still loading
       $('x3d-bar').style.width='100%'; $('x3d-copy').textContent='Neural sectors ready.';
@@ -2397,7 +2476,7 @@ const BBX=(function(){
     },ev=>{ if(!ev.total)return; const p=Math.min(96,Math.max(4,ev.loaded/ev.total*100));
       $('x3d-bar').style.width=p+'%'; $('x3d-copy').textContent='Waking the brain '+Math.round(p)+'%';
     },err=>{ console.error('3D model load failed',err); fail('The brain model could not load. Tap Brain to retry.'); started=false; });
-    canvas.addEventListener('pointerdown',e=>{ pointerStart={x:e.clientX,y:e.clientY}; });
+    canvas.addEventListener('pointerdown',e=>{ pointerStart={x:e.clientX,y:e.clientY}; if(ENT)endEntrance(); });
     canvas.addEventListener('pointerup',e=>{
       if(!pointerStart)return;
       const moved=Math.abs(e.clientX-pointerStart.x)+Math.abs(e.clientY-pointerStart.y); pointerStart=null;
@@ -2409,7 +2488,7 @@ const BBX=(function(){
       else if(!hit){ stepBack(); }   // bb-3d-ux gate 3: tapping empty space steps back
     });
     canvas.addEventListener('pointermove',e=>{
-      if(!ready||pointerStart){ $('x3d-hover').style.display='none'; return; }
+      if(!ready||pointerStart||ENT){ $('x3d-hover').style.display='none'; return; }
       const hit=raycast(e); const h=$('x3d-hover');
       if(!hit){ canvas.style.cursor='grab'; h.style.display='none'; return; }
       canvas.style.cursor='pointer';
@@ -2418,22 +2497,86 @@ const BBX=(function(){
       h.style.display='block'; h.style.left=e.clientX+'px'; h.style.top=e.clientY+'px';
     });
     canvas.addEventListener('pointerleave',()=>{ $('x3d-hover').style.display='none'; });
-    controls.addEventListener('start',()=>{ controls.autoRotate=false; });
-    controls.addEventListener('end',()=>{ controls.autoRotate=spinOn; });
+    /* idle movement stops on the FIRST touch and stays stopped: nobody fights a
+       spinning object. The Spin button is the only way to bring it back. */
+    controls.addEventListener('start',()=>{ controls.autoRotate=false; spinOn=false; syncSpin(); });
     /* a pinch that starts on a stage overlay (tag, rail, card) must never zoom the
        PAGE: iOS Safari's gesture events are the page-zoom path, so the stage eats
        them. Pinches on the canvas already dolly the scene via OrbitControls. */
     ['gesturestart','gesturechange','gestureend'].forEach(ev=>stage.addEventListener(ev,e=>e.preventDefault()));
-    const resize=()=>{ const r=stage.getBoundingClientRect(); if(!r.width||!r.height)return;
-      renderer.setSize(r.width,r.height,false); camera.aspect=r.width/r.height; camera.updateProjectionMatrix(); };
-    new ResizeObserver(resize).observe(stage); resize();
+    doResize=()=>{ const r=stage.getBoundingClientRect(); if(!r.width||!r.height)return;
+      renderer.setSize(r.width,r.height,false); camera.aspect=r.width/r.height; camera.updateProjectionMatrix();
+      if(composer){ composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(r.width,r.height); }
+      if(bloomPass)bloomPass.setSize(r.width*Q.bloomScale,r.height*Q.bloomScale); };
+    new ResizeObserver(doResize).observe(stage); doResize();
     requestAnimationFrame(tick);
+  }
+  /* ── the glow stack: one composer, render pass plus bloom, sized by tier ── */
+  function buildPost(){
+    if(!Q.bloom||!THREE.EffectComposer||!THREE.UnrealBloomPass||!THREE.RenderPass)return;
+    try{
+      const size=renderer.getSize(new THREE.Vector2()), pr=renderer.getPixelRatio();
+      const rt=renderer.capabilities.isWebGL2?new THREE.WebGLMultisampleRenderTarget(Math.max(1,size.x*pr),Math.max(1,size.y*pr),{format:THREE.RGBAFormat}):undefined;
+      composer=new THREE.EffectComposer(renderer,rt);
+      composer.setPixelRatio(pr); composer.setSize(size.x,size.y);
+      composer.addPass(new THREE.RenderPass(scene,camera));
+      bloomPass=new THREE.UnrealBloomPass(new THREE.Vector2(Math.max(1,size.x*Q.bloomScale),Math.max(1,size.y*Q.bloomScale)),.45,.3,.8);
+      composer.addPass(bloomPass); bloomOn=true;
+    }catch(e){ console.warn('bloom disabled',e); composer=null; bloomPass=null; bloomOn=false; }
+  }
+  function demote(){
+    if(Q.tier==='low')return;
+    Q.tier='low'; bloomOn=false; Q.pixel=1.25;
+    try{ sessionStorage.setItem('bb_x3d_tier','low'); }catch(e){}
+    renderer.setPixelRatio(Math.min(devicePixelRatio||1,Q.pixel)); if(doResize)doResize();
+  }
+  /* ── the neural web: fine fibres strung between sector centres, drawn through
+     the shell like circuitry under dark glass, with a few signals always
+     travelling. Counts by tier. Frozen (not removed) under reduced motion. ── */
+  function buildFibres(){
+    fibreRoot=new THREE.Group(); fibreRoot.renderOrder=3; scene.add(fibreRoot);
+    const ids=REGIONS.map(r=>r.id).filter(id=>sectorCentres[id]); if(ids.length<2)return;
+    const rnd=mulberry(4242); const J=k=>new THREE.Vector3((rnd()-.5)*k,(rnd()-.5)*k,(rnd()-.5)*k);
+    const clamp=v=>{ if(v.length()>1.6)v.setLength(1.6); return v; };
+    for(let i=0;i<Q.fibres;i++){
+      const ia=i%ids.length; let ib=(i*3+1+Math.floor(rnd()*3))%ids.length; if(ib===ia)ib=(ib+1)%ids.length;
+      const a=clamp(sectorCentres[ids[ia]].clone().add(J(.5))), b=clamp(sectorCentres[ids[ib]].clone().add(J(.5)));
+      const mid=clamp(a.clone().lerp(b,.5).add(J(1.0)));
+      const curve=new THREE.CatmullRomCurve3([a,mid,b]);
+      const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,24,.0045,4,false),new THREE.MeshBasicMaterial({color:0x6f9fe6,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false}));
+      mesh.userData.curve=curve; mesh.userData.baseOp=.13; fibreRoot.add(mesh); fibres.push(mesh);
+    }
+    for(let i=0;i<Q.pulses;i++) spawnPulse(fibres[(i*5)%fibres.length].userData.curve,{loop:true,t:rnd(),speed:1/(5000+rnd()*4000),colour:0x9fc4ff,size:.018});
+  }
+  /* a signal: a bright head and a five-step fading trail riding a curve.
+     Ambient ones loop across random fibres; event ones run once and die. */
+  function spawnPulse(curve,o){
+    const g=new THREE.Group(); const col=new THREE.Color(o.colour||0x9fc4ff);
+    const mk=(op,sc)=>{ const m=new THREE.Mesh(pulseGeo,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false})); m.scale.setScalar(sc); g.add(m); return m; };
+    const size=(o.size||.02)/.02;
+    const head=mk(.95,size); const trail=[]; for(let k=1;k<=5;k++)trail.push(mk(.5-k*.085,size*(1-k*.14)));
+    fxRoot.add(g);
+    const p={g,head,trail,curve,t:o.t||0,speed:o.speed||1/4000,loop:!!o.loop,onEnd:o.onEnd,ambient:!!o.loop,dead:false};
+    pulses.push(p); p.head.position.copy(curve.getPointAt(Math.min(1,p.t))); return p;
+  }
+  function killPulse(p){ if(p.dead)return; p.dead=true; fxRoot.remove(p.g); p.g.children.forEach(c=>c.material.dispose()); pulses=pulses.filter(x=>x!==p); }
+  function updatePulses(dt,still){
+    for(const p of pulses.slice()){
+      if(p.ambient&&still)continue;
+      p.t+=p.speed*dt;
+      if(p.t>=1){
+        if(p.loop){ p.t=0; if(fibres.length)p.curve=fibres[Math.floor(Math.random()*fibres.length)].userData.curve; }
+        else { const cb=p.onEnd; killPulse(p); if(cb)cb(); continue; }
+      }
+      p.head.position.copy(p.curve.getPointAt(Math.min(1,p.t)));
+      p.trail.forEach((m,k)=>{ m.position.copy(p.curve.getPointAt(Math.max(0,p.t-(k+1)*.028))); });
+    }
   }
   function raycast(e){
     const rect=$('x3d-canvas').getBoundingClientRect();
     pointerV.x=(e.clientX-rect.left)/rect.width*2-1; pointerV.y=-(e.clientY-rect.top)/rect.height*2+1;
     raycaster.setFromCamera(pointerV,camera);
-    const proxyHit=raycaster.intersectObjects(hitProxies,false)[0];
+    const proxyHit=neuronRoot.visible?raycaster.intersectObjects(hitProxies,false)[0]:null;
     if(proxyHit)return{object:proxyHit.object.userData.proxyFor};
     const clientHit=raycaster.intersectObjects(clientProxies,false)[0];
     if(clientHit)return{object:clientHit.object.userData.proxyFor};
@@ -2444,7 +2587,7 @@ const BBX=(function(){
     while(neuronRoot.children.length){ const c=neuronRoot.children.pop();
       if(c.geometry&&c.geometry.dispose)c.geometry.dispose();
       if(c.material&&c.material.dispose)c.material.dispose(); }
-    neuronMeshes=[]; hitProxies=[]; selectedNeuron=null;
+    neuronMeshes=[]; hitProxies=[]; selectedNeuron=null; neuronLines=null; neuronReveal=0; neuronRoot.visible=false;
     if($('x3d-nlabels'))$('x3d-nlabels').innerHTML='';
   }
   /* ── the skills SHOW THEMSELVES: the deepest twelve of the lit sector carry
@@ -2455,22 +2598,22 @@ const BBX=(function(){
     const depthOf=Object.fromEntries(D.skills.map(s=>[s.name,s.depth||0]));
     const top=new Set(r.skills.slice().sort((a,b)=>(depthOf[b]||0)-(depthOf[a]||0)).slice(0,12));
     wrap.innerHTML=neuronMeshes.filter(n=>top.has(n.userData.skill)).map(n=>
-      `<button data-x3dnl="${esc(n.userData.skill)}" onclick="BBX.focusSkill('${esc(n.userData.skill)}')" style="pointer-events:auto;position:absolute;transform:translate(-50%,-135%);background:rgba(6,9,15,.86);border:1px solid ${r.colour}55;color:#eef3fb;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;white-space:nowrap;transition:opacity .25s">${esc(hum(n.userData.skill))}</button>`).join('');
+      `<button data-x3dnl="${esc(n.userData.skill)}" onclick="BBX.focusSkill('${esc(n.userData.skill)}')" style="pointer-events:none;opacity:0;position:absolute;transform:translate(-50%,-135%);background:rgba(6,9,15,.86);border:1px solid ${r.colour}55;color:#eef3fb;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;white-space:nowrap;transition:opacity .25s">${esc(hum(n.userData.skill))}</button>`).join('');
   }
-  function updateNeuronLabels(rect){
-    const placed=[];
+  function updateNeuronLabels(rect,placed){
     const rail=$('x3d-rail');
     const railEdge=(rail&&rail.style.display!=='none')?rail.getBoundingClientRect().width+42:0;
+    const live=neuronReveal>.5;
     document.querySelectorAll('[data-x3dnl]').forEach(el=>{
       const node=neuronMeshes.find(n=>n.userData.skill===el.dataset.x3dnl);
-      if(!node){el.style.opacity='0';return;}
+      if(!node||!live){el.style.opacity='0';el.style.pointerEvents='none';return;}
       const p=node.position.clone().project(camera);
       if(p.z>=1){el.style.opacity='0';el.style.pointerEvents='none';return;}
       const x=(p.x*.5+.5)*rect.width, y=(-p.y*.5+.5)*rect.height;
-      if(x<railEdge||placed.some(q=>Math.abs(q.x-x)<76&&Math.abs(q.y-y)<22)){el.style.opacity='0';el.style.pointerEvents='none';return;}
+      if(x<railEdge||placed.some(q=>Math.abs(q.x-x)<(q.w||76)&&Math.abs(q.y-y)<(q.h||22))){el.style.opacity='0';el.style.pointerEvents='none';return;}
       placed.push({x,y});
       el.style.left=x+'px'; el.style.top=y+'px';
-      el.style.opacity=node===selectedNeuron?'1':'.88'; el.style.pointerEvents='auto';
+      el.style.opacity=String((node===selectedNeuron?1:.88)*neuronReveal); el.style.pointerEvents='auto';
     });
   }
   function buildNeurons(regionId){
@@ -2486,7 +2629,7 @@ const BBX=(function(){
       const p=positions[(i*7+i*i)%positions.length].clone().lerp(centre,.22+(i%4)*.035);
       const phase=i*2.399;
       p.x+=Math.sin(phase)*.025; p.y+=Math.cos(phase*.7)*.022; p.z+=Math.sin(phase*1.3)*.025;
-      const node=new THREE.Mesh(nodeGeo,new THREE.MeshBasicMaterial({color:region.colour,transparent:true,opacity:.94,blending:THREE.AdditiveBlending,depthWrite:false}));
+      const node=new THREE.Mesh(nodeGeo,new THREE.MeshBasicMaterial({color:region.colour,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
       node.position.copy(p); node.userData.skill=skill; node.userData.bbRegion=regionId; node.userData.phase=phase;
       node.userData.baseScale=i%5===0?1.25:1; node.scale.setScalar(node.userData.baseScale);
       neuronRoot.add(node); neuronMeshes.push(node);
@@ -2499,37 +2642,75 @@ const BBX=(function(){
       if(i%3===0) linePos.push(centre.x,centre.y,centre.z,p.x,p.y,p.z);
     });
     const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(linePos,3));
-    neuronRoot.add(new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:region.colour,transparent:true,opacity:.24,blending:THREE.AdditiveBlending,depthWrite:false})));
-    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.105,2),new THREE.MeshBasicMaterial({color:region.colour,wireframe:true,transparent:true,opacity:.7,blending:THREE.AdditiveBlending,depthWrite:false}));
-    core.position.copy(centre); neuronRoot.add(core);
+    neuronLines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:region.colour,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    neuronRoot.add(neuronLines);
+    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.105,2),new THREE.MeshBasicMaterial({color:region.colour,wireframe:true,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
+    core.position.copy(centre); core.userData.isCore=true; neuronRoot.add(core);
   }
-  function select(regionId){
-    if(!ready)return;
-    activeSector=regionId;
-    /* Apple-grade focus is CONTRAST: the chosen territory owns the frame, the rest
-       recedes to a whisper and even the ambient rings step back (2026-08-30, on
-       Thulaib's "only that section should highlight" note). */
-    surfaceMeshes.forEach(m=>{
-      const match=m.userData.bbRegion===regionId;
-      m.userData.targetOpacity=match?.5:.035;
-      m.material.depthWrite=false;
-      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(match?.58:.008);
-    });
+  /* the shell at rest (or dimmed for client mode): one dark chrome object */
+  function restoreShell(){
+    const dimShell=mode==='clients';
+    surfaceMeshes.forEach(m=>{ const u=m.userData;
+      u.targetOpacity=dimShell?.14:u.baseOpacity; m.material.depthWrite=!dimShell;
+      m.material.emissive.copy(u.bbColour).multiplyScalar(dimShell?.04:.02);
+      m.material.color.copy(u.graphite); m.material.envMapIntensity=1.35; m.material.roughness=.26; m.material.clearcoat=1; m.material.clearcoatRoughness=.18; u.sepTarget=0; });
+    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
+    if(particles)particles.material.opacity=.14;
+    fibres.forEach(f=>{ f.material.opacity=f.userData.baseOp; });
+  }
+  /* camera flights: every authored move is an ARC around the current target,
+     never a straight line through the model. lift raises the path mid-way,
+     bulge pushes it outward mid-way, so a swing reads as a crane move. */
+  function flyTo(pos,target,duration,o){
+    o=o||{};
+    cameraTween={start:performance.now(),duration:Math.max(1,duration),fromPosition:camera.position.clone(),toPosition:pos.clone(),fromTarget:controls.target.clone(),toTarget:target.clone(),arc:!!o.arc,lift:o.lift||0,bulge:o.bulge||0,onProgress:o.onProgress||null};
+  }
+  function select(regionId,opts){
+    if(!ready)return; if(ENT)endEntrance();
+    const keep=!!(opts&&opts.keep)&&activeSector===regionId&&neuronMeshes.length>0;
+    activeSector=regionId; hideCue(true);
+    const region=regionById[regionId]; if(!region)return;
+    const centre=sectorCentres[regionId].clone();
+    /* Focus is CONTRAST: the chosen territory carries its colour and light, the
+       rest of the brain goes almost black, the ambient rings and web step back,
+       and the region lifts a whisper off its neighbours (2026-09-05). */
+    surfaceMeshes.forEach(m=>{ const u=m.userData, match=u.bbRegion===regionId;
+      u.targetOpacity=match?.96:.12; m.material.depthWrite=match;
+      m.material.emissive.copy(u.bbColour).multiplyScalar(match?.3:0);
+      m.material.color.copy(u.graphite); if(match)m.material.color.lerp(u.bbColour,.22);
+      /* the lit region drops its mirror coat: a clearcoat at roughness .18 reflects
+         the dome as silver whatever the base colour, so glow could only read as a
+         pastel cast. Dark body, coloured light. */
+      m.material.envMapIntensity=match?.5:1.35; m.material.roughness=match?.42:.26; m.material.clearcoat=match?.2:1; m.material.clearcoatRoughness=match?.5:.18;
+      u.sepTarget=match?1:0; });
     techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp*.3; });
-    particles.material.opacity=.1;
-    buildNeurons(regionId);
-    buildNeuronLabels(regionId);
+    particles.material.opacity=.08;
+    fibres.forEach(f=>{ f.material.opacity=f.userData.baseOp*.6; });
+    if(!keep){ buildNeurons(regionId); buildNeuronLabels(regionId); }
+    else { selectedNeuron=null; neuronRoot.visible=true; }
+    /* the signal: one pulse from the core to the region, arriving as the camera does */
+    spawnPulse(new THREE.CatmullRomCurve3([new THREE.Vector3(0,0,0),centre.clone().multiplyScalar(.5).add(perp(centre).multiplyScalar(.35)),centre.clone()]),{colour:region.colour,size:.032,speed:1/650});
     const sel=(groups[regionId]||[]).map(m=>m.userData.worldCentre).filter(p=>p.length()<=2.4);
     if(sel.length){
-      const centre=sectorCentres[regionId].clone();
       const radius=Math.min(1.4,Math.max(.46,Math.sqrt(sel.reduce((a,p)=>Math.max(a,p.distanceToSquared(centre)),0))));
-      const dir=camera.position.clone().sub(controls.target).normalize();
-      cameraTween={start:performance.now(),duration:820,fromPosition:camera.position.clone(),toPosition:centre.clone().add(dir.multiplyScalar(Math.min(6.8,Math.max(3.35,radius*3.25)))),fromTarget:controls.target.clone(),toTarget:centre};
+      const curDir=camera.position.clone().sub(controls.target).normalize();
+      /* turn the region to face the viewer: the camera settles on the ray from
+         the core through the sector, with a whisper of the current angle so the
+         swing never reads as mechanical. Deep regions keep the current angle. */
+      let dir=centre.clone(); if(dir.length()<.3)dir=curDir.clone(); else dir.normalize();
+      dir.lerp(curDir,.15).normalize();
+      const dist=Math.min(6.8,Math.max(3.35,radius*3.25));
+      flyTo(centre.clone().add(dir.multiplyScalar(dist)),centre,noMotion()?520:1150,{arc:true,lift:.18,bulge:.6,onProgress:pr=>{
+        if(pr>=.5&&!neuronRoot.visible)neuronRoot.visible=true;          // neurons only once the camera is close
+        if(pr>=.8&&$('x3d-rail').style.display==='none')renderRail(regionId);   // the rail once it has nearly settled
+      }});
       controls.autoRotate=false; spinOn=false; syncSpin();
-    }
+    } else { neuronRoot.visible=true; renderRail(regionId); }
     document.querySelectorAll('[data-x3dchip]').forEach(b=>b.classList.toggle('on',b.dataset.x3dchip===regionId));
     document.querySelectorAll('[data-x3dtag]').forEach(b=>b.classList.toggle('on',b.dataset.x3dtag===regionId));
-    renderRail(regionId); hideCard(); selectedNeuron=null; renderCrumb();
+    hideCard(); if(!keep)selectedNeuron=null;
+    document.querySelectorAll('[data-x3drail]').forEach(b=>b.style.background='none');
+    renderCrumb();
   }
   /* ── the in-stage skill rail: every skill of the lit sector, one tap from its
      record, per bb-3d-ux gate 3 DRILL and gate 4 (detail reads inside the scene) ── */
@@ -2556,7 +2737,7 @@ const BBX=(function(){
     if(btn)btn.textContent=railListOpen?'Hide the list':'Show the skills';
   }
   function hideRail(){ $('x3d-rail').style.display='none'; }
-  function hideCard(){ $('x3d-card').style.display='none'; selectedClient=null; }
+  function hideCard(){ $('x3d-card').style.display='none'; selectedClient=null; cardFor=null; }
   function showSkillCard(sk){
     const s=D.skills.find(x=>x.name===sk); if(!s)return;
     const r=regionById[s.cluster]||{colour:'#c9d4e8',name:s.cluster};
@@ -2570,37 +2751,40 @@ const BBX=(function(){
        ${s.depth===0?'<div style="font-size:11px;color:#c9a15a;margin:0 0 8px">Never used. Push it to the team so it earns its place.</div>':s.quiet?'<div style="font-size:11px;color:#c9a15a;margin:0 0 8px">Quiet for over 60 days.</div>':''}
        ${s.latest?`<div style="font-size:11.5px;color:#b9c6da;line-height:1.5;margin-bottom:8px"><b style="color:#8fa2c0">${esc(s.latest.date)}</b> · ${esc(String(s.latest.summary).slice(0,150))}</div>`:''}
        <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="tbtn" onclick="openSkill('${esc(sk)}')" style="font-size:11.5px">Full record</button>${needsPush?`<button class="tbtn" onclick="pushSkillNudge('${esc(sk)}')" style="font-size:11.5px;border-color:#c9a15a55">Push to team</button>`:''}</div>`;
-    $('x3d-card').style.display='block';
+    $('x3d-card').style.display='block'; cardFor=sk;
     /* one surface at a time on a phone: the card arriving collapses the rail list */
     if(railListOpen&&$('x3d-stage').getBoundingClientRect().width<560)toggleRail();
     document.querySelectorAll('[data-x3drail]').forEach(b=>b.style.background=b.dataset.x3drail===sk?'rgba(140,170,230,.12)':'none');
   }
   function focusSkillNode(sk){
+    if(ENT)endEntrance();
     const node=neuronMeshes.find(n=>n.userData.skill===sk);
-    if(node){ selectedNeuron=node;
+    if(node){ selectedNeuron=node; neuronRoot.visible=true;
+      const region=regionById[node.userData.bbRegion]||{colour:'#c9d4e8'};
+      const core=(activeSector&&sectorCentres[activeSector])?sectorCentres[activeSector].clone():node.position.clone();
+      /* the signal runs from the sector core to this neuron, then the card opens */
+      spawnPulse(new THREE.CatmullRomCurve3([core.clone(),core.clone().lerp(node.position,.5).add(perp(node.position.clone().sub(core)).multiplyScalar(.08)),node.position.clone()]),{colour:region.colour,size:.024,speed:1/420});
       /* a SMALL move, not a fly-in: the target leans 65 percent toward the neuron
          from the sector centre and the camera stays far enough to keep the sector
          in frame, so the user never loses where they are */
-      const anchor=(activeSector&&sectorCentres[activeSector])?sectorCentres[activeSector].clone():node.position.clone();
-      const toTarget=anchor.lerp(node.position.clone(),.65);
+      const toTarget=core.clone().lerp(node.position.clone(),.65);
       const dir=camera.position.clone().sub(controls.target).normalize();
-      cameraTween={start:performance.now(),duration:650,fromPosition:camera.position.clone(),toPosition:toTarget.clone().add(dir.multiplyScalar(4.2)),fromTarget:controls.target.clone(),toTarget};
+      flyTo(toTarget.clone().add(dir.multiplyScalar(4.2)),toTarget,noMotion()?350:700,{arc:true,lift:.06,bulge:.15,onProgress:pr=>{ if(pr>=.6&&cardFor!==sk)showSkillCard(sk); }});
       controls.autoRotate=false; spinOn=false; syncSpin();
-    }
-    showSkillCard(sk);
+    } else showSkillCard(sk);
     renderCrumb();
   }
   function closeSkill(){
     /* the card's close is a step BACK, not a vanish: neuron released, sector
-       restored with its full list and framing */
+       restored with its full list and framing, neurons kept (no rebuild flash) */
     selectedNeuron=null; hideCard();
-    if(activeSector)select(activeSector); else renderCrumb();
+    if(activeSector)select(activeSector,{keep:true}); else renderCrumb();
   }
   function zoom(dir){
-    if(!ready)return;
+    if(!ready)return; if(ENT)endEntrance();
     const offset=camera.position.clone().sub(controls.target);
     const dist=Math.max(controls.minDistance,Math.min(controls.maxDistance,offset.length()*(dir>0?.78:1.28)));
-    cameraTween={start:performance.now(),duration:260,fromPosition:camera.position.clone(),toPosition:controls.target.clone().add(offset.normalize().multiplyScalar(dist)),fromTarget:controls.target.clone(),toTarget:controls.target.clone()};
+    flyTo(controls.target.clone().add(offset.normalize().multiplyScalar(dist)),controls.target,260,{});
   }
   function renderCrumb(){
     const c=$('x3d-crumb'); if(!c)return;
@@ -2608,14 +2792,14 @@ const BBX=(function(){
     if(mode==='clients'){ segs.push('<span>/</span><span style="color:#eef3fb;padding:0 2px">Clients</span>'); }
     else if(activeSector){
       const r=regionById[activeSector];
-      segs.push(`<span>/</span><button onclick="BBX.select('${esc(activeSector)}')" style="background:none;border:none;cursor:pointer;color:${selectedNeuron?'#8fa2c0':'#eef3fb'};font-size:11px;padding:4px 2px">${esc(r?r.name:activeSector)}</button>`);
+      segs.push(`<span>/</span><button onclick="BBX.select('${esc(activeSector)}',{keep:true})" style="background:none;border:none;cursor:pointer;color:${selectedNeuron?'#8fa2c0':'#eef3fb'};font-size:11px;padding:4px 2px">${esc(r?r.name:activeSector)}</button>`);
       if(selectedNeuron)segs.push(`<span>/</span><span style="color:#eef3fb;padding:0 2px">${esc(hum(selectedNeuron.userData.skill))}</span>`);
     }
     c.innerHTML=segs.join('');
   }
   function stepBack(){
     if(selectedClient){ hideCard(); return; }
-    if(selectedNeuron){ selectedNeuron=null; hideCard(); if(activeSector)select(activeSector); return; }
+    if(selectedNeuron){ closeSkill(); return; }
     if(mode==='brain'&&activeSector){ reset(); return; }
     hideCard();
   }
@@ -2625,22 +2809,24 @@ const BBX=(function(){
   function applyMode(m){
     mode=m; pendingMode=m;
     if(!ready)return;
-    clearNeurons(); hideRail(); hideCard(); activeSector=null;
-    cameraTween={start:performance.now(),duration:850,fromPosition:camera.position.clone(),toPosition:new THREE.Vector3(0,.1,7.3),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(0,0,0)};
-    document.querySelectorAll('[data-x3dtag]').forEach(t=>t.classList.remove('on'));
+    if(ENT)endEntrance();
+    clearNeurons(); hideRail(); hideCard(); activeSector=null; restoreShell();
+    document.querySelectorAll('[data-x3dtag],[data-x3dchip]').forEach(t=>t.classList.remove('on'));
     if(m==='clients'){
       $('x3d-chips').style.display='none';
-      $('x3d-hint').textContent='Every glowing node is a client, sitting beside the territory the brain used most for them and sized by how much it knows. Tap one to read them, then open the dossier.';
-      surfaceMeshes.forEach(x=>{ x.userData.targetOpacity=.12; x.material.depthWrite=false; x.material.emissive.copy(x.userData.bbColour).multiplyScalar(.06); });
+      $('x3d-hint').textContent='Every node is a client beside the territory the brain used most for them, sized by how much it knows. Tap one to read them.';
+      hideCue(false);
       buildClientNodes();
+      flyTo(homePos(),new THREE.Vector3(0,0,0),850,{arc:true,lift:.05,bulge:.2});
     }else{
       $('x3d-chips').style.display='flex';
-      $('x3d-hint').textContent='Tap a territory to light its sector: its skills appear as neurons and in the list. Tap a neuron or a list row to read that skill inside the brain. Drag to turn, pinch or scroll to zoom, tap empty space to step back.';
+      $('x3d-hint').textContent='Tap a territory to light it. Drag to turn, pinch or scroll to zoom, tap empty space to step back.';
       clearClientNodes();
-      surfaceMeshes.forEach(x=>{ x.userData.targetOpacity=x.userData.baseOpacity; x.material.depthWrite=true; x.material.emissive.copy(x.userData.bbColour).multiplyScalar(.14); });
+      /* the entrance plays ONCE per session, on the first Brain open, never in
+         Present and never under reduced motion (that path settles at home) */
+      if(!showOn&&!document.body.classList.contains('present')&&wantsEntrance()){ beginEntrance(false); }
+      else { flyTo(homePos(),new THREE.Vector3(0,0,0),850,{arc:true,lift:.05,bulge:.2}); showCue(); }
     }
-    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
-    if(particles)particles.material.opacity=.16;
     document.getElementById('v-brain').classList.toggle('on',m==='brain');
     document.getElementById('v-clients').classList.toggle('on',m==='clients');
     renderCrumb();
@@ -2656,14 +2842,24 @@ const BBX=(function(){
     if(!clientRoot){ clientRoot=new THREE.Group(); scene.add(clientRoot); }
     clearClientNodes();
     const list=(D.clients||[]).slice(0,40);
+    /* most BB clients share one dominant territory, so a clump around its centre
+       stacked to white under additive blending. Each sector's clients now sit on
+       a disc hovering just outside that region, spread by the golden angle. */
+    const byC={}; list.forEach(cl=>{ (byC[cl.domCluster]=byC[cl.domCluster]||[]).push(cl); });
     list.forEach((cl,i)=>{
-      const centre=(sectorCentres[cl.domCluster]||new THREE.Vector3()).clone();
-      const phase=i*2.399;
-      const off=new THREE.Vector3(Math.sin(phase),Math.cos(phase*.7)*.8,Math.cos(phase*1.31)).normalize().multiplyScalar(.34+(i%5)*.09);
-      const p=centre.add(off);
-      const colour=((D.clusters||[]).find(c=>c.id===cl.domCluster)||{color:'#c9d4e8'}).color;
-      const size=.045+Math.min(.05,Math.log10(1+(cl.total||0))*.028);
-      const node=new THREE.Mesh(new THREE.IcosahedronGeometry(size,1),new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.92,blending:THREE.AdditiveBlending,depthWrite:false}));
+      const grp=byC[cl.domCluster], k=grp.indexOf(cl), K=grp.length;
+      const centre=(sectorCentres[cl.domCluster]||new THREE.Vector3(0,.2,0)).clone();
+      const n=centre.length()>.15?centre.clone().normalize():new THREE.Vector3(0,1,0);
+      const t1=perp(n), t2=new THREE.Vector3().crossVectors(n,t1).normalize();
+      const phase=k*2.399, rad=.18+.55*Math.sqrt((k+.5)/K);
+      const p=centre.clone().addScaledVector(n,.55).addScaledVector(t1,Math.cos(phase)*rad).addScaledVector(t2,Math.sin(phase)*rad);
+      /* a near-white cluster colour (Intelligence / Memory, where most clients
+         sit because their facts come from chat) would sum to a white mass under
+         additive blending; nodes of such clusters render cool blue instead */
+      const raw=new THREE.Color(((D.clusters||[]).find(c=>c.id===cl.domCluster)||{color:'#c9d4e8'}).color);
+      const colour=(raw.r*.3+raw.g*.59+raw.b*.11)>.7?new THREE.Color(0x6f9fe6):raw;
+      const size=.04+Math.min(.045,Math.log10(1+(cl.total||0))*.025);
+      const node=new THREE.Mesh(new THREE.IcosahedronGeometry(size,1),new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
       node.position.copy(p); node.userData.client=cl.name; node.userData.phase=phase; node.userData.baseScale=1;
       clientRoot.add(node); clientNodes.push(node);
       const proxy=new THREE.Mesh(new THREE.IcosahedronGeometry(Math.max(.11,size*2.4),0),new THREE.MeshBasicMaterial({visible:false}));
@@ -2683,76 +2879,185 @@ const BBX=(function(){
     $('x3d-card').style.display='block';
   }
   function focusClientNode(name){
+    if(ENT)endEntrance();
     const node=clientNodes.find(n=>n.userData.client===name);
     if(node){ const dir=camera.position.clone().sub(controls.target).normalize();
-      cameraTween={start:performance.now(),duration:650,fromPosition:camera.position.clone(),toPosition:node.position.clone().add(dir.multiplyScalar(3.2)),fromTarget:controls.target.clone(),toTarget:node.position.clone()};
+      flyTo(node.position.clone().add(dir.multiplyScalar(3.2)),node.position.clone(),noMotion()?350:650,{arc:true,lift:.05,bulge:.1});
       controls.autoRotate=false; spinOn=false; syncSpin();
     }
     showClientCard(name);
   }
   function reset(){
-    if(!ready)return;
-    clearNeurons(); activeSector=null; hideRail(); hideCard();
-    surfaceMeshes.forEach(m=>{ m.userData.targetOpacity=m.userData.baseOpacity; m.material.depthWrite=true;
-      m.material.emissive.copy(m.userData.bbColour).multiplyScalar(.14); });
-    techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
-    particles.material.opacity=.16;
+    if(!ready)return; if(ENT)endEntrance();
+    clearNeurons(); activeSector=null; hideRail(); hideCard(); restoreShell();
     document.querySelectorAll('[data-x3dchip],[data-x3dtag]').forEach(b=>b.classList.remove('on'));
-    cameraTween={start:performance.now(),duration:850,fromPosition:camera.position.clone(),toPosition:new THREE.Vector3(0,.1,7.3),fromTarget:controls.target.clone(),toTarget:new THREE.Vector3(0,0,0)};
+    flyTo(homePos(),new THREE.Vector3(0,0,0),noMotion()?450:950,{arc:true,lift:.1,bulge:.35});
+    showCue(); renderCrumb();
+  }
+  /* ── THE ENTRANCE: near darkness, a signal forming inside a fibre, the camera
+     riding beside it through close fibres, the shell revealed by rim light, then
+     the pull-back to the whole brain. Once per session; Replay brings it back;
+     any touch skips it; reduced motion never travels. ── */
+  function wantsEntrance(){ try{ return !sessionStorage.getItem(ENTERED_KEY); }catch(e){ return true; } }
+  function beginEntrance(force){
+    if(!ready)return;
+    try{ sessionStorage.setItem(ENTERED_KEY,'1'); }catch(e){}
+    if(ENT)endEntrance();
+    hideCue(false); clearNeurons(); hideRail(); hideCard(); activeSector=null; restoreShell(); cameraTween=null;
+    document.querySelectorAll('[data-x3dchip],[data-x3dtag]').forEach(b=>b.classList.remove('on'));
     renderCrumb();
+    const reduced=noMotion();
+    if(reduced&&!force){ settleHome(); return; }
+    $('explore-view').classList.add('entering'); controls.enabled=false; controls.autoRotate=false;
+    ENT={start:performance.now(),dur:reduced?900:4600,reduced,fibres:[],signal:null};
+    if(reduced){ renderer.toneMappingExposure=.05; camera.position.copy(homePos()); controls.target.set(0,0,0); camera.lookAt(controls.target); return; }
+    const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+    ENT.cam=new THREE.CatmullRomCurve3([V(-.55,-.25,.35),V(.25,.05,.95),V(.95,.45,2.1),V(.5,.35,4.6),homePos()],false,'centripetal');
+    ENT.sig=new THREE.CatmullRomCurve3([V(-.85,-.35,.05),V(-.15,-.02,.62),V(.62,.32,1.4)]);
+    ENT.signal=spawnPulse(ENT.sig,{colour:0xbfd8ff,size:.03,speed:1/(ENT.dur*.62)});
+    /* foreground fibres strung along the camera path so they cross the lens */
+    const rnd=mulberry(9001);
+    for(let i=0;i<10;i++){
+      const t0=rnd()*.45, pts=[];
+      for(let k=0;k<4;k++){ const p=ENT.cam.getPointAt(Math.min(1,t0+k*.06)); p.add(V(rnd()-.5,rnd()-.5,rnd()-.5).setLength(.07+rnd()*.18)); pts.push(p); }
+      const tube=new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),20,.004+rnd()*.005,4,false),new THREE.MeshBasicMaterial({color:0x8fb8ff,transparent:true,opacity:.5,blending:THREE.AdditiveBlending,depthWrite:false}));
+      fxRoot.add(tube); ENT.fibres.push(tube);
+    }
+    surfaceMeshes.forEach(m=>{ m.material.opacity=0; m.userData.targetOpacity=0; });
+    renderer.toneMappingExposure=.05; scene.fog.density=1.1; rimA.intensity=0; rimB.intensity=0;
+    if(bloomPass)bloomPass.strength=1.1;
+    camera.position.copy(ENT.cam.getPointAt(0)); controls.target.copy(ENT.sig.getPointAt(.05)); camera.lookAt(controls.target);
   }
+  function entranceFrame(now){
+    const t=Math.min(1,(now-ENT.start)/ENT.dur);
+    const sm=(a,b)=>Math.max(0,Math.min(1,(t-a)/(b-a)));
+    const ease=v=>v*v*(3-2*v);
+    if(ENT.reduced){ renderer.toneMappingExposure=.05+1.1*ease(t); if(t>=1)endEntrance(); return; }
+    renderer.toneMappingExposure=.05+.25*ease(sm(0,.3))+.55*ease(sm(.3,.72))+.3*ease(sm(.72,1));
+    scene.fog.density=1.1-1.062*ease(sm(.15,.8));
+    const rimK=ease(sm(.2,.8)); rimA.intensity=2.2*rimK; rimB.intensity=1.1*rimK;
+    if(bloomPass)bloomPass.strength=1.1-.65*ease(sm(.5,1));
+    if(t>.3) surfaceMeshes.forEach(m=>{ m.userData.targetOpacity=m.userData.baseOpacity; });
+    const fibreFade=1-ease(sm(.55,.8)); ENT.fibres.forEach(f=>{ f.material.opacity=.5*fibreFade; });
+    camera.position.copy(ENT.cam.getPointAt(ease(t)));
+    const look=(ENT.signal&&!ENT.signal.dead)?ENT.signal.head.position.clone():ENT.sig.getPointAt(1);
+    controls.target.copy(look.lerp(new THREE.Vector3(0,0,0),ease(sm(.5,.85))));
+    camera.lookAt(controls.target);
+    if(t>=1)endEntrance();
+  }
+  function endEntrance(){
+    if(!ENT)return; const e=ENT; ENT=null;
+    e.fibres.forEach(f=>{ fxRoot.remove(f); f.geometry.dispose(); f.material.dispose(); });
+    if(e.signal&&!e.signal.dead)killPulse(e.signal);
+    settleHome();
+  }
+  function settleHome(){
+    renderer.toneMappingExposure=1.15; scene.fog.density=.038; rimA.intensity=2.2; rimB.intensity=1.1; if(bloomPass)bloomPass.strength=.45;
+    restoreShell();
+    camera.position.copy(homePos()); controls.target.set(0,0,0); camera.lookAt(controls.target);
+    controls.enabled=true; controls.update();
+    spinOn=!noMotion(); controls.autoRotate=spinOn; syncSpin();
+    $('explore-view').classList.remove('entering'); showCue();
+  }
+  function replay(){ if(!ready)return; if(mode!=='brain'){ setMode('brain'); } beginEntrance(true); }
+  function skip(){ if(ENT)endEntrance(); }
+  /* the one instruction inside the composition, until the first selection */
+  function showCue(){ const c=$('x3d-cue'); if(!c||cueDone||mode!=='brain'||ENT||document.body.classList.contains('present'))return; c.style.display='block'; void c.offsetWidth; c.classList.add('show'); }
+  function hideCue(done){ const c=$('x3d-cue'); if(done)cueDone=true; if(!c)return; c.classList.remove('show'); setTimeout(()=>{ if(!c.classList.contains('show'))c.style.display='none'; },500); }
   function buildTags(){
-    $('x3d-tags').innerHTML=REGIONS.map(r=>`<button data-x3dtag="${r.id}" onclick="BBX.select('${r.id}')" style="pointer-events:auto;position:absolute;transform:translate(-50%,-50%);background:rgba(8,11,18,.78);border:1px solid ${r.colour}55;color:#dfe8f6;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;transition:opacity .3s">${esc(r.name)}</button>`).join('');
+    $('x3d-tags').innerHTML=REGIONS.map(r=>`<button data-x3dtag="${r.id}" onclick="BBX.select('${r.id}')" style="pointer-events:none;opacity:0;position:absolute;transform:translate(-50%,-50%);background:rgba(8,11,18,.78);border:1px solid ${r.colour}55;color:#dfe8f6;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;transition:opacity .3s">${esc(r.name)}</button>`).join('');
   }
+  /* sector names live in the scene only when they can be placed cleanly: facing
+     the camera, at most four at rest, never overlapping and only the active
+     one once a sector is lit, lifted above its neurons so pills avoid it */
   function updateTags(){
-    const rect=$('x3d-stage').getBoundingClientRect();
-    document.querySelectorAll('[data-x3dtag]').forEach(tag=>{
-      const centre=sectorCentres[tag.dataset.x3dtag]; if(!centre)return;
-      const p=centre.clone().project(camera);
-      tag.style.left=Math.max(55,Math.min(rect.width-55,(p.x*.5+.5)*rect.width))+'px';
-      tag.style.top=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))+'px';
-      tag.style.opacity=p.z<1?(tag.classList.contains('on')?'1':activeSector?'.18':'.72'):'0';
+    const rect=$('x3d-stage').getBoundingClientRect(); const placed=[];
+    const camDir=camera.position.clone().sub(controls.target).normalize();
+    const tags=[...document.querySelectorAll('[data-x3dtag]')];
+    tags.sort((a,b)=>(b.dataset.x3dtag===activeSector)-(a.dataset.x3dtag===activeSector));
+    let shown=0;
+    tags.forEach(tag=>{
+      const id=tag.dataset.x3dtag, centre=sectorCentres[id]; if(!centre)return;
+      const isOn=id===activeSector;
+      if((activeSector&&!isOn)||ENT||mode==='clients'){ tag.style.opacity='0'; tag.style.pointerEvents='none'; return; }
+      /* at rest a name sits on a ring just outside the shell along its sector's
+         direction, so eight names never crowd the middle; lit, it sits on the
+         region itself, lifted above the neurons */
+      const anchor=isOn?centre.clone():(centre.length()>.08?centre.clone().normalize().multiplyScalar(2.0):centre.clone());
+      const p=anchor.project(camera);
+      const facing=centre.length()<.3?.5:centre.clone().normalize().dot(camDir);
+      const w=tag.offsetWidth||100;
+      const x=Math.max(w/2+8,Math.min(rect.width-w/2-8,(p.x*.5+.5)*rect.width)), y=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))-(isOn?58:0);
+      const clash=placed.some(q=>Math.abs(q.x-x)<(q.w+w)/2+10&&Math.abs(q.y-y)<30);
+      const show=p.z<1&&(isOn||(facing>.25&&!clash&&shown<4));
+      tag.style.left=x+'px'; tag.style.top=y+'px';
+      tag.style.opacity=show?(isOn?'1':'.78'):'0'; tag.style.pointerEvents=show?'auto':'none';
+      tag.style.fontSize=isOn?'12px':'10.5px';
+      if(show){ placed.push({x,y,w,h:30}); shown++; }
     });
-    updateNeuronLabels(rect);
+    updateNeuronLabels(rect,placed);
   }
   const easeOut=v=>1-Math.pow(1-v,4);
+  const easeInOut=v=>v<.5?8*v*v*v*v:1-Math.pow(-2*v+2,4)/2;
   function tick(now){
     requestAnimationFrame(tick);
     if(document.hidden||VIEW!=='explore'||!renderer)return;
+    /* the frame watchdog runs on REAL frames only: a sustained slow average four
+       seconds after boot drops the tier once (bloom off, lower pixel ratio) and
+       remembers it for the session */
+    if(lastTick){ const d=Math.min(100,now-lastTick); frameAvg+=(d-frameAvg)*.05; if(frameAvg>38&&bloomOn&&bootAt&&now-bootAt>4000)demote(); }
+    lastTick=now;
     frame(now);
   }
   function frame(now){
-    if(cameraTween){
-      const pr=Math.min(1,(now-cameraTween.start)/cameraTween.duration), a=easeOut(pr);
-      camera.position.lerpVectors(cameraTween.fromPosition,cameraTween.toPosition,a);
-      controls.target.lerpVectors(cameraTween.fromTarget,cameraTween.toTarget,a);
-      if(pr===1)cameraTween=null;
-    }
-    surfaceMeshes.forEach(m=>{ m.material.opacity+=(m.userData.targetOpacity-m.material.opacity)*.085; });
+    const dt=lastFrameNow?Math.max(1,Math.min(50,now-lastFrameNow)):16.7; lastFrameNow=now;
     const still=noMotion();   // bb-3d-ux gate 6: reduced motion kills drift entirely
-    /* Restraint pass 2026-08-30: neurons no longer all pulse. The field holds a
-       calm steady state; ONLY the selected node breathes, because glow is a
-       response the user caused, never ambient decoration. */
+    if(ENT){ entranceFrame(now); }
+    else if(cameraTween){
+      const tw=cameraTween, pr=Math.min(1,(now-tw.start)/tw.duration), a=tw.arc?easeInOut(pr):easeOut(pr);
+      controls.target.lerpVectors(tw.fromTarget,tw.toTarget,a);
+      if(tw.arc){
+        const fo=tw.fromPosition.clone().sub(tw.fromTarget), to=tw.toPosition.clone().sub(tw.toTarget);
+        const fd=fo.length()||.001, td=to.length()||.001; const df=fo.normalize(), dtv=to.normalize();
+        const q=new THREE.Quaternion().setFromUnitVectors(df,dtv); const qa=new THREE.Quaternion().slerp(q,a);
+        const dir=df.clone().applyQuaternion(qa); const swing=Math.sin(a*Math.PI);
+        dir.y+=swing*tw.lift; dir.normalize();
+        camera.position.copy(controls.target).addScaledVector(dir,fd+(td-fd)*a+swing*tw.bulge);
+      } else camera.position.lerpVectors(tw.fromPosition,tw.toPosition,a);
+      if(tw.onProgress)tw.onProgress(pr);
+      if(pr===1){ camera.position.copy(tw.toPosition); controls.target.copy(tw.toTarget); cameraTween=null; }
+    }
+    surfaceMeshes.forEach(m=>{ const u=m.userData; m.material.opacity+=(u.targetOpacity-m.material.opacity)*.085;
+      if(u.sepDir){ u.sep+=(u.sepTarget-u.sep)*.07; m.position.copy(u.basePos).addScaledVector(u.sepDir,u.sep*.055); } });
+    /* neurons fade up only once the camera is close; only the SELECTED node
+       breathes, the others hold at .32 while one is chosen so the field stays
+       readable without competing */
+    neuronReveal=neuronRoot.visible?Math.min(1,neuronReveal+.05):0;
     neuronMeshes.forEach(node=>{
       const sel=node===selectedNeuron;
       const breathe=sel&&!still?1+Math.sin(now*.003)*.06:1;
       node.scale.setScalar(node.userData.baseScale*(sel?1.7:1)*breathe);
-      node.material.opacity=sel?1:.85;
+      node.material.opacity=(sel?1:(selectedNeuron?.32:.7))*neuronReveal;
     });
+    if(neuronLines)neuronLines.material.opacity=(selectedNeuron?.12:.24)*neuronReveal;
     clientNodes.forEach(node=>{
       const sel=node.userData.client===selectedClient;
       const breathe=sel&&!still?1+Math.sin(now*.0026)*.05:1;
       node.scale.setScalar((sel?1.6:1)*breathe);
-      node.material.opacity=sel?1:.8;
+      node.material.opacity=sel?.95:.6;
     });
-    if(!still){ techRig.rotation.y+=.00042; techRig.rotation.z-=.00018; particles.rotation.y-=.00016; }
-    controls.update(); updateTags(); renderer.render(scene,camera);
+    updatePulses(dt,still);
+    if(!still&&!ENT){ techRig.rotation.y+=.00042; techRig.rotation.z-=.00018; particles.rotation.y-=.00016; }
+    if(!ENT)controls.update();
+    updateTags();
+    if(bloomOn&&composer)composer.render(); else renderer.render(scene,camera);
   }
-  function syncSpin(){ const b=$('x3d-spin'); if(b) b.textContent=spinOn?'Pause spin':'Spin'; }
-  function toggleSpin(){ spinOn=!spinOn; if(controls)controls.autoRotate=spinOn; syncSpin(); }
+  function syncSpin(){ const b=$('x3d-spin'); if(b) b.innerHTML=spinOn?'<span class="x3d-long">Pause spin</span><span class="x3d-short">Pause</span>':'<span class="x3d-long">Spin</span><span class="x3d-short">Spin</span>'; }
+  function toggleSpin(){ if(ENT)endEntrance(); spinOn=!spinOn; if(controls)controls.autoRotate=spinOn; syncSpin(); }
   /* ── PRESENT rides the 3D: an eight-beat show, one sector every eight seconds,
      the same live-data captions the constellation demo used (setStory + storyLine),
-     rail and cards hidden by the present CSS so only the brain and the words speak. ── */
+     rail and cards hidden by the present CSS so only the brain and the words speak.
+     It reuses the same arcs and signals as a tap; it is not a second scene. ── */
   let showOn=false, showTimer=null, showIdx=0;
   function showBeat(){
     if(!showOn||!ready)return;
@@ -2774,15 +3079,32 @@ const BBX=(function(){
     }catch(e){}
     showTimer=setTimeout(showBeat,8000);
   }
-  function startShow(){ showOn=true; showIdx=0; if(ready)showBeat(); }
+  function startShow(){ showOn=true; showIdx=0; if(ENT)endEntrance(); hideCue(false); if(ready)showBeat(); }
   function stopShow(){ if(!showOn)return; showOn=false; clearTimeout(showTimer);
     try{ if(typeof setStory==='function')setStory(''); }catch(e){}
     const sp=$('x3d-show-panel'); if(sp){sp.style.display='none';sp.innerHTML='';}
     if(ready)reset(); }
-  function dbg(){ return { mode, showOn, labels:document.querySelectorAll('[data-x3dnl]').length, sectors:Object.fromEntries(REGIONS.map(r=>[r.id,(groups[r.id]||[]).length])), cats:[...catsUsed], cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null, lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween, neurons:neuronMeshes.length, proxies:hitProxies.length, clients:clientNodes.length, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false, centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
+  function dbg(){
+    const camDir=camera?camera.position.clone().sub(controls.target).normalize():null;
+    const secDir=(activeSector&&sectorCentres[activeSector]&&sectorCentres[activeSector].length()>=.3)?sectorCentres[activeSector].clone().normalize():null;
+    const selN=selectedNeuron?selectedNeuron.material.opacity:null, othN=selectedNeuron?(neuronMeshes.find(n=>n!==selectedNeuron)||{material:{opacity:null}}).material.opacity:null;
+    return { mode, showOn, homeD:+homeDist().toFixed(3), homeR:+Math.hypot(homeDist(),.1).toFixed(4), tier:Q.tier, bloom:bloomOn, entering:!!ENT, exposure:renderer?+renderer.toneMappingExposure.toFixed(3):null, fibres:fibres.length, pulses:pulses.length, eventPulses:pulses.filter(p=>!p.ambient).length,
+      labels:document.querySelectorAll('[data-x3dnl]').length, tagsShown:[...document.querySelectorAll('[data-x3dtag]')].filter(t=>t.style.opacity!=='0').length,
+      sectors:Object.fromEntries(REGIONS.map(r=>[r.id,(groups[r.id]||[]).length])), cats:[...catsUsed],
+      cam:camera?camera.position.toArray().map(v=>+v.toFixed(2)):null, tgt:controls?controls.target.toArray().map(v=>+v.toFixed(2)):null,
+      facing:(camDir&&secDir)?+camDir.dot(secDir).toFixed(3):null,
+      lit:surfaceMeshes.filter(m=>m.material.opacity>.3).length, dim:surfaceMeshes.filter(m=>m.material.opacity<=.3).length, tween:!!cameraTween,
+      neurons:neuronMeshes.length, neuronsVisible:!!(neuronRoot&&neuronRoot.visible&&neuronReveal>.5), selOp:selN==null?null:+selN.toFixed(2), otherOp:othN==null?null:+othN.toFixed(2),
+      proxies:hitProxies.length, clients:clientNodes.length, clientColour:clientNodes.length?clientNodes[0].material.color.getHexString():null, railOn:$('x3d-rail')?$('x3d-rail').style.display!=='none':false, cardOn:$('x3d-card')?$('x3d-card').style.display!=='none':false,
+      cueOn:$('x3d-cue')?$('x3d-cue').classList.contains('show'):false, crumb:$('x3d-crumb')?$('x3d-crumb').textContent:'', crumbDepth:$('x3d-crumb')?1+(($('x3d-crumb').innerHTML.match(/<span>\/<\/span>/g)||[]).length):0,
+      centres:Object.fromEntries(Object.entries(sectorCentres).map(([k,v])=>[k,+v.length().toFixed(2)])) }; }
   function step(n){ const t=performance.now(); for(let i=0;i<(n||1);i++) frame(t+i*16.7); return dbg(); }
   function setMode(m){ pendingMode=m; if(ready&&mode!==m)applyMode(m); }
-  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, closeSkill, zoom, startShow, stopShow, showBeat, toggleRail };
+  /* test hooks: forceReduced(true|false|null) overrides the motion query,
+     simulateFail drives the real fallback path without touching the network */
+  function forceReduced(v){ motionOverride=v; }
+  function simulateFail(){ fail('Test: the engine was made unavailable.'); }
+  return { open, select, reset, toggleSpin, dbg, step, setMode, getMode:()=>ready?mode:pendingMode, focusSkill:focusSkillNode, focusClient:focusClientNode, hideCard, closeSkill, zoom, startShow, stopShow, showBeat, toggleRail, replay, skip, forceReduced, simulateFail };
 })();
 /* ═══ THE LANDING STATE IS A ROUTE TOO (2026-08-31). The page's built-in default
    is the old constellation, and nothing ever called setView on a plain load, so
@@ -2833,17 +3155,59 @@ async function runSelfTest(){
     while(Date.now()-t0<20000&&!(document.getElementById('x3d-copy').textContent.includes('ready')||window.X3D_FALLBACK)) await new Promise(r=>setTimeout(r,300));
     if(window.X3D_FALLBACK){ ok('3D: engine', false, 'fell back, constellation showing'); }
     else{
+      const KEY='bb_x3d_entered', sleep=ms=>new Promise(r=>setTimeout(r,ms)), rad=c=>Math.hypot(c.cam[0],c.cam[1],c.cam[2]);
+      /* ENTRANCE: the natural first-open path, made deterministic by clearing the session flag */
+      BBX.forceReduced(false); try{sessionStorage.removeItem(KEY);}catch(e){}
+      BBX.setMode('clients'); BBX.setMode('brain'); const e0=BBX.step(12);
+      ok('3D ENTRANCE: first Brain open starts inside a fibre, near dark, controls hidden', e0.entering&&e0.exposure<.5&&rad(e0)<3&&document.getElementById('explore-view').classList.contains('entering'), 'entering '+e0.entering+', exposure '+e0.exposure+', radius '+rad(e0).toFixed(2));
+      const e1=BBX.step(320);
+      ok('3D ENTRANCE: settles on the whole brain, controls revealed, one cue', !e1.entering&&Math.abs(rad(e1)-e1.homeR)<.05&&e1.exposure>1&&!document.getElementById('explore-view').classList.contains('entering')&&e1.cueOn, 'radius '+rad(e1).toFixed(3)+' of '+e1.homeR+', exposure '+e1.exposure+', cue '+e1.cueOn);
+      BBX.replay(); const r1=BBX.step(6);
+      ok('3D REPLAY: the control restarts the entrance', r1.entering&&r1.exposure<.5, 'entering '+r1.entering+', exposure '+r1.exposure);
+      BBX.skip(); const r2=BBX.step(3);
+      ok('3D SKIP: a touch ends it at home', !r2.entering&&Math.abs(rad(r2)-r2.homeR)<.05, 'radius '+rad(r2).toFixed(3));
+      BBX.forceReduced(true); try{sessionStorage.removeItem(KEY);}catch(e){}
+      BBX.setMode('clients'); BBX.setMode('brain'); const q=BBX.step(5);
+      ok('3D REDUCED MOTION: no journey, opens on the stable whole brain', !q.entering&&Math.abs(rad(q)-q.homeR)<.05&&q.exposure>1, 'entering '+q.entering+', radius '+rad(q).toFixed(3));
+      BBX.forceReduced(false);
       BBX.reset(); const h=BBX.step(220);
-      ok('3D HOME: home framing at rest (radius 7.3 on the origin, spin-agnostic)', Math.abs(Math.hypot(h.cam[0],h.cam[1],h.cam[2])-7.3007)<.05&&JSON.stringify(h.tgt)==='[0,0,0]', 'radius '+Math.hypot(h.cam[0],h.cam[1],h.cam[2]).toFixed(3)+' target '+JSON.stringify(h.tgt));
+      ok('3D HOME: home framing at rest (radius '+h.homeR+' on the origin, spin-agnostic)', Math.abs(rad(h)-h.homeR)<.05&&JSON.stringify(h.tgt)==='[0,0,0]', 'radius '+rad(h).toFixed(3)+' target '+JSON.stringify(h.tgt));
       ok('3D CENTRES: every sector inside the core', Object.values(h.centres).every(v=>v>0&&v<1.76), JSON.stringify(h.centres));
       ok('3D SECTORS: all eight have territory', Object.values(h.sectors||{}).every(n=>n>0), JSON.stringify(h.sectors));
-      BBX.select('web'); const s1=BBX.step(220); const live=D.skills.filter(x=>x.cluster==='web').length;
+      ok('3D WEB: fibres strung and signals travelling', h.fibres>=14&&h.pulses>=2, h.fibres+' fibres, '+h.pulses+' signals, tier '+h.tier+', bloom '+h.bloom);
+      BBX.select('web'); const m1=BBX.step(18); const live=D.skills.filter(x=>x.cluster==='web').length;
+      ok('3D SECTOR: the signal is sent and the neurons wait for the camera', m1.tween&&m1.eventPulses>=1&&!m1.neuronsVisible, 'tween '+m1.tween+', signals '+m1.eventPulses+', neurons visible '+m1.neuronsVisible);
+      const s1=BBX.step(220);
       ok('3D SELECT: lit plus dim equals total, neurons equal live skills', s1.lit+s1.dim===390&&s1.neurons===live, s1.lit+'+'+s1.dim+', '+s1.neurons+' of '+live);
       ok('3D DRILL: rail and name pills present', s1.railOn&&s1.labels>0, s1.labels+' pills');
+      ok('3D SECTOR: the region faces the viewer, the rest is dark, one name in the scene', s1.facing>.8&&s1.neuronsVisible&&s1.dim>300&&s1.tagsShown===1, 'facing '+s1.facing+', dim '+s1.dim+', names '+s1.tagsShown);
+      const sk=D.skills.filter(x=>x.cluster==='web').sort((a,b)=>(b.depth||0)-(a.depth||0))[0].name;
+      BBX.focusSkill(sk); const k1=BBX.step(6);
+      ok('3D SKILL: the signal runs core to neuron on a small arc', k1.tween&&k1.eventPulses>=1, 'signals '+k1.eventPulses+', tween '+k1.tween);
+      const k2=BBX.step(120);
+      ok('3D SKILL: card open, chosen neuron bright, the others held', k2.cardOn&&k2.selOp>k2.otherOp&&k2.otherOp>0&&k2.crumbDepth===3, 'card '+k2.cardOn+', '+k2.selOp+' vs '+k2.otherOp+', crumb '+k2.crumb);
+      BBX.closeSkill(); const k3=BBX.step(120);
+      ok('3D BACK: reverses to the sector, neurons kept', !k3.cardOn&&k3.neurons===live&&k3.neuronsVisible&&k3.crumbDepth===2, k3.neurons+' neurons, crumb '+k3.crumb);
       BBX.select('content'); const s2=BBX.step(220);
       ok('3D SWITCH: content replaces web in one motion', s2.neurons===D.skills.filter(x=>x.cluster==='content').length, s2.neurons+' neurons');
       BBX.reset(); const r=BBX.step(220);
-      ok('3D RESET: home exact, all restored', JSON.stringify(r.cam)==='[0,0.1,7.3]'&&r.lit===390&&!r.railOn&&!r.cardOn, r.lit+' lit');
+      ok('3D RESET: home exact, all restored', r.cam[0]===0&&r.cam[1]===0.1&&Math.abs(r.cam[2]-r.homeD)<.01&&r.lit===390&&!r.railOn&&!r.cardOn, JSON.stringify(r.cam)+' home '+r.homeD+', '+r.lit+' lit');
+      /* LAYOUT: with a sector and a skill open, no two stage controls share pixels */
+      BBX.select('web'); BBX.step(220); BBX.focusSkill(sk); BBX.step(140);
+      const ids=['x3d-crumb','x3d-rail','x3d-card','x3d-attrib','x3d-cue','x3d-skip'];
+      const els=ids.map(i=>document.getElementById(i)).filter(Boolean).concat([...document.querySelectorAll('#x3d-stage .x3d-ui button')]);
+      const vis=els.filter(el=>el.offsetParent!==null&&getComputedStyle(el).opacity!=='0'&&getComputedStyle(el).display!=='none');
+      const rects=vis.map(el=>({id:el.id||el.textContent.trim().slice(0,12),r:el.getBoundingClientRect()})).filter(x=>x.r.width>0);
+      const hits=[]; const inside=(p,q)=>p.left>=q.left-1&&p.right<=q.right+1&&p.top>=q.top-1&&p.bottom<=q.bottom+1;
+      for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){ const a=rects[i].r,b=rects[j].r; if(inside(a,b)||inside(b,a))continue; if(a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom)hits.push(rects[i].id+' x '+rects[j].id); }
+      ok('3D LAYOUT: no stage control overlaps another', !hits.length, rects.length+' controls measured, overlaps: '+(hits.join(', ')||'none'));
+      BBX.reset(); BBX.step(220);
+      /* FALLBACK: the real failure path, driven without touching the network */
+      BBX.simulateFail(); await sleep(2400);   /* fail() waits 1400ms, the view fade another 200ms, and a heavy frame can slip both */
+      ok('3D FALLBACK: engine failure shows the constellation with a notice, one-shot', document.getElementById('brain-view').style.display==='flex'&&!!document.getElementById('x3d-fellback')&&window.X3D_FALLBACK===false, 'constellation '+document.getElementById('brain-view').style.display+', notice '+!!document.getElementById('x3d-fellback'));
+      setView('brain'); await sleep(450);
+      ok('3D FALLBACK: the next Brain tap returns to the 3D', document.getElementById('explore-view').style.display==='block', 'explore '+document.getElementById('explore-view').style.display);
+      BBX.forceReduced(null);
     }
   } else ok('3D: engine present', false, 'BBX missing');
   if(startView!==VIEW) setView(startView);

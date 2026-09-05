@@ -43,9 +43,4 @@ fi
 rm -f "$FLAG"
 SUMMARY="$(printf '%s' "$VERIFY_OUT" | grep VERIFY-BRAIN)"
 echo "[$STAMP] ok $SUMMARY · $PUB" >> "$LOG"
-# 4. chat-to-task bridge (2026-09-05). After publish so a bridge fault never blocks the
-#    brain. Its own flag file so the fault SHOUTS the same way the brain does.
-BFLAG="$HOME/bb-brain/BRIDGE-FAILING.txt"
-if BRIDGE_OUT="$(node bridge-chat-asks.js 2>&1)"; then rm -f "$BFLAG"; echo "[$STAMP] ok $BRIDGE_OUT" >> "$LOG"
-else printf '%s\n%s\n' "[$STAMP] chat-ask bridge FAILED" "$BRIDGE_OUT" > "$BFLAG"; echo "[$STAMP] XX bridge failed: $(printf '%s' "$BRIDGE_OUT" | tail -1)" >> "$LOG"; fi
 echo "[$STAMP] ok $SUMMARY · $PUB"
