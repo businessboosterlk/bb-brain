@@ -596,7 +596,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788581710898"></script>
+<script src="brain-data.enc.js?v=1788581807352"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2848,7 +2848,7 @@ async function runSelfTest(){
     if(window.X3D_FALLBACK){ ok('3D: engine', false, 'fell back, constellation showing'); }
     else{
       BBX.reset(); const h=BBX.step(220);
-      ok('3D HOME: camera exact at rest', JSON.stringify(h.cam)==='[0,0.1,7.3]'&&JSON.stringify(h.tgt)==='[0,0,0]', JSON.stringify(h.cam));
+      ok('3D HOME: home framing at rest (radius 7.3 on the origin, spin-agnostic)', Math.abs(Math.hypot(h.cam[0],h.cam[1],h.cam[2])-7.3007)<.05&&JSON.stringify(h.tgt)==='[0,0,0]', 'radius '+Math.hypot(h.cam[0],h.cam[1],h.cam[2]).toFixed(3)+' target '+JSON.stringify(h.tgt));
       ok('3D CENTRES: every sector inside the core', Object.values(h.centres).every(v=>v>0&&v<1.76), JSON.stringify(h.centres));
       ok('3D SECTORS: all eight have territory', Object.values(h.sectors||{}).every(n=>n>0), JSON.stringify(h.sectors));
       BBX.select('web'); const s1=BBX.step(220); const live=D.skills.filter(x=>x.cluster==='web').length;
