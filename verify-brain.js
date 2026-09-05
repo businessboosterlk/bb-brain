@@ -19,7 +19,7 @@ if (d) {
   const mem = src.find(s => s.name === 'Chat memories');
   const memAge = mem && mem.newest ? (Date.now() - new Date(mem.newest)) / 864e5 : 99;
   ok('memory source alive', memAge <= 7, mem ? mem.detail + ', newest ' + mem.newest : 'missing');
-  const PHANTOMS = ['Cards', 'Contracts', 'Proof Spine', 'Client Brain Schema', 'Video Plan', 'Bb Growth Plan', 'Business Booster', 'Pycache', 'Design Test'];
+  const PHANTOMS = ['Cards', 'Contracts', 'Proof Spine', 'Client Brain Schema', 'Video Plan', 'Bb Growth Plan', 'Business Booster', 'Pycache', 'Design Test', 'Questionnaire', 'Fable Upgrade', 'Beacon Backups', 'Sun Zapper'];
   const names = (d.clients || []).map(c => c.name), hit = PHANTOMS.filter(p => names.includes(p));
   ok('no phantom clients', !hit.length, names.length + ' clients, phantoms: ' + (hit.join(', ') || 'none'));
   ok('client count sane', names.length >= 15 && names.length <= 60, names.length + ' records');
@@ -35,7 +35,7 @@ const stamp = html.match(/brain-data\.enc\.js\?v=(\d+)/);
 ok('data reference stamped', !!stamp, stamp ? 'v=' + stamp[1] : 'no stamp');
 ok('no plaintext data in index', !/<script src="brain-data\.js"/.test(html), 'guarded');
 ok('no Explore tab', !/id="v-explore"/.test(html), 'nav clean');
-ok('landing routes through setView', html.includes("VIEW==='brain'&&!document.body.classList.contains('present')){ setView('brain'); }"), 'boot route present');
+ok('landing routes through setView', html.includes("VIEW==='brain'&&!document.body.classList.contains('present')){ setView('today'); }"), 'boot route present');
 ok('decoder ships locally', fs.existsSync(path.join(HERE, 'assets/brain/draco/draco_decoder.js')) && /setDecoderConfig\(\{type:'js'\}\)/.test(html), 'js decoder forced');
 ok('no secret literals in index', !new RegExp(['sb_', 'secret_'].join('') + '|' + ['GOC', 'SPX-'].join('') + '|' + ['service', '_role'].join('')).test(html), 'L-015 scan, patterns assembled so the check cannot match itself');
 try {

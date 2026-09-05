@@ -419,7 +419,7 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-tl" onclick="setView('tl')">Timeline</button>
     <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
-  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Search the brain..." autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
+  <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Ask the brain: a client, a skill, a number" autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
   <button class="tbtn" id="btn-log" onclick="openLog()">Log a lesson</button>
   <button class="tbtn" onclick="openBYS()">Before you start</button>
   <button class="tbtn" onclick="openReport()">Weekly report</button>
@@ -596,7 +596,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788581471232"></script>
+<script src="brain-data.enc.js?v=1788581710898"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1847,7 +1847,6 @@ function pickPerson(name){
   try{ if(name)localStorage.setItem('bb_person',name); localStorage.setItem('bb_person_asked','1'); }catch(e){}
   document.getElementById('person-ov').classList.remove('open');
   syncPersonChip();
-  startTour(false);
 }
 function syncPersonChip(){
   const b=document.getElementById('btn-person'), p=getPerson();
@@ -1933,6 +1932,15 @@ function renderToday(){
        const changed=dl?` · since the last run: ${sign(dl.entries)} lessons, ${sign(dl.memories)} memories, ${sign(dl.systemsEvents)} system events, unused skills ${dl.unused===0?'unchanged':sign(dl.unused)}`:' · first run, changes show from tomorrow';
        return `<div class="latest" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span><b>Brain agent</b> · fed ${fed} sources at ${esc(D.generated.slice(0,16).replace('T',' '))}${changed}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</span>${ag.pushToday?`<span>· today's push: <b>${esc(humanSkill(ag.pushToday))}</b></span><button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(ag.pushToday)}')">Push to team</button>`:''}</div>`;
      })()}
+     <div style="margin:2px 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px">
+       <div style="font-size:13.5px;margin-bottom:10px"><b>Start here.</b> Type a client, a skill or a number into the search box at the top, or tap what you came for:</div>
+       <div style="display:flex;gap:8px;flex-wrap:wrap">
+         <button class="fchip on" onclick="const q=document.getElementById('q');q.placeholder='Type the client name';q.focus()">Find a client</button>
+         <button class="fchip" onclick="const q=document.getElementById('q');q.placeholder='What are you trying to do?';q.focus()">How do we do something</button>
+         <button class="fchip" onclick="openLog()">Log what I learned</button>
+         <button class="fchip" onclick="setView('brain')">Explore the 3D brain</button>
+       </div>
+     </div>
      ${installCard()}${visitDelta()}
      ${(function(){ /* who taught the brain this week - real (by Name) tags only */
        const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
@@ -2244,7 +2252,6 @@ renderBrain(); wireCamera(); applyCam(); routeHash();
 setTimeout(()=>{
   syncPersonChip();
   if(!getPerson()&&!localStorage.getItem('bb_person_asked')){ openPersonPicker(false); }
-  else{ startTour(false); }
 }, 700);
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 /* theme toggle, persisted */
@@ -2796,7 +2803,10 @@ const BBX=(function(){
    the LIVE SITE opened on the old brain while every test drove the app through
    its functions and passed. Found by Thulaib on the live page, twice. Route the
    default through setView once at boot so the 3D IS the landing state. ═══ */
-if(!location.hash.startsWith('#client')&&VIEW==='brain'&&!document.body.classList.contains('present')){ setView('brain'); }
+/* 2026-09-05, team feedback: "people don't know where to go". The landing is the
+   FRONT DESK (Today) with the three things a person actually came to do. The 3D
+   brain stays one tap away on Brain. */
+if(!location.hash.startsWith('#client')&&VIEW==='brain'&&!document.body.classList.contains('present')){ setView('today'); }
 
 /* @@BBBRAIN_SELFTEST_BEGIN@@
    SELF-TEST HARNESS · the in-page gate (2026-08-31). Run: runSelfTest() in the
@@ -2814,7 +2824,7 @@ async function runSelfTest(){
   const PH=['Cards','Contracts','Proof Spine','Client Brain Schema','Video Plan','Business Booster'];
   const names=(D.clients||[]).map(c=>c.name); const hit=PH.filter(x=>names.includes(x));
   ok('Clients: no phantom rows', !hit.length, names.length+' records, phantoms: '+(hit.join(', ')||'none'));
-  ok('Landing: plain load is the 3D or a declared fallback', startView==='explore'||!!document.getElementById('x3d-fellback')||!!window.X3D_FALLBACK, 'landed on '+startView);
+  ok('Landing: plain load is the front desk', startView==='today', 'landed on '+startView);
   ok('Nav: no Explore tab', !document.getElementById('v-explore'), 'clean');
   const roster=[{name:'Thulaib'},{name:'Shiara'}].concat((D.systems&&D.systems.team)||[]);
   ok('Person: picker roster has people', roster.length>=3, roster.length+' names');

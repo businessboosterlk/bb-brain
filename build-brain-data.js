@@ -52,13 +52,13 @@ const CLIENT_ALIASES = {
   'cherry-kitchen': ['cherry kitchen'], 'excellent-mobile': ['excellent mobile'],
   'square-1-ai': ['square 1'], 'crab-island': ['crab island'],
   'guiding-steps': ['guiding steps'], 'hire-panther': ['hire panther'],
-  'puwakaramba': ['puwakaramba'], 'seekers': ['seekers'],
+  'puwakaramba': ['puwakaramba'], 'seekers': ['seekers'], 'seven-summits-rwanda': ['seven summits'],
 };
 const DISPLAY_OVERRIDES = {
   'bswl': 'BSWL (Leon)', 'lgl': 'LGL', 'tt-mobile': 'TT Mobile', 'square-1-ai': 'Square 1 AI',
   'sastho-lk': 'Sastho', 'home-depot-lk': 'Home Depot', 'ceylon-carriers-travels': 'Ceylon Carriers',
   'show-car-detailers': 'Show Car Detailers', 'clove-beach-wadduwa': 'Clove Beach',
-  'excellent-mobile': 'Excellent Mobile',
+  'excellent-mobile': 'Excellent Mobile', 'potbiriyani': 'Pot Biriyani', 'beys-international': 'Beys International',
 };
 function buildRoster() {
   const roster = {}; // key -> display name
@@ -66,10 +66,17 @@ function buildRoster() {
   /* WORKING FOLDERS ARE NOT CLIENTS (2026-08-31): the auto-join rule turned
      cards, contracts and the mold folders into client rows, and BB sat in its
      own client table. A folder here is tooling or BB itself, never a client. */
-  const skipFolders = ['design-test', '__pycache__', 'cards', 'contracts', 'proof-spine', 'client-brain-schema', 'video-plan', 'bb-growth-plan', 'business-booster'];
+  const skipFolders = ['design-test', '__pycache__', 'business-booster'];
+  /* EVIDENCE RULE (2026-09-05, after "Questionnaire" and "Fable Upgrade" became
+     clients five days after the last name list was written): a folder is a client
+     only if it carries client knowledge, a BRAIN.md or an ADS.md, or is registered
+     by alias below. Tooling folders carry neither, so a list of their names is
+     never needed again. business-booster carries an ADS.md and is still BB itself. */
+  const hasEvidence = d => fs.existsSync(path.join(cdir, d, 'BRAIN.md')) || fs.existsSync(path.join(cdir, d, 'ADS.md')) || Object.prototype.hasOwnProperty.call(CLIENT_ALIASES, d);
   if (fs.existsSync(cdir)) for (const d of fs.readdirSync(cdir)) {
     try {
       if (d.startsWith('.') || skipFolders.includes(d) || !fs.statSync(path.join(cdir, d)).isDirectory()) continue;
+      if (!hasEvidence(d)) continue;
       roster[d] = DISPLAY_OVERRIDES[d] || d.replace(/-lk$/, '').split('-').map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
     } catch (e) {}
   }
