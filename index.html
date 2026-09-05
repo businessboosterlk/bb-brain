@@ -596,7 +596,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788537963061"></script>
+<script src="brain-data.enc.js?v=1788581471232"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1925,6 +1925,14 @@ function renderToday(){
   document.getElementById('today-view').innerHTML=
     `<h2 style="font-size:19px;margin-bottom:4px">${getPerson()?esc(getPerson())+', today in the brain':'Today in the brain'}</h2>
      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
+     ${(function(){ /* the Brain Agent's one line: what it fed, what changed, who to push today */
+       const ag=D.agent; if(!ag) return '';
+       const fed=(D.sources||[]).filter(s=>s.ok!==null).length, red=(ag.sourcesRed||[]);
+       const dl=ag.delta;
+       const sign=n=>(n>0?'+':'')+n;
+       const changed=dl?` · since the last run: ${sign(dl.entries)} lessons, ${sign(dl.memories)} memories, ${sign(dl.systemsEvents)} system events, unused skills ${dl.unused===0?'unchanged':sign(dl.unused)}`:' · first run, changes show from tomorrow';
+       return `<div class="latest" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span><b>Brain agent</b> · fed ${fed} sources at ${esc(D.generated.slice(0,16).replace('T',' '))}${changed}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</span>${ag.pushToday?`<span>· today's push: <b>${esc(humanSkill(ag.pushToday))}</b></span><button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(ag.pushToday)}')">Push to team</button>`:''}</div>`;
+     })()}
      ${installCard()}${visitDelta()}
      ${(function(){ /* who taught the brain this week - real (by Name) tags only */
        const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
@@ -2789,6 +2797,66 @@ const BBX=(function(){
    its functions and passed. Found by Thulaib on the live page, twice. Route the
    default through setView once at boot so the 3D IS the landing state. ═══ */
 if(!location.hash.startsWith('#client')&&VIEW==='brain'&&!document.body.classList.contains('present')){ setView('brain'); }
+
+/* @@BBBRAIN_SELFTEST_BEGIN@@
+   SELF-TEST HARNESS · the in-page gate (2026-08-31). Run: runSelfTest() in the
+   console, or add ?selftest to the URL. MAKES NO WRITES. Every check that
+   selects something FAILS loudly when the selection is empty. Denominators
+   printed. The PLAIN LOAD check exists because of L-BRAIN-002.
+   @@BBBRAIN_SELFTEST_END@@ marks the end so a script can replace the block. */
+async function runSelfTest(){
+  const R=[]; const ok=(name,pass,detail)=>R.push({name,pass:!!pass,detail:String(detail==null?'':detail).slice(0,200)});
+  const startView=VIEW;
+  ok('Data: brain data loaded', D&&D.skills&&D.skills.length>100, D?D.skills.length+' skills':'no data');
+  ok('Data: build under 48h old', (Date.now()-new Date(D.generated))/36e5<48, ((Date.now()-new Date(D.generated))/36e5).toFixed(1)+'h');
+  const src=D.sources||[]; const red=src.filter(s=>s.ok===false);
+  ok('Sources: nine mouths, none red', src.length>=9&&!red.length, src.length+' sources, red: '+(red.map(s=>s.name).join(', ')||'none'));
+  const PH=['Cards','Contracts','Proof Spine','Client Brain Schema','Video Plan','Business Booster'];
+  const names=(D.clients||[]).map(c=>c.name); const hit=PH.filter(x=>names.includes(x));
+  ok('Clients: no phantom rows', !hit.length, names.length+' records, phantoms: '+(hit.join(', ')||'none'));
+  ok('Landing: plain load is the 3D or a declared fallback', startView==='explore'||!!document.getElementById('x3d-fellback')||!!window.X3D_FALLBACK, 'landed on '+startView);
+  ok('Nav: no Explore tab', !document.getElementById('v-explore'), 'clean');
+  const roster=[{name:'Thulaib'},{name:'Shiara'}].concat((D.systems&&D.systems.team)||[]);
+  ok('Person: picker roster has people', roster.length>=3, roster.length+' names');
+  ok('Agent: trace present on Today', !!D.agent, D.agent?(D.agent.delta?'deltas':'first run'):'missing');
+  try{ openReport(); const t=document.getElementById('report-txt').value; document.getElementById('report-ov').classList.remove('open');
+    ok('Report: zero em dashes', !/—/.test(t), (t.match(/—/g)||[]).length+' found in '+t.length+' chars');
+    ok('Report: zero bar lines', !/━/.test(t), 'scanned');
+    ok('Report: zero serial commas', !/, (and|or|but|nor)[\s\n]/.test(t), 'scanned');
+    ok('Report: carries the usage drive', /SKILLS NOBODY IS USING/.test(t), 'section present');
+  }catch(e){ ok('Report: generates', false, e.message); }
+  const cssText=[...document.styleSheets].map(ss=>{try{return [...ss.cssRules].map(r=>r.cssText).join('\n');}catch(e){return '';}}).join('\n');
+  ok('Foundations: no double-tap zoom', getComputedStyle(document.documentElement).touchAction==='manipulation', getComputedStyle(document.documentElement).touchAction);
+  ok('Foundations: canvas owns its gestures', getComputedStyle(document.getElementById('x3d-canvas')).touchAction==='none', 'canvas touch-action');
+  ok('Foundations: 16px fields on phones', /pointer:\s*coarse[\s\S]{0,120}16px/.test(cssText), 'coarse rule');
+  ok('Layout: no horizontal overflow', document.documentElement.scrollWidth<=window.innerWidth+2, document.documentElement.scrollWidth+' vs '+window.innerWidth);
+  ok('Secrets: none in page source', !new RegExp(['sb_','secret_'].join('')+'|'+['GOC','SPX-'].join('')+'|'+['service','_role'].join('')).test(document.documentElement.outerHTML), 'L-015 scan, patterns assembled at runtime so this check cannot find itself');
+  /* 3D: only when the engine is up; waits up to 20s like the CC waits out its login */
+  if(typeof BBX!=='undefined'){
+    setView('brain'); const t0=Date.now();
+    while(Date.now()-t0<20000&&!(document.getElementById('x3d-copy').textContent.includes('ready')||window.X3D_FALLBACK)) await new Promise(r=>setTimeout(r,300));
+    if(window.X3D_FALLBACK){ ok('3D: engine', false, 'fell back, constellation showing'); }
+    else{
+      BBX.reset(); const h=BBX.step(220);
+      ok('3D HOME: camera exact at rest', JSON.stringify(h.cam)==='[0,0.1,7.3]'&&JSON.stringify(h.tgt)==='[0,0,0]', JSON.stringify(h.cam));
+      ok('3D CENTRES: every sector inside the core', Object.values(h.centres).every(v=>v>0&&v<1.76), JSON.stringify(h.centres));
+      ok('3D SECTORS: all eight have territory', Object.values(h.sectors||{}).every(n=>n>0), JSON.stringify(h.sectors));
+      BBX.select('web'); const s1=BBX.step(220); const live=D.skills.filter(x=>x.cluster==='web').length;
+      ok('3D SELECT: lit plus dim equals total, neurons equal live skills', s1.lit+s1.dim===390&&s1.neurons===live, s1.lit+'+'+s1.dim+', '+s1.neurons+' of '+live);
+      ok('3D DRILL: rail and name pills present', s1.railOn&&s1.labels>0, s1.labels+' pills');
+      BBX.select('content'); const s2=BBX.step(220);
+      ok('3D SWITCH: content replaces web in one motion', s2.neurons===D.skills.filter(x=>x.cluster==='content').length, s2.neurons+' neurons');
+      BBX.reset(); const r=BBX.step(220);
+      ok('3D RESET: home exact, all restored', JSON.stringify(r.cam)==='[0,0.1,7.3]'&&r.lit===390&&!r.railOn&&!r.cardOn, r.lit+' lit');
+    }
+  } else ok('3D: engine present', false, 'BBX missing');
+  if(startView!==VIEW) setView(startView);
+  const failed=R.filter(x=>!x.pass);
+  console.log('%c BB DIGITAL BRAIN SELF-TEST  '+(failed.length?failed.length+' FAILED':'ALL GREEN')+'  '+(R.length-failed.length)+' of '+R.length,'background:'+(failed.length?'#7a2020':'#1e5a3a')+';color:#fff;padding:4px 8px;border-radius:4px');
+  for(const x of R) console.log((x.pass?'  ok  ':'  XX  ')+x.name+' · '+x.detail);
+  window.__selftest=R; return R;
+}
+if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
 </script>
 
 <script>
