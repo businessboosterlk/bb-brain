@@ -269,6 +269,10 @@ body.present .coach{display:none}
 .qgap:hover{border-color:#c9a15a}
 
 /* ── report modal ── */
+#more-menu{display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:70;min-width:210px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.34)}
+#more-menu.open{display:block}
+#more-menu button{display:block;width:100%;text-align:left;background:none;border:none;color:var(--text);font:inherit;font-size:12.5px;padding:9px 10px;min-height:40px;border-radius:8px;cursor:pointer}
+#more-menu button:hover{background:var(--surface-2)}
 .overlay{position:fixed;inset:0;background:rgba(4,7,12,.72);backdrop-filter:blur(5px);z-index:90;display:none;align-items:center;justify-content:center;padding:18px}
 .overlay.open{display:flex}
 .modal{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);box-shadow:var(--shadow-lg);max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:22px;position:relative}
@@ -416,20 +420,30 @@ table.r-tbl td b{color:#0e1830}
     <button id="v-today" onclick="setView('today')">Today</button>
     <button id="v-brain" class="on" onclick="setView('brain')">Brain</button>
     <button id="v-clients" onclick="setView('clients')">Clients</button>
-    <button id="v-tl" onclick="setView('tl')">Timeline</button>
-    <button id="v-gaps" onclick="setView('gaps')">Gap radar</button>
   </div>
   <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="q" placeholder="Ask the brain: a client, a skill, a number" autocomplete="off" oninput="doSearch(this.value)" onfocus="doSearch(this.value)"><kbd>/</kbd><div class="qres" id="qres"></div></div>
   <button class="tbtn" id="btn-log" onclick="openLog()">Log a lesson</button>
-  <button class="tbtn" onclick="openBYS()">Before you start</button>
-  <button class="tbtn" onclick="openReport()">Weekly report</button>
-  <button class="tbtn" onclick="togglePresent(true)">Present <kbd>P</kbd></button>
-  <button class="tbtn" id="btn-theme" onclick="toggleTheme()" aria-label="Switch theme">Light</button>
-  <button class="tbtn" id="btn-person" onclick="openPersonPicker(true)" aria-label="Switch person" style="display:none"></button>
-  <button class="tbtn" id="btn-help" onclick="openHelp()" aria-label="Help and shortcuts" style="padding:8px 12px">?</button>
+  <!-- 2026-09-05: the header carried TWELVE controls and wrapped to four rows on a
+       phone, with "Log a lesson" repeated three times down the page. Three views,
+       one search, one habit. Everything else lives here and nothing was deleted:
+       every route still resolves exactly as before. -->
+  <div style="position:relative">
+    <button class="tbtn" id="btn-more" onclick="toggleMore(event)" aria-haspopup="true" aria-expanded="false">More</button>
+    <div id="more-menu" role="menu">
+      <button role="menuitem" onclick="closeMore();setView('tl')">Timeline</button>
+      <button role="menuitem" onclick="closeMore();setView('gaps')">Gap radar</button>
+      <button role="menuitem" onclick="closeMore();openReport()">Weekly report</button>
+      <button role="menuitem" onclick="closeMore();openBYS()">Before you start a task</button>
+      <button role="menuitem" onclick="closeMore();togglePresent(true)">Present mode</button>
+      <div style="height:1px;background:var(--line);margin:5px 8px"></div>
+      <button role="menuitem" id="btn-person" onclick="closeMore();openPersonPicker(true)">Sign in</button>
+      <button role="menuitem" id="btn-theme" onclick="toggleTheme()">Light</button>
+      <button role="menuitem" onclick="closeMore();openHelp()">Help and shortcuts</button>
+    </div>
+  </div>
 </header>
 
-<div class="week" id="week"></div>
+<!-- the week strip was removed 2026-09-05: it repeated Today's status line and the Learned section, and it cost 200px on EVERY view including the 3D stage. Its numbers live on Today now. -->
 
 <section class="hero" id="hero">
   <img src="bb-logo.png" alt="Business Booster">
@@ -596,7 +610,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788582667776"></script>
+<script src="brain-data.enc.js?v=1788586216542"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1520,23 +1534,7 @@ function weekData(){
   const newest=[...D.skills].sort((a,b)=>b.mtime.localeCompare(a.mtime))[0];
   return {monday, wk, byCluster, top, newest};
 }
-(function week(){
-  const {wk, byCluster, newest}=weekData();
-  const grew=Object.keys(byCluster);
-  document.getElementById('week').innerHTML =
-    `<span class="lbl">This week in the brain</span>
-     <span><b>${wk.length}</b> learning entr${wk.length===1?'y':'ies'} added</span>
-     ${grew.length?('<span>grew: '+grew.map(c=>`<span class="chip"><span class="dot" style="background:${C[c].color}"></span>${esc(C[c].name)}</span>`).join(' ')+'</span>'):'<span>no new entries yet this week</span>'}
-     <span>newest capability: <b>${esc(newest.name)}</b> (${newest.mtime})</span>
-     <span><b>${D.totals.clients.length}</b> clients teaching the brain</span>`;
-  const best=[...D.clusters].sort((a,b)=>D.totals.depthByCluster[b.id]-D.totals.depthByCluster[a.id])[0];
-  document.getElementById('stats').innerHTML=
-    `<div class="st"><b>${D.totals.skills}</b><span>Total skills</span></div>
-     <div class="st"><b>${D.totals.entries}</b><span>Lessons learned</span></div>
-     <div class="st"><b>${D.totals.clients.length}</b><span>Clients teaching it</span></div>
-     <div class="st"><b>${wk.length}</b><span>New lessons this week</span></div>
-     <div class="st"><b style="color:${best.color}">${esc(best.name)}</b><span>Most developed capability</span></div>`;
-})();
+/* the week strip is gone; weekData() still serves openReport() and the harness */
 
 /* ═══ weekly report ═══ */
 function openReport(){
@@ -1826,9 +1824,22 @@ function pickPerson(name){
 function syncPersonChip(){
   const b=document.getElementById('btn-person'), p=getPerson();
   if(!b)return;
-  b.style.display='inline-block';
-  b.textContent=p?('You: '+p):'Sign in';
+  b.textContent=p?('Signed in as '+p):'Sign in';
 }
+/* the More menu (2026-09-05): opens on tap, closes on tap-away, on Escape and on
+   any choice, because a menu that only closes by its own button is a trap. */
+function toggleMore(ev){
+  if(ev) ev.stopPropagation();
+  const m=document.getElementById('more-menu'), b=document.getElementById('btn-more');
+  const open=m.classList.toggle('open');
+  b.setAttribute('aria-expanded',open?'true':'false');
+}
+function closeMore(){
+  const m=document.getElementById('more-menu'), b=document.getElementById('btn-more');
+  if(m){ m.classList.remove('open'); if(b) b.setAttribute('aria-expanded','false'); }
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('#more-menu')&&!e.target.closest('#btn-more')) closeMore(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMore(); });
 function openLog(){ document.getElementById('log-ov').classList.add('open'); const nf=document.getElementById('lg-name'); if(nf&&!nf.value&&getPerson())nf.value=getPerson(); setTimeout(()=>document.getElementById(nf&&nf.value?'lg-pin':'lg-name').focus(),80); }
 async function submitLesson(){
   const name=document.getElementById('lg-name').value.trim();
@@ -1885,84 +1896,86 @@ function streakOf(name){
   return s;
 }
 function renderToday(){
-  const today=new Date().toISOString().slice(0,10);
+  /* REBUILT 2026-09-05. Today was 18,410px tall, roughly 22 phone screens, on a
+     page that called itself a two-minute read. Three rows of chips did the same
+     four jobs, and sections rendered even when they held nothing. Nothing here is
+     deleted, it is EDITED: the actions come first, the rest folds behind one tap,
+     and a section with no content does not exist. */
+  const now=new Date();
   const yest=new Date(Date.now()-86400000).toISOString().slice(0,10);
-  const fresh=D.timeline.filter(e=>e.date>=yest).slice(0,12);
-  const agentFresh=((D.agentFeed&&D.agentFeed.entries)||[]).filter(a=>a.date>=yest).slice(0,6);
+  const fresh=D.timeline.filter(e=>e.date>=yest);
+  const agentFresh=((D.agentFeed&&D.agentFeed.entries)||[]).filter(a=>a.date>=yest);
   const stale=D.timeline.filter(e=>e.stale);
-  const quietClients=(D.clients||[]).filter(c=>c.lastActive&&daysAgo(c.lastActive)>=14).sort((a,b)=>b.total-a.total).slice(0,6);
+  const quietClients=(D.clients||[]).filter(c=>c.lastActive&&daysAgo(c.lastActive)>=14).sort((a,b)=>b.total-a.total);
   const gaps=D.gaps===null?null:(D.gaps||[]);
   const sysCut=new Date(Date.now()-3*86400000).toISOString().slice(0,10);
-  const sysFresh=((D.systems&&D.systems.events)||[]).filter(e=>e.date>=sysCut).slice(0,10);
-  const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
-  const item=e=>`<div class="tl-item"><span class="dot" style="background:${C[e.cluster]?C[e.cluster].color:'#889'}"></span><span class="sk" style="color:${C[e.cluster]?C[e.cluster].color:'#889'}">${esc(e.skill)}</span><span class="sum">${esc(e.summary)}${(e.clients||[]).map(c=>` <span class="pill" style="font-size:10px;padding:1px 8px">${esc(c)}</span>`).join('')} ${confBadge(e)}</span></div>`;
-  document.getElementById('today-view').innerHTML=
-    `<h2 style="font-size:19px;margin-bottom:4px">${getPerson()?esc(getPerson())+', today in the brain':'Today in the brain'}</h2>
-     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:8px">${today} · the 2-minute morning read for the whole team. Search before you build, log after you finish.</p>
-     ${(function(){ /* the Brain Agent's one line: what it fed, what changed, who to push today */
-       const ag=D.agent; if(!ag) return '';
-       const fed=(D.sources||[]).filter(s=>s.ok!==null).length, red=(ag.sourcesRed||[]);
-       const dl=ag.delta;
-       const sign=n=>(n>0?'+':'')+n;
-       const changed=dl?` · since the last run: ${sign(dl.entries)} lessons, ${sign(dl.memories)} memories, ${sign(dl.systemsEvents)} system events, unused skills ${dl.unused===0?'unchanged':sign(dl.unused)}`:' · first run, changes show from tomorrow';
-       return `<div class="latest" style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span><b>Brain agent</b> · fed ${fed} sources at ${esc(D.generated.slice(0,16).replace('T',' '))}${changed}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</span>${ag.pushToday?`<span>· today's push: <b>${esc(humanSkill(ag.pushToday))}</b></span><button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(ag.pushToday)}')">Push to team</button>`:''}</div>`;
-     })()}
-     <div style="margin:2px 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:14px">
-       <div style="font-size:13.5px;margin-bottom:10px"><b>Start here.</b> Type a client, a skill or a number into the search box at the top, or tap what you came for:</div>
-       <div style="display:flex;gap:8px;flex-wrap:wrap">
-         <button class="fchip on" onclick="const q=document.getElementById('q');q.placeholder='Type the client name';q.focus()">Find a client</button>
-         <button class="fchip" onclick="const q=document.getElementById('q');q.placeholder='What are you trying to do?';q.focus()">How do we do something</button>
-         <button class="fchip" onclick="openLog()">Log what I learned</button>
-         <button class="fchip" onclick="setView('brain')">Explore the 3D brain</button>
-       </div>
-     </div>
-     ${installCard()}${visitDelta()}
-     ${(function(){ /* who taught the brain this week - real (by Name) tags only */
-       const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
-       const who={};
-       for(const e of D.timeline) if(e.by&&new Date(e.date)>=monday) who[e.by]=(who[e.by]||0)+1;
-       const rows=Object.entries(who).sort((a,b)=>b[1]-a[1]);
-       return `<div id="who-strip" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><span style="font-size:11px;font-weight:700;color:var(--text-3)">Taught the brain this week:</span>${
-         rows.length?rows.map(([n,c])=>{const st=streakOf(n);return `<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span>${st>=2?` <span style="color:#4ade80;font-weight:700">${st}wk streak</span>`:''}</span>`;}).join('')
-         :'<span style="font-size:12px;color:var(--text-3)">nobody yet - sign your lessons with the form and your name appears here</span>'}</div>`;
-     })()}
-     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px">
-       <button class="fchip" onclick="openBYS()">Before you start a task</button>
-       <button class="fchip" onclick="openLog()">Log a lesson</button>
-       <button class="fchip" onclick="document.getElementById('q').focus()">Ask the brain ( / )</button>
-       <button class="fchip" onclick="openReport()">Weekly report</button>
-     </div>`
-    +sec(`Learned in the last 2 days · ${fresh.length}${agentFresh.length?' + '+agentFresh.length+' machine':''}`,'What your teammates and the agents just learned. Read this so the next task starts smarter than the last one.',
-      (fresh.map(item).join('')+agentFresh.map(a=>item({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[],via:'agent'})).join(''))||'<div class="latest">nothing logged in the last 2 days - if work happened, lessons are being lost. Log one now.</div>')
-    +(D.systems?sec('What moved in the systems · '+(D.systems.online?sysFresh.length:'offline'),'New logins, tasks and shoots pulled straight from the live tables at the last build.',
-      D.systems.online?(sysFresh.map(e=>`<div class="latest" style="margin-bottom:5px"><b>${esc(e.date)}</b> · ${esc(e.text)}</div>`).join('')||'<div class="latest">nothing new in the systems in the last 3 days</div>'):'<div class="latest">systems feed OFFLINE at last build: '+esc(D.systems.error||'unknown')+'</div>'):'')
-    +((D.waCrosscheck&&D.waCrosscheck.totalAsks)?sec('WhatsApp asks checked against the task book','Of '+D.waCrosscheck.totalAsks+' asks found in chat exports, '+D.waCrosscheck.totalMatched+' became tasks ('+D.waCrosscheck.totalMatchedDone+' done). These did not:',
-      Object.entries(D.waCrosscheck.perClient).flatMap(([n,cc])=>cc.open.map(o=>`<div class="latest" style="margin-bottom:5px"><b>${esc(o.date)}</b> · ${esc(n)}: ${esc(o.snippet)}</div>`)).join('')||'<div class="latest">every ask in the exports has a matching task</div>'):'')
-    +(function(){
-      const unused=D.skills.filter(s=>s.depth===0);
-      const quiet=D.skills.filter(s=>s.depth>0&&s.quiet);
-      if(!unused.length&&!quiet.length)return '';
-      const row=s=>`<div class="latest" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span>${esc(humanSkill(s.name))} <span style="color:var(--text-3)">· ${esc((C[s.cluster]||{}).name||s.cluster)} · ${s.depth?'gone quiet':'never used'}</span></span><button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(s.name)}')">Push to team</button></div>`;
-      return sec('Skills nobody is using · '+unused.length+' never used, '+quiet.length+' gone quiet','Capability BB pays for and does not receive. Push one and a ready WhatsApp nudge is copied, with the exact phrase that runs the skill. Depth counts logged uses, never quality.',
-        unused.slice(0,6).map(row).join('')+quiet.slice(0,4).map(row).join('')+((unused.length+quiet.length)>10?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">+ ${unused.length+quiet.length-10} more in Gap radar</div>`:''));
-    })()
-    +sec(`Needs a human decision · ${stale.length+(gaps===null?0:gaps.length)}`,'Stale rules to confirm or retire, and questions the brain could not answer.',
-      (stale.slice(0,4).map(item).join('')
-       +(gaps===null?'<div class="latest">gaps feed offline at last build</div>'
-         :gaps.slice(0,4).map(g=>`<div class="latest" style="margin-bottom:6px"><b>${esc(g.created_at.slice(0,10))}</b> · open question: ${esc(g.question)}</div>`).join(''))
-       )||'<div class="latest">nothing waiting - all rules fresh, no open questions</div>')
-    +sec(`Clients going quiet in the brain · ${quietClients.length}`,'No lesson or chat captured in 14+ days. Either nothing is being learned from them, or lessons are not being logged - both are problems.',
-      quietClients.map(c=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('clients');focusClient('${esc(c.name)}')">${esc(c.name)} <span style="color:#c9a15a">· ${daysAgo(c.lastActive)}d silent</span></span>`).join('')||'<div class="latest">every active client taught the brain something in the last 2 weeks</div>')
-    /* 2026-08-30: source health - every feeding mouth, its count and its freshness,
-       so a frozen channel is visible here instead of silently green. */
-    +(D.sources?sec('Brain health · '+D.sources.filter(s=>s.ok===true).length+' of '+D.sources.filter(s=>s.ok!==null).length+' sources feeding','Where the brain ate from at the last build ('+D.generated.slice(0,10)+'). A channel with an old date has gone quiet.',
-      D.sources.map(s=>`<div class="latest" style="margin-bottom:5px"><span style="color:${s.ok===false?'#e06c5a':s.ok===null?'var(--text-3)':'#4ADE80'}">●</span> <b>${esc(s.name)}</b> · ${esc(s.detail)}${s.newest?' · newest '+esc(s.newest):''}</div>`).join('')):'')
-    +(D.metrics?sec('The numbers canon · '+D.metrics.count+' metrics','BB-METRICS.md, updated '+esc(D.metrics.updated)+'. The one definition of every BB number. Statuses below say how far each can be trusted; never quote a number without opening the file itself.',
-      (function(){const st={};for(const m of D.metrics.entries)if(m.status)st[m.status]=(st[m.status]||0)+1;
-       return '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'+Object.entries(st).sort((a,b)=>b[1]-a[1]).map(([k,n])=>`<span class="pill">${esc(k)} · ${n}</span>`).join('')+'</div>'
-        +D.metrics.entries.filter(m=>m.status==='UNKNOWN').slice(0,4).map(m=>`<div class="latest" style="margin-bottom:4px">UNKNOWN: <b>${esc(m.name)}</b> - do not quote this anywhere</div>`).join('');})()):'');
-}
+  const sysFresh=((D.systems&&D.systems.events)||[]).filter(e=>e.date>=sysCut);
+  const unused=D.skills.filter(s=>s.depth===0), quietSk=D.skills.filter(s=>s.depth>0&&s.quiet);
+  const cc=(D.waCrosscheck&&D.waCrosscheck.totalAsks)?D.waCrosscheck:null;
+  const ag=D.agent;
+  /* Lesson headers are written in caps in the learnings files, so the brain was
+     SHOUTING them at the reader. Sentence-case anything mostly-capital, protect
+     BB's acronyms and apply the house comma rule to our own notes. 2026-09-05. */
+  const KEEPCAPS=['BB','SMM','CC','PDF','AI','UX','UI','3D','SEO','GEO','AEO','CRM','CEO','COO','WhatsApp','LKR','QA','PWA','GLB'];
+  const tidy=t=>{
+    let x=String(t||'');
+    const letters=x.replace(/[^A-Za-z]/g,''), caps=x.replace(/[^A-Z]/g,'').length;
+    if(letters.length>8&&caps/letters.length>0.6){
+      x=x.charAt(0).toUpperCase()+x.slice(1).toLowerCase();
+      for(const k of KEEPCAPS) x=x.replace(new RegExp('\\b'+k.toLowerCase()+'\\b','g'),k);
+    }
+    return x.replace(/, (and|or|but|nor)(\s)/g,' $1$2');
+  };
+  const item=e=>`<div class="tl-item"><span class="dot" style="background:${C[e.cluster]?C[e.cluster].color:'#889'}"></span><span class="sk" style="color:${C[e.cluster]?C[e.cluster].color:'#889'}">${esc(humanSkill(e.skill))}</span> ${esc(tidy(String(e.summary).slice(0,150)))}${(e.clients&&e.clients.length)?' <span class="pill">'+e.clients.slice(0,2).map(esc).join('</span> <span class="pill">')+'</span>':''}</div>`;
+  const row=(main,btn)=>`<div class="latest" style="margin-bottom:6px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><span>${main}</span>${btn||''}</div>`;
+  let peelN=0;
+  const peel=(rows,keep)=>{
+    if(rows.length<=keep) return rows.join('');
+    const id='peel'+(++peelN);
+    return rows.slice(0,keep).join('')
+      +`<div id="${id}" style="display:none">${rows.slice(keep).join('')}</div>`
+      +`<button class="fchip" style="margin-top:8px" onclick="document.getElementById('${id}').style.display='block';this.remove()">Show all ${rows.length}</button>`;
+  };
+  /* a block with no rows returns nothing at all */
+  const block=(title,rows,keep,sub)=>rows.length?`<div style="margin-bottom:24px"><h3 style="font-size:14px;margin-bottom:${sub?3:9}px">${title}</h3>${sub?`<p style="font-size:11.5px;color:var(--text-3);margin:0 0 9px">${sub}</p>`:''}${peel(rows,keep)}</div>`:'';
 
+  /* ── WHAT NEEDS YOU: the only part of this page that asks for a decision ── */
+  const needs=[];
+  if(ag&&ag.pushToday) needs.push(row(`<b>${esc(humanSkill(ag.pushToday))}</b> has never been used <span style="color:var(--text-3)">· push it so it earns its place</span>`,`<button class="fchip" style="margin:0" onclick="pushSkillNudge('${esc(ag.pushToday)}')">Push to team</button>`));
+  if(cc&&cc.totalOpen) needs.push(row(`<b>${cc.totalOpen}</b> WhatsApp ask${cc.totalOpen===1?'':'s'} never became a task <span style="color:var(--text-3)">· of ${cc.totalAsks} found in the exports</span>`));
+  for(const g of (gaps||[]).slice(0,3)) needs.push(row(`Open question · ${esc(g.question)} <span style="color:var(--text-3)">· asked ${esc(String(g.created_at).slice(0,10))}</span>`));
+  for(const e of stale.slice(0,3)) needs.push(row(`Stale rule · ${esc(tidy(String(e.summary).slice(0,110)))} <span style="color:var(--text-3)">· ${esc(humanSkill(e.skill))}, confirm or retire</span>`));
+  if(quietClients.length) needs.push(row(`<b>${quietClients.length}</b> client${quietClients.length===1?'':'s'} gone quiet <span style="color:var(--text-3)">· ${quietClients.slice(0,3).map(c=>esc(c.name)+' '+daysAgo(c.lastActive)+'d').join(', ')}</span>`,`<button class="fchip" style="margin:0" onclick="setView('clients')">Open clients</button>`));
+
+  /* ── WHAT CHANGED ── */
+  const learned=fresh.map(item).concat(agentFresh.map(a=>item({date:a.date,skill:a.agent,cluster:'intel',summary:(a.category?a.category+': ':'')+a.insight,clients:a.client?[a.client]:[]})));
+  const moved=(D.systems&&D.systems.online)?sysFresh.map(e=>row(`<b>${esc(e.date)}</b> · ${esc(e.text)}`)):[];
+
+  /* ── THE MACHINE: folded away entirely, it is reference, not a morning read ── */
+  const machine=[];
+  for(const s2 of (D.sources||[])) machine.push(row(`<span style="color:${s2.ok===false?'#e06c5a':s2.ok===null?'var(--text-3)':'#4ADE80'}">●</span> <b>${esc(s2.name)}</b> · ${esc(s2.detail)}${s2.newest?' · newest '+esc(s2.newest):''}`));
+  if(D.metrics) machine.push(row(`<b>${D.metrics.count} metrics</b> in the numbers canon · updated ${esc(D.metrics.updated)} <span style="color:var(--text-3)">· never quote a number without opening BB-METRICS.md</span>`));
+  if(unused.length||quietSk.length) machine.push(row(`<b>${unused.length}</b> skills never used and <b>${quietSk.length}</b> gone quiet, of ${D.totals.skills} <span style="color:var(--text-3)">· one is pushed to the team each day</span>`));
+
+  const fed=(D.sources||[]).filter(s2=>s2.ok!==null).length, red=((ag&&ag.sourcesRed)||[]);
+  const dl=ag&&ag.delta, sign=n=>(n>0?'+':'')+n;
+  const dayName=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+
+  document.getElementById('today-view').innerHTML=
+    `<h2 style="font-size:20px;margin-bottom:3px">${getPerson()?esc(getPerson())+', here is today':'Today'}</h2>
+     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">${esc(dayName)} · the brain fed ${fed} source${fed===1?'':'s'} at ${esc(D.generated.slice(11,16))}${dl?', '+sign(dl.entries)+' lessons since the last run':''}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</p>
+     ${installCard()}${visitDelta()}
+     ${block('What needs you · '+needs.length,needs,4,needs.length?'The only part of this page that asks for a decision.':'')}
+     ${block('Learned in the last 2 days · '+learned.length,learned,3,'What your teammates and the agents just learned.')}
+     ${block('What moved in the systems · '+moved.length,moved,3,'New logins, tasks, shoots and projects from the live tables.')}
+     ${(function(){ /* who taught the brain: shown only when somebody actually did */
+       const monday=new Date(); monday.setDate(monday.getDate()-((monday.getDay()+6)%7)); monday.setHours(0,0,0,0);
+       const who={}; for(const e of D.timeline) if(e.by&&new Date(e.date)>=monday) who[e.by]=(who[e.by]||0)+1;
+       const rows=Object.entries(who).sort((a,b)=>b[1]-a[1]);
+       return rows.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:24px"><span style="font-size:11px;font-weight:700;color:var(--text-3)">Taught the brain this week</span>${rows.map(([n,c])=>{const st=streakOf(n);return `<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span>${st>=2?` <span style="color:#4ade80">${st}w</span>`:''}</span>`;}).join('')}</div>`:'';
+     })()}
+     ${machine.length?`<div style="margin-bottom:8px"><button class="fchip" onclick="const m=document.getElementById('machine-block');m.style.display=m.style.display==='none'?'block':'none';this.textContent=m.style.display==='none'?'Show the machine':'Hide the machine'">Show the machine</button><div id="machine-block" style="display:none;margin-top:12px">${machine.join('')}</div></div>`:''}`;
+}
 /* ═══ USAGE DRIVE (2026-08-30, Thulaib: "if a skill has not been used, push it
    to the team"): a skill that exists and is never used is paid-for capability
    the team is not receiving. One tap copies a WhatsApp-ready nudge naming the
@@ -2092,8 +2105,6 @@ function applyView(v,prev){
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain'||(v==='explore'&&BBX.getMode()==='brain'));
   document.getElementById('v-clients').classList.toggle('on',v==='clients');
-  document.getElementById('v-tl').classList.toggle('on',v==='tl');
-  document.getElementById('v-gaps').classList.toggle('on',v==='gaps');
   document.getElementById('v-clients').classList.toggle('on',v==='clients'||v==='dossier'||(v==='explore'&&BBX.getMode()==='clients'));
   if(v==='dossier'){ return; }
   if(DOSSIER&&v!=='dossier'){ DOSSIER=null; if(location.hash.startsWith('#client')) history.replaceState(null,'','#'); }
@@ -2233,7 +2244,7 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch
 /* (script is inert text/plain until the lock boots it - see the boot script at the end of body) */
 function applyTheme(t){
   document.body.classList.toggle('light',t==='light');
-  document.getElementById('btn-theme').textContent=t==='light'?'Dark':'Light';
+  document.getElementById('btn-theme').textContent=(t==='light'?'Dark':'Light')+' theme';
   const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=t==='light'?'#ffffff':'#0d1420';
 }
 function toggleTheme(){ const t=document.body.classList.contains('light')?'dark':'light'; try{localStorage.setItem('bb_theme',t);}catch(e){} applyTheme(t); }
