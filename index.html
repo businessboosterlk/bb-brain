@@ -596,7 +596,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788582334030"></script>
+<script src="brain-data.enc.js?v=1788582667776"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1579,6 +1579,8 @@ function openReport(){
   const busiest=rows[0], clusterCount={}; for(const e of wk)clusterCount[e.cluster]=(clusterCount[e.cluster]||0)+1;
   const topCluster=Object.entries(clusterCount).sort((a,b)=>b[1]-a[1])[0];
   const nm=c=>(C[c]||{}).name||c;
+  /* quoted lines are BB's own notes, so they get house style too: no serial comma, no dash */
+  const hs=t=>String(t).replace(/, (and|or|but|nor)(\s)/g,' $1$2').replace(/\s*[\u2014\u2013]\s*/g,', ');
 
   /* ── the WhatsApp text, same facts, plain ── */
   const txt=
@@ -1587,16 +1589,16 @@ As the Digital Brain saw it · ${SITE}
 
 THE WEEK IN NUMBERS
 - ${rows.length} client${rows.length===1?'':'s'} moved · ${tasksWk} task${tasksWk===1?'':'s'} created, ${doneWk} done · ${shootsWk} shoot${shootsWk===1?'':'s'} · ${projWk} video and design project${projWk===1?'':'s'}
-- ${wk.length} lesson${wk.length===1?'':'s'} learned · ${decisions.length} decision${decisions.length===1?'':'s'} captured${logins.length?' · new logins: '+logins.join(', '):''}
+- ${wk.length} lesson${wk.length===1?'':'s'} learned · ${decisions.length} decision${decisions.length===1?'':'s'} captured${logins.length?' · new logins: '+logins.map(titleName).join(', '):''}
 
 CLIENT BY CLIENT
 ${rows.length?rows.slice(0,12).map(r=>'- '+r.n+': '+[r.tasks?r.tasks+' task'+(r.tasks===1?'':'s')+(r.done?' ('+r.done+' done)':''):'',r.shoots?r.shoots+' shoot'+(r.shoots===1?'':'s'):'',r.projects?r.projects+' project'+(r.projects===1?'':'s'):'',r.lessons?r.lessons+' lesson'+(r.lessons===1?'':'s'):'',r.chats?r.chats+' chat note'+(r.chats===1?'':'s'):'',r.wa?r.wa+' WhatsApp line'+(r.wa===1?'':'s'):''].filter(Boolean).join(', ')).join('\n'):'- nothing client-tagged this week, which is itself the finding'}
 
 WHAT WE LEARNED
-${lessons.length?lessons.map(l=>'- '+l.date+' · '+String(l.summary).slice(0,140)+(l.clients&&l.clients.length?' ('+l.clients.slice(0,2).join(', ')+')':'')).join('\n'):'- no lessons logged this week'}
+${lessons.length?lessons.map(l=>'- '+l.date+' · '+hs(String(l.summary).slice(0,140))+(l.clients&&l.clients.length?' ('+l.clients.slice(0,2).join(', ')+')':'')).join('\n'):'- no lessons logged this week'}
 
 DECISIONS CAPTURED
-${decisions.length?decisions.map(x=>'- '+x.date+' · '+(x.client?x.client+': ':'')+String(x.snippet).slice(0,120)).join('\n'):'- none captured this week'}
+${decisions.length?decisions.map(x=>'- '+x.date+' · '+(x.client?x.client+': ':'')+hs(String(x.snippet).slice(0,120))).join('\n'):'- none captured this week'}
 
 ASKED IN WHATSAPP, NOT IN THE TASK BOOK
 ${cc?'- '+cc.totalAsks+' asks in the exports, '+cc.totalMatched+' became tasks ('+cc.totalMatchedDone+' done), '+cc.totalOpen+' still have no task':'- no WhatsApp exports this week, so the cross-check slept. Friday exports wake it.'}
@@ -1606,7 +1608,7 @@ SKILLS NOBODY IS USING
 
 GOING QUIET
 ${quietCl.length?quietCl.map(c=>'- '+c.name+', '+daysAgo(c.lastActive)+' days since the brain heard anything').join('\n'):'- every active client touched the brain in the last two weeks'}
-${gaps.length?'\nOPEN QUESTIONS\n'+gaps.slice(0,4).map(g=>'- '+String(g.created_at).slice(0,10)+' · '+g.question).join('\n')+'\n':''}
+${gaps.length?'\nOPEN QUESTIONS\n'+gaps.slice(0,4).map(g=>'- '+String(g.created_at).slice(0,10)+' · '+hs(g.question)).join('\n')+'\n':''}
 The brain fed from ${fed} sources${red.length?', not feeding: '+red.join(', '):''} · generated ${ld(D.generated)}.`;
   document.getElementById('report-txt').value=txt;
 
@@ -1629,21 +1631,21 @@ The brain fed from ${fed} sources${red.length?', not feeding: '+red.join(', '):'
       <div class="r-kick">Client by client</div>
       ${rows.length?`<table class="r-tbl"><thead><tr><th>Client</th><th class="r">Tasks</th><th class="r">Done</th><th class="r">Shoots + projects</th><th class="r">Lessons</th><th class="r">Chat + WhatsApp</th><th class="r">Last touch</th></tr></thead><tbody>${clientRows}</tbody></table>`:'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No client-tagged activity this week.</div>'}
       <div class="r-kick">What we learned this week</div>
-      ${lessons.length?lessons.map(l=>li(l.date,esc(String(l.summary).slice(0,160)),(l.clients&&l.clients.length?l.clients.slice(0,2).join(', '):''))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No lessons logged this week.</div>'}
+      ${lessons.length?lessons.map(l=>li(l.date,esc(hs(String(l.summary).slice(0,160))),(l.clients&&l.clients.length?l.clients.slice(0,2).join(', '):''))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No lessons logged this week.</div>'}
       <div class="r-kick">Decisions captured</div>
-      ${decisions.length?decisions.map(x=>li(x.date,(x.client?'<b>'+esc(x.client)+'</b>: ':'')+esc(String(x.snippet).slice(0,140)))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">None captured this week.</div>'}
+      ${decisions.length?decisions.map(x=>li(x.date,(x.client?'<b>'+esc(x.client)+'</b>: ':'')+esc(hs(String(x.snippet).slice(0,140))))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">None captured this week.</div>'}
       <div class="r-kick">Asked in WhatsApp, not in the task book</div>
       ${cc?li('cross-check',cc.totalAsks+' asks in the exports · '+cc.totalMatched+' became tasks ('+cc.totalMatchedDone+' done) · <b>'+cc.totalOpen+' still have no task</b>'):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No WhatsApp exports this week, so the cross-check slept. The Friday exports wake it.</div>'}
       <div class="r-kick">Skills nobody is using</div>
       ${li(unused.length+' never used',quietSk.length+' more gone quiet, out of '+D.totals.skills+' in the brain.'+(pick?' This week push <b>'+esc(pick)+'</b> to the team from the Today page.':''))}
       ${quietCl.length?`<div class="r-kick">Going quiet</div>${quietCl.map(c=>li(c.name,daysAgo(c.lastActive)+' days since the brain heard anything about them')).join('')}`:''}
-      ${gaps.length?`<div class="r-kick">Open questions the brain cannot answer</div>${gaps.slice(0,4).map(g=>li(String(g.created_at).slice(0,10),esc(g.question))).join('')}`:''}
+      ${gaps.length?`<div class="r-kick">Open questions the brain cannot answer</div>${gaps.slice(0,4).map(g=>li(String(g.created_at).slice(0,10),esc(hs(g.question)))).join('')}`:''}
       <div class="r-insights">
         <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">This week's signal</h3><ul>
           ${busiest?`<li><b>${esc(busiest.n)}</b> was the busiest account: ${busiest.tasks} task${busiest.tasks===1?'':'s'}, ${busiest.shoots+busiest.projects} shoot${busiest.shoots+busiest.projects===1?'':'s'} and project${busiest.shoots+busiest.projects===1?'':'s'}, ${busiest.lessons} lesson${busiest.lessons===1?'':'s'}.</li>`:'<li>No account moved in a way the brain could see.</li>'}
           ${topCluster?`<li>Learning landed mostly in <b>${esc(nm(topCluster[0]))}</b> (${topCluster[1]} of ${wk.length}).</li>`:''}
           <li><b>${decisions.length}</b> decision${decisions.length===1?'':'s'} captured from conversations${decisions.length?'; read them above before Monday.':'.'}</li>
-          ${logins.length?`<li>New logins this week: <b>${esc(logins.join(', '))}</b>.</li>`:''}
+          ${logins.length?`<li>New logins this week: <b>${esc(logins.map(titleName).join(', '))}</b>.</li>`:''}
         </ul></div>
         <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next week</h3><ul>
           ${pick?`<li>Push <b>${esc(pick)}</b> to the team, then watch the unused count fall.</li>`:''}
