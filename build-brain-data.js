@@ -839,7 +839,11 @@ async function ingestSystems() {
     const who = (id, fallback) => { const nm = (id != null && mname[id]) || (fallback ? String(fallback).trim() : ''); return nm ? ' by ' + nm : ''; };
     const moved = (r, days) => r.updated_at && r.created_at && (new Date(r.updated_at) - new Date(r.created_at) > 60000) && (Date.now() - new Date(r.updated_at) < days * 86400000);
     const people = {};
-    const tally = (nm, kind) => { if (!nm) return; const k = nm.trim(); if (!k) return; people[k] = people[k] || { graphics: 0, videos: 0, tasks: 0, moves: 0 }; people[k][kind]++; };
+    /* task assignees arrive as CODES (th, sh, both, nv, ti, smm, gd, video), the same ones the
+       database's bb_assign_to_members resolves. Same map here so a code and a name are one person. */
+    const CODE = { th: 'THULAIB', thulaib: 'THULAIB', sh: 'SHIARA', shiara: 'SHIARA', nv: 'NIRVANA', nirvana: 'NIRVANA', ti: 'TIANA', tiana: 'TIANA' };
+    const person = raw => { const k = String(raw || '').trim().toLowerCase(); if (!k) return null; if (CODE[k]) return CODE[k]; if (['both','smm','gd','video','all','team'].includes(k)) return null; return k.toUpperCase(); };
+    const tally = (nm, kind) => { const k = person(nm); if (!k) return; const d = k.charAt(0) + k.slice(1).toLowerCase(); people[d] = people[d] || { graphics: 0, videos: 0, tasks: 0, moves: 0 }; people[d][kind]++; };
     /* live client names are ALL CAPS; route them through the alias matcher so the
        dossier they land in is the same record every other source feeds */
     const display = raw => { const hits = clientsIn(String(raw || '')); return hits[0] || (raw ? String(raw).toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) : null); };
@@ -853,7 +857,7 @@ async function ingestSystems() {
       if (new Date(t.created_at) < cutoff) continue;
       const cl = t.client_id != null ? display(cname[t.client_id]) : null;
       ev.push({ date: t.created_at.slice(0, 10), sys: 'tasks', client: cl, text: 'Task' + (cl ? ' for ' + cl : '') + (t.assign ? ' for ' + String(t.assign).slice(0, 24) : '') + ': ' + String(t.title || '').slice(0, 90) + (t.done ? ' (done)' : t.due ? ', due ' + String(t.due).slice(0, 10) : '') });
-      if (t.assign) tally(String(t.assign).split(/[,+&]/)[0], 'tasks');
+      if (t.assign) { if (String(t.assign).trim().toLowerCase() === 'both') { tally('th', 'tasks'); tally('sh', 'tasks'); } else for (const part of String(t.assign).split(/[,+&]/)) tally(part, 'tasks'); }
     }
     const soon = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     for (const s of shoots) {
