@@ -525,15 +525,10 @@ const slugify = n => n.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/
 const WA_LINE = /^\[?(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4}),? \d{1,2}:\d{2}(?::\d{2})?\s?(?:AM|PM|am|pm)?\]?\s(?:- )?([^:]{1,40}):\s(.*)$/;
 const WA_JUNK = /^(ok|okay|k|yes|no|good morning|good night|gm|gn|thanks|thank you|hi|hello|noted|sure|👍|❤️|🙏|<media omitted>|image omitted|video omitted|audio omitted|sticker omitted|this message was deleted|you deleted this message|missed voice call|missed video call|null)\.?$/i;
 /* stem-based (no trailing word boundary) so approved/boosting/verification all match */
-/* SECRET RULE (2026-09-05): a client pasted a Facebook password into a group chat on
-   2026-05-15 and another sent 'Password = ...' three times. Any message that carries a
-   credential word is dropped WHOLE before the meaning test, so no password, PIN or OTP
-   can reach brain-data.js even in its local plaintext form. Counted as res.wa.redacted. */
-const WA_SECRET = /(password|passcode|passwd|pwd|credential|login details|\botp\b|\bpin\s*[:=]|\b\d{6}\b)/i;
 const WA_MEANING = /(lkr|rs\.?\s?\d|price|quote|invoice|pay\b|paid|budget|deadline|due (on|by|date)|launch|deliver|confirm|agree|decid|final|contract|meeting|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next week|problem|issue|complain|not happy|urgent|cancel|approv|chang|revis|script|shoot|schedul|verif|boost|campaign|\bads?\b|follower|lead\b|order|product|offer|instagram|facebook|tiktok|login|password|account|start post|content plan|stories|story)/i;
 const WA_DECISION = /\b(decided|confirm(ed)?|agreed|final|deadline|due (on|by)|launch|the price is|charge|budget|pay (on|by|half)|advance|contract|approve[d]?|cancel(led)?|lkr\s?[\d,]|rs\.?\s?[\d,]|\b\d+%)\b/i;
 function ingestWhatsApp() {
-  const perClient = {}; let files = 0, kept = 0, redacted = 0;
+  const perClient = {}; let files = 0, kept = 0;
   let dirs = [];
   try { dirs = fs.readdirSync(WA_INBOX).filter(d => { try { return fs.statSync(path.join(WA_INBOX, d)).isDirectory(); } catch (e) { return false; } }); } catch (e) { return { perClient, files, kept }; }
   // folder slug -> roster display name, else title-cased folder (new clients allowed)
@@ -572,7 +567,6 @@ function ingestWhatsApp() {
       for (const msg of msgs) {
         const { sender } = msg; const date = msg.date;
         const text = msg.text.trim();
-        if (WA_SECRET.test(text)) { redacted++; continue; }              // never store a credential
         if (text.length < 20 || WA_JUNK.test(text)) continue;
         if (/\b(omitted|deleted|this message|created this group|added you|end-to-end encrypted|changed the (subject|group))\b/i.test(text)) continue;  // attachment stubs + system lines
         if (!WA_MEANING.test(text)) continue;                       // meaningful lines only
@@ -590,7 +584,7 @@ function ingestWhatsApp() {
     perClient[c].sort((a, b) => (a.kind === b.kind ? b.date.localeCompare(a.date) : a.kind === 'decision' ? -1 : 1));
     perClient[c] = perClient[c].slice(0, 100);
   }
-  return { perClient, files, kept, redacted };
+  return { perClient, files, kept };
 }
 const wa = ingestWhatsApp();
 console.log('whatsapp pipe:', wa.files ? wa.files + ' exports, ' + wa.kept + ' meaningful lines kept' : 'inbox empty');
@@ -658,7 +652,6 @@ function buildClients() {
   for (const e of out.timeline) for (const c of (e.clients || [])) ensure(c).lessons.push({ date: e.date, skill: e.skill, cluster: e.cluster, summary: e.summary, outcome: e.outcome || null });
   for (const [c, arr] of Object.entries(chatByClient)) { const r = ensure(c); r.discussed = arr; }
   for (const [c, arr] of Object.entries(wa.perClient)) { const r = ensure(c); r.whatsapp = arr; }
-  out.wa = { files: wa.files, kept: wa.kept, redacted: wa.redacted || 0, clients: Object.keys(wa.perClient).length };
   for (const [c, docs] of Object.entries(clientDocs.perClient)) { const r = ensure(c); r.docs = docs; }
   const list = Object.values(map).map(r => {
     const lessons = r.lessons.sort((a, b) => b.date.localeCompare(a.date));
