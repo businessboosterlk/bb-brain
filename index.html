@@ -300,7 +300,7 @@ body.present #x3d-stage{height:calc(100dvh - 300px);min-height:360px}
 .x3d-short{display:none}
 @media (max-width:760px){
   #x3d-crumb{left:12px!important;transform:none!important;top:54px!important;max-width:72%;overflow:hidden;white-space:nowrap}
-  #x3d-rail{top:94px!important}
+  #x3d-rail{top:94px!important;bottom:auto!important;max-height:calc(100% - 158px)}
 }
 @media (max-width:560px){
   #x3d-attrib{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%}
@@ -629,7 +629,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788619610548"></script>
+<script src="brain-data.enc.js?v=1788620699211"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2437,13 +2437,16 @@ const BBX=(function(){
         const dx=(c.x-brainCentre.x)/Math.max(.01,brainSize.x), dz=(c.z-brainCentre.z)/Math.max(.01,brainSize.z), dy=(c.y-brainCentre.y)/Math.max(.01,brainSize.y);
         const angle=(Math.atan2(dz,dx)+Math.PI*2)%(Math.PI*2);
         const regionId=spatialOrder[Math.min(3,Math.floor(angle/(Math.PI/2)))*2+(dy>=-.02?0:1)];
-        const colour=new THREE.Color((regionById[regionId]||{colour:'#c9d4e8'}).colour);
+        /* COLOUR SPACE (2026-09-05): r137 treats a hex as LINEAR and encodes the frame to
+           sRGB, so a data colour used raw renders pale and an emissive of .3 reads as
+           pastel. Every data colour is converted to linear once, here. */
+        const colour=new THREE.Color((regionById[regionId]||{colour:'#c9d4e8'}).colour).convertSRGBToLinear();
         /* BLACK CHROME AT REST: graphite carrying a 10 percent whisper of its
            sector colour and almost no emission, so the whole brain reads as one
            dark engineered object. The sector colour is only allowed to bloom
            when that sector is active. */
         const graphite=new THREE.Color(0x151a22).lerp(colour,.07);
-        m.material=new THREE.MeshPhysicalMaterial({color:graphite,emissive:colour.clone().multiplyScalar(.02),metalness:.88,roughness:.26,clearcoat:1,clearcoatRoughness:.18,envMapIntensity:1.35,transparent:true,opacity:.96,depthWrite:true,side:THREE.FrontSide});
+        m.material=new THREE.MeshPhysicalMaterial({color:graphite,emissive:colour.clone().multiplyScalar(.02),metalness:.88,roughness:.26,clearcoat:1,clearcoatRoughness:.18,envMapIntensity:1.35,sheen:1,sheenColor:new THREE.Color(0x000000),sheenRoughness:.55,transparent:true,opacity:.96,depthWrite:true,side:THREE.FrontSide});
         m.userData.bbRegion=regionId; m.userData.bbColour=colour; m.userData.graphite=graphite; m.userData.baseOpacity=.96; m.userData.targetOpacity=.96; m.userData.worldCentre=c;
         m.userData.basePos=m.position.clone(); m.userData.sep=0; m.userData.sepTarget=0; m.userData.sepDir=null;
         (groups[regionId]=groups[regionId]||[]).push(m);
@@ -2543,7 +2546,7 @@ const BBX=(function(){
       const a=clamp(sectorCentres[ids[ia]].clone().add(J(.5))), b=clamp(sectorCentres[ids[ib]].clone().add(J(.5)));
       const mid=clamp(a.clone().lerp(b,.5).add(J(1.0)));
       const curve=new THREE.CatmullRomCurve3([a,mid,b]);
-      const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,24,.0045,4,false),new THREE.MeshBasicMaterial({color:0x6f9fe6,transparent:true,opacity:.13,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false}));
+      const mesh=new THREE.Mesh(new THREE.TubeGeometry(curve,24,.0045,4,false),new THREE.MeshBasicMaterial({color:new THREE.Color(0x6f9fe6).convertSRGBToLinear(),transparent:true,opacity:.13,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false}));
       mesh.userData.curve=curve; mesh.userData.baseOp=.13; fibreRoot.add(mesh); fibres.push(mesh);
     }
     for(let i=0;i<Q.pulses;i++) spawnPulse(fibres[(i*5)%fibres.length].userData.curve,{loop:true,t:rnd(),speed:1/(5000+rnd()*4000),colour:0x9fc4ff,size:.018});
@@ -2551,7 +2554,7 @@ const BBX=(function(){
   /* a signal: a bright head and a five-step fading trail riding a curve.
      Ambient ones loop across random fibres; event ones run once and die. */
   function spawnPulse(curve,o){
-    const g=new THREE.Group(); const col=new THREE.Color(o.colour||0x9fc4ff);
+    const g=new THREE.Group(); const col=new THREE.Color(o.colour||0x9fc4ff).convertSRGBToLinear();
     const mk=(op,sc)=>{ const m=new THREE.Mesh(pulseGeo,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false})); m.scale.setScalar(sc); g.add(m); return m; };
     const size=(o.size||.02)/.02;
     const head=mk(.95,size); const trail=[]; for(let k=1;k<=5;k++)trail.push(mk(.5-k*.085,size*(1-k*.14)));
@@ -2604,13 +2607,15 @@ const BBX=(function(){
     const rail=$('x3d-rail');
     const railEdge=(rail&&rail.style.display!=='none')?rail.getBoundingClientRect().width+42:0;
     const live=neuronReveal>.5;
+    const card=$('x3d-card'); const cardR=(card&&card.style.display!=='none')?card.getBoundingClientRect():null; const stageR=$('x3d-stage').getBoundingClientRect();
     document.querySelectorAll('[data-x3dnl]').forEach(el=>{
       const node=neuronMeshes.find(n=>n.userData.skill===el.dataset.x3dnl);
       if(!node||!live){el.style.opacity='0';el.style.pointerEvents='none';return;}
       const p=node.position.clone().project(camera);
       if(p.z>=1){el.style.opacity='0';el.style.pointerEvents='none';return;}
       const x=(p.x*.5+.5)*rect.width, y=(-p.y*.5+.5)*rect.height;
-      if(x<railEdge||placed.some(q=>Math.abs(q.x-x)<(q.w||76)&&Math.abs(q.y-y)<(q.h||22))){el.style.opacity='0';el.style.pointerEvents='none';return;}
+      const underCard=cardR&&(x+stageR.left)>cardR.left-40&&(x+stageR.left)<cardR.right+40&&(y+stageR.top)>cardR.top-14&&(y+stageR.top)<cardR.bottom;
+      if(x<railEdge||underCard||placed.some(q=>Math.abs(q.x-x)<(q.w||76)&&Math.abs(q.y-y)<(q.h||22))){el.style.opacity='0';el.style.pointerEvents='none';return;}
       placed.push({x,y});
       el.style.left=x+'px'; el.style.top=y+'px';
       el.style.opacity=String((node===selectedNeuron?1:.88)*neuronReveal); el.style.pointerEvents='auto';
@@ -2629,7 +2634,7 @@ const BBX=(function(){
       const p=positions[(i*7+i*i)%positions.length].clone().lerp(centre,.22+(i%4)*.035);
       const phase=i*2.399;
       p.x+=Math.sin(phase)*.025; p.y+=Math.cos(phase*.7)*.022; p.z+=Math.sin(phase*1.3)*.025;
-      const node=new THREE.Mesh(nodeGeo,new THREE.MeshBasicMaterial({color:region.colour,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+      const node=new THREE.Mesh(nodeGeo,new THREE.MeshBasicMaterial({color:new THREE.Color(region.colour).convertSRGBToLinear(),transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
       node.position.copy(p); node.userData.skill=skill; node.userData.bbRegion=regionId; node.userData.phase=phase;
       node.userData.baseScale=i%5===0?1.25:1; node.scale.setScalar(node.userData.baseScale);
       neuronRoot.add(node); neuronMeshes.push(node);
@@ -2642,9 +2647,9 @@ const BBX=(function(){
       if(i%3===0) linePos.push(centre.x,centre.y,centre.z,p.x,p.y,p.z);
     });
     const lg=new THREE.BufferGeometry(); lg.setAttribute('position',new THREE.Float32BufferAttribute(linePos,3));
-    neuronLines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:region.colour,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
+    neuronLines=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:new THREE.Color(region.colour).convertSRGBToLinear(),transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false}));
     neuronRoot.add(neuronLines);
-    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.105,2),new THREE.MeshBasicMaterial({color:region.colour,wireframe:true,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
+    const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.105,2),new THREE.MeshBasicMaterial({color:new THREE.Color(region.colour).convertSRGBToLinear(),wireframe:true,transparent:true,opacity:.45,blending:THREE.AdditiveBlending,depthWrite:false}));
     core.position.copy(centre); core.userData.isCore=true; neuronRoot.add(core);
   }
   /* the shell at rest (or dimmed for client mode): one dark chrome object */
@@ -2653,7 +2658,7 @@ const BBX=(function(){
     surfaceMeshes.forEach(m=>{ const u=m.userData;
       u.targetOpacity=dimShell?.14:u.baseOpacity; m.material.depthWrite=!dimShell;
       m.material.emissive.copy(u.bbColour).multiplyScalar(dimShell?.04:.02);
-      m.material.color.copy(u.graphite); m.material.envMapIntensity=1.35; m.material.roughness=.26; m.material.clearcoat=1; m.material.clearcoatRoughness=.18; u.sepTarget=0; });
+      m.material.color.copy(u.graphite); m.material.sheenColor.set(0x000000); m.material.envMapIntensity=1.35; m.material.roughness=.26; m.material.metalness=.88; m.material.clearcoat=1; m.material.clearcoatRoughness=.18; u.sepTarget=0; });
     techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp; });
     if(particles)particles.material.opacity=.14;
     fibres.forEach(f=>{ f.material.opacity=f.userData.baseOp; });
@@ -2676,12 +2681,13 @@ const BBX=(function(){
        and the region lifts a whisper off its neighbours (2026-09-05). */
     surfaceMeshes.forEach(m=>{ const u=m.userData, match=u.bbRegion===regionId;
       u.targetOpacity=match?.96:.12; m.material.depthWrite=match;
-      m.material.emissive.copy(u.bbColour).multiplyScalar(match?.3:0);
-      m.material.color.copy(u.graphite); if(match)m.material.color.lerp(u.bbColour,.22);
+      m.material.emissive.copy(u.bbColour).multiplyScalar(match?.09:0);
+      m.material.color.copy(u.graphite); if(match)m.material.color.lerp(u.bbColour,.15);
+      m.material.sheenColor.set(0x000000); if(match)m.material.sheenColor.copy(u.bbColour).multiplyScalar(.9);
       /* the lit region drops its mirror coat: a clearcoat at roughness .18 reflects
          the dome as silver whatever the base colour, so glow could only read as a
          pastel cast. Dark body, coloured light. */
-      m.material.envMapIntensity=match?.5:1.35; m.material.roughness=match?.42:.26; m.material.clearcoat=match?.2:1; m.material.clearcoatRoughness=match?.5:.18;
+      m.material.envMapIntensity=match?.2:1.35; m.material.roughness=match?.5:.26; m.material.metalness=match?.55:.88; m.material.clearcoat=match?.2:1; m.material.clearcoatRoughness=match?.5:.18;
       u.sepTarget=match?1:0; });
     techRig.children.forEach(r=>{ r.material.opacity=r.userData.baseOp*.3; });
     particles.material.opacity=.08;
@@ -2699,7 +2705,8 @@ const BBX=(function(){
          swing never reads as mechanical. Deep regions keep the current angle. */
       let dir=centre.clone(); if(dir.length()<.3)dir=curDir.clone(); else dir.normalize();
       dir.lerp(curDir,.15).normalize();
-      const dist=Math.min(6.8,Math.max(3.35,radius*3.25));
+      const pf=camera.aspect<1?Math.min(1.7,(1/camera.aspect)*.86):1;   // portrait: same push-back as the home framing
+      const dist=Math.min(10.4,Math.max(3.35,radius*3.25)*pf);
       flyTo(centre.clone().add(dir.multiplyScalar(dist)),centre,noMotion()?520:1150,{arc:true,lift:.18,bulge:.6,onProgress:pr=>{
         if(pr>=.5&&!neuronRoot.visible)neuronRoot.visible=true;          // neurons only once the camera is close
         if(pr>=.8&&$('x3d-rail').style.display==='none')renderRail(regionId);   // the rail once it has nearly settled
@@ -2769,7 +2776,8 @@ const BBX=(function(){
          in frame, so the user never loses where they are */
       const toTarget=core.clone().lerp(node.position.clone(),.65);
       const dir=camera.position.clone().sub(controls.target).normalize();
-      flyTo(toTarget.clone().add(dir.multiplyScalar(4.2)),toTarget,noMotion()?350:700,{arc:true,lift:.06,bulge:.15,onProgress:pr=>{ if(pr>=.6&&cardFor!==sk)showSkillCard(sk); }});
+      const pf=camera.aspect<1?Math.min(1.7,(1/camera.aspect)*.86):1;
+      flyTo(toTarget.clone().add(dir.multiplyScalar(4.2*pf)),toTarget,noMotion()?350:700,{arc:true,lift:.06,bulge:.15,onProgress:pr=>{ if(pr>=.6&&cardFor!==sk)showSkillCard(sk); }});
       controls.autoRotate=false; spinOn=false; syncSpin();
     } else showSkillCard(sk);
     renderCrumb();
@@ -2851,15 +2859,15 @@ const BBX=(function(){
       const centre=(sectorCentres[cl.domCluster]||new THREE.Vector3(0,.2,0)).clone();
       const n=centre.length()>.15?centre.clone().normalize():new THREE.Vector3(0,1,0);
       const t1=perp(n), t2=new THREE.Vector3().crossVectors(n,t1).normalize();
-      const phase=k*2.399, rad=.18+.55*Math.sqrt((k+.5)/K);
+      const phase=k*2.399, rad=.22+.85*Math.sqrt((k+.5)/K);
       const p=centre.clone().addScaledVector(n,.55).addScaledVector(t1,Math.cos(phase)*rad).addScaledVector(t2,Math.sin(phase)*rad);
       /* a near-white cluster colour (Intelligence / Memory, where most clients
          sit because their facts come from chat) would sum to a white mass under
          additive blending; nodes of such clusters render cool blue instead */
       const raw=new THREE.Color(((D.clusters||[]).find(c=>c.id===cl.domCluster)||{color:'#c9d4e8'}).color);
-      const colour=(raw.r*.3+raw.g*.59+raw.b*.11)>.7?new THREE.Color(0x6f9fe6):raw;
-      const size=.04+Math.min(.045,Math.log10(1+(cl.total||0))*.025);
-      const node=new THREE.Mesh(new THREE.IcosahedronGeometry(size,1),new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+      const colour=((raw.r*.3+raw.g*.59+raw.b*.11)>.7?new THREE.Color(0x6f9fe6):raw.clone()).convertSRGBToLinear();
+      const size=.03+Math.min(.04,Math.log10(1+(cl.total||0))*.022);
+      const node=new THREE.Mesh(new THREE.IcosahedronGeometry(size,1),new THREE.MeshBasicMaterial({color:colour,transparent:true,opacity:.92}));   /* normal blending: thirty overlapping nodes must never sum to white */
       node.position.copy(p); node.userData.client=cl.name; node.userData.phase=phase; node.userData.baseScale=1;
       clientRoot.add(node); clientNodes.push(node);
       const proxy=new THREE.Mesh(new THREE.IcosahedronGeometry(Math.max(.11,size*2.4),0),new THREE.MeshBasicMaterial({visible:false}));
@@ -2965,7 +2973,7 @@ const BBX=(function(){
   function showCue(){ const c=$('x3d-cue'); if(!c||cueDone||mode!=='brain'||ENT||document.body.classList.contains('present'))return; c.style.display='block'; void c.offsetWidth; c.classList.add('show'); }
   function hideCue(done){ const c=$('x3d-cue'); if(done)cueDone=true; if(!c)return; c.classList.remove('show'); setTimeout(()=>{ if(!c.classList.contains('show'))c.style.display='none'; },500); }
   function buildTags(){
-    $('x3d-tags').innerHTML=REGIONS.map(r=>`<button data-x3dtag="${r.id}" onclick="BBX.select('${r.id}')" style="pointer-events:none;opacity:0;position:absolute;transform:translate(-50%,-50%);background:rgba(8,11,18,.78);border:1px solid ${r.colour}55;color:#dfe8f6;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;transition:opacity .3s">${esc(r.name)}</button>`).join('');
+    $('x3d-tags').innerHTML=REGIONS.map(r=>`<button data-x3dtag="${r.id}" onclick="BBX.select('${r.id}')" style="pointer-events:none;opacity:0;position:absolute;transform:translate(-50%,-50%);background:rgba(8,11,18,.78);border:1px solid ${r.colour}55;color:#dfe8f6;font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;white-space:nowrap;transition:opacity .3s">${esc(r.name)}</button>`).join('');
   }
   /* sector names live in the scene only when they can be placed cleanly: facing
      the camera, at most four at rest, never overlapping and only the active
@@ -2973,6 +2981,7 @@ const BBX=(function(){
   function updateTags(){
     const rect=$('x3d-stage').getBoundingClientRect(); const placed=[];
     const camDir=camera.position.clone().sub(controls.target).normalize();
+    const railEl=$('x3d-rail'); const railEdge=(railEl&&railEl.style.display!=='none')?railEl.getBoundingClientRect().width+24:0;
     const tags=[...document.querySelectorAll('[data-x3dtag]')];
     tags.sort((a,b)=>(b.dataset.x3dtag===activeSector)-(a.dataset.x3dtag===activeSector));
     let shown=0;
@@ -2987,7 +2996,7 @@ const BBX=(function(){
       const p=anchor.project(camera);
       const facing=centre.length()<.3?.5:centre.clone().normalize().dot(camDir);
       const w=tag.offsetWidth||100;
-      const x=Math.max(w/2+8,Math.min(rect.width-w/2-8,(p.x*.5+.5)*rect.width)), y=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))-(isOn?58:0);
+      const x=Math.max(w/2+8+(isOn?railEdge:0),Math.min(rect.width-w/2-8,(p.x*.5+.5)*rect.width)), y=Math.max(40,Math.min(rect.height-52,(-p.y*.5+.5)*rect.height))-(isOn?58:0);
       const clash=placed.some(q=>Math.abs(q.x-x)<(q.w+w)/2+10&&Math.abs(q.y-y)<30);
       const show=p.z<1&&(isOn||(facing>.25&&!clash&&shown<4));
       tag.style.left=x+'px'; tag.style.top=y+'px';
@@ -3044,7 +3053,7 @@ const BBX=(function(){
       const sel=node.userData.client===selectedClient;
       const breathe=sel&&!still?1+Math.sin(now*.0026)*.05:1;
       node.scale.setScalar((sel?1.6:1)*breathe);
-      node.material.opacity=sel?.95:.6;
+      node.material.opacity=sel?1:.92;
     });
     updatePulses(dt,still);
     if(!still&&!ENT){ techRig.rotation.y+=.00042; techRig.rotation.z-=.00018; particles.rotation.y-=.00016; }
@@ -3118,7 +3127,7 @@ if(!location.hash.startsWith('#client')&&VIEW==='brain'&&!document.body.classLis
 
 /* @@BBBRAIN_SELFTEST_BEGIN@@
    SELF-TEST HARNESS · the in-page gate (2026-08-31). Run: runSelfTest() in the
-   console, or add ?selftest to the URL. MAKES NO WRITES. Every check that
+   console or add ?selftest to the URL. MAKES NO WRITES. Every check that
    selects something FAILS loudly when the selection is empty. Denominators
    printed. The PLAIN LOAD check exists because of L-BRAIN-002.
    @@BBBRAIN_SELFTEST_END@@ marks the end so a script can replace the block. */
@@ -3203,9 +3212,12 @@ async function runSelfTest(){
       ok('3D LAYOUT: no stage control overlaps another', !hits.length, rects.length+' controls measured, overlaps: '+(hits.join(', ')||'none'));
       BBX.reset(); BBX.step(220);
       /* FALLBACK: the real failure path, driven without touching the network */
-      BBX.simulateFail(); await sleep(2400);   /* fail() waits 1400ms, the view fade another 200ms, and a heavy frame can slip both */
+      /* fail() waits 1400ms and the view fade 200ms more; a hidden pane throttles both to
+         one-second ticks, so the check POLLS for the state instead of trusting a sleep */
+      const until=async(fn,ms)=>{ const t0=Date.now(); while(Date.now()-t0<ms){ if(fn())return true; await sleep(150); } return fn(); };
+      BBX.simulateFail(); await until(()=>document.getElementById('brain-view').style.display==='flex',8000);
       ok('3D FALLBACK: engine failure shows the constellation with a notice, one-shot', document.getElementById('brain-view').style.display==='flex'&&!!document.getElementById('x3d-fellback')&&window.X3D_FALLBACK===false, 'constellation '+document.getElementById('brain-view').style.display+', notice '+!!document.getElementById('x3d-fellback'));
-      setView('brain'); await sleep(450);
+      setView('brain'); await until(()=>document.getElementById('explore-view').style.display==='block',4000);
       ok('3D FALLBACK: the next Brain tap returns to the 3D', document.getElementById('explore-view').style.display==='block', 'explore '+document.getElementById('explore-view').style.display);
       BBX.forceReduced(null);
     }
