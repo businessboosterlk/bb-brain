@@ -596,7 +596,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788581807352"></script>
+<script src="brain-data.enc.js?v=1788582334030"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1059,7 +1059,7 @@ function clearFocusDom(){
 }
 function unfocus(){ stopDemo(); clearFocusDom(); }
 
-/* ═══════════ CLIENTS LENS — same #svg + camera engine, clients as the cores ═══════════ */
+/* ═══════════ CLIENTS LENS, same #svg + camera engine, clients as the cores ═══════════ */
 let MODE='skills';                 // 'skills' | 'clients'
 let FCLIENT=null;
 const CLIENTS_DATA=(D.clients||[]);
@@ -1148,7 +1148,7 @@ function focusClient(name){
   };
   if(REDUCED) dim(); else focusT=setTimeout(dim,80);
   const st=document.getElementById('sector-title');
-  st.innerHTML=`<h2 style="color:${col}">${esc(cl.name)}</h2><div class="st-sub">${cl.total} entries · ${cl.skills.length} skills used · last active ${cl.lastActive||'—'}</div>`;
+  st.innerHTML=`<h2 style="color:${col}">${esc(cl.name)}</h2><div class="st-sub">${cl.total} entries · ${cl.skills.length} skills used · last active ${cl.lastActive||'unknown'}</div>`;
   st.classList.add('show'); document.getElementById('backbtn').classList.add('show');
   syncHash();
 }
@@ -1185,7 +1185,7 @@ function openClientPanel(name){
   p.innerHTML=`<button class="close-p" onclick="closePanel()" aria-label="Close">×</button>
     <h2 style="color:${col}">${esc(cl.name)}</h2>
     <div class="depth-hero"><b style="color:${col}">${cl.total}</b><span>${cl.lessonCount} lessons we logged<br>${cl.chatCount} discussed on Claude${cl.waCount?`<br>${cl.waCount} from WhatsApp`:''}</span></div>
-    <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div>
+    <div style="font-size:11.5px;color:var(--text-3)">First seen ${cl.firstSeen||'unknown'} · last active ${cl.lastActive||'unknown'}</div>
     ${(function(){ /* attention flags: what this client needs, not just what happened */
       const f=[];
       const silent=cl.lastActive?Math.floor((Date.now()-new Date(cl.lastActive))/86400000):999;
@@ -1462,7 +1462,7 @@ function doSearch(q){
   // build the grouped result list
   const R=[];
   for(const c of D.clusters){ const sc=fuzzyScore(q,c.name); if(sc>0) R.push({t:'cluster',score:sc+8,name:c.name,sub:D.skills.filter(s=>s.cluster===c.id).length+' skills · depth '+D.totals.depthByCluster[c.id],color:c.color,go:()=>{setView('brain');focusCluster(c.id);}}); }
-  for(const cl of CLIENTS_DATA){ const sc=fuzzyScore(q,cl.name); if(sc>0) R.push({t:'client',score:sc+6,name:cl.name,sub:cl.total+' entries · last active '+(cl.lastActive||'—'),color:cliColor(cl),go:()=>{setView('clients');focusClient(cl.name);}}); }
+  for(const cl of CLIENTS_DATA){ const sc=fuzzyScore(q,cl.name); if(sc>0) R.push({t:'client',score:sc+6,name:cl.name,sub:cl.total+' entries · last active '+(cl.lastActive||'unknown'),color:cliColor(cl),go:()=>{setView('clients');focusClient(cl.name);}}); }
   for(const s of D.skills){ const sc=Math.max(fuzzyScore(q,s.name),fuzzyScore(q,s.desc)*0.8); if(sc>0) R.push({t:'skill',score:sc+4,name:s.name,sub:C[s.cluster].name+' · depth '+s.depth,color:C[s.cluster].color,go:()=>{setView('brain');if(FOCUS!==s.cluster)focusCluster(s.cluster);openSkill(s.name);}}); }
   for(const e of D.timeline){
     const hay=e.summary+' '+(e.clients||[]).join(' ');
@@ -1540,147 +1540,120 @@ function weekData(){
 
 /* ═══ weekly report ═══ */
 function openReport(){
-  const {monday, wk, byCluster, top, newest}=weekData();
-  const mondayStr=monday.toISOString().slice(0,10);
-  const loops=D.skills.filter(s=>s.hasLoop).length;
-  const ranked=[...D.clusters].map(c=>({...c,d:D.totals.depthByCluster[c.id]})).sort((a,b)=>a.d-b.d);
-  const thin=ranked[0], thick=ranked[ranked.length-1];
-  // cluster movement this week
-  const grew=Object.entries(byCluster).sort((a,b)=>b[1]-a[1]).map(([c,n])=>`${C[c].name} +${n}`);
-  // client activity this week (lessons + chats dated this week)
-  const clAct={};
-  (D.clients||[]).forEach(cl=>{
-    const n=[...cl.lessons,...cl.discussed].filter(e=>new Date(e.date)>=monday).length;
-    if(n) clAct[cl.name]=n;
-  });
-  const clRows=Object.entries(clAct).sort((a,b)=>b[1]-a[1]);
-  // quiet skills that HAVE a loop (real "stalling" signal, not just new)
-  const quiet=D.skills.filter(s=>s.quiet&&s.hasLoop).map(s=>s.name);
-  // zero-loop skills in the thickest-but-loopless clusters
-  const zeroLoopClusters=ranked.filter(r=>r.d===0).map(r=>r.name);
-  /* Rewritten 2026-08-31 after Thulaib called the old version embarrassing. It
-     carried em dashes and decorative bar lines, the exact tells this machine bans,
-     plus next steps frozen in the constellation era. House style now, and the
-     report says what the brain actually does today: systems movement, the usage
-     drive and the cross-check. */
-  const unusedAll=D.skills.filter(s=>s.depth===0);
-  const quietAll=D.skills.filter(s=>s.depth>0&&s.quiet);
-  const sysWk=((D.systems&&D.systems.events)||[]).filter(e=>e.date>=mondayStr);
-  const sysCounts={}; sysWk.forEach(e=>{sysCounts[e.sys]=(sysCounts[e.sys]||0)+1;});
-  const sysLine=Object.entries(sysCounts).map(([k,n])=>({team:'new logins',tasks:'tasks',shoots:'shoots',video:'video projects',graphic:'design projects'}[k]+' '+n)).join(' · ');
-  const cc=D.waCrosscheck&&D.waCrosscheck.totalAsks?D.waCrosscheck:null;
-  const pushPicks=unusedAll.slice(0,3).map(s=>humanSkill(s.name));
-  const txt =
-`BB DIGITAL BRAIN, WEEKLY BRIEFING
-Week of ${mondayStr} · ${SITE}
+  /* REBUILT 2026-09-05. The old report was about the MACHINE (lessons counted,
+     skills mapped, facts absorbed) and Thulaib called it a disaster twice. This
+     one is about the BUSINESS WEEK as the brain saw it: clients that moved, tasks
+     and shoots, real lessons with dates, decisions, asks not yet in the task book,
+     skills nobody used, who went quiet. The machine gets one line at the foot.
+     Dates are LOCAL: the old "Monday" printed as a Sunday because it went through
+     UTC and Colombo is five and a half hours ahead. House style throughout. */
+  const {monday, wk}=weekData();
+  const ld=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
+  const mondayStr=ld(monday), sunday=new Date(monday); sunday.setDate(monday.getDate()+6);
+  const human=d=>new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  const weekLabel=human(monday)+' to '+human(sunday);
+  const inWeek=d=>!!d&&String(d).slice(0,10)>=mondayStr;
+  const ev=((D.systems&&D.systems.events)||[]).filter(e=>inWeek(e.date));
+  const per={};
+  const row=c=>(per[c]=per[c]||{tasks:0,done:0,shoots:0,projects:0,lessons:0,chats:0,wa:0,last:''});
+  for(const e of ev){ if(!e.client)continue; const r=row(e.client);
+    if(e.sys==='tasks'){r.tasks++; if(/\(done\)/.test(e.text))r.done++;}
+    else if(e.sys==='shoots')r.shoots++; else if(e.sys==='video'||e.sys==='graphic')r.projects++; }
+  for(const cl of (D.clients||[])){
+    const L=cl.lessons.filter(l=>inWeek(l.date)).length, Ch=cl.discussed.filter(x=>inWeek(x.date)).length, W=(cl.whatsapp||[]).filter(x=>inWeek(x.date)).length;
+    if(L||Ch||W){ const r=row(cl.name); r.lessons=L; r.chats=Ch; r.wa=W; }
+    if(per[cl.name]) per[cl.name].last=cl.lastActive||'';
+  }
+  const rows=Object.entries(per).map(([n,v])=>({n,...v,score:v.tasks+v.shoots*2+v.projects+v.lessons+v.chats+v.wa})).sort((a,b)=>b.score-a.score);
+  const tasksWk=ev.filter(e=>e.sys==='tasks').length, doneWk=ev.filter(e=>e.sys==='tasks'&&/\(done\)/.test(e.text)).length;
+  const shootsWk=ev.filter(e=>e.sys==='shoots').length, projWk=ev.filter(e=>e.sys==='video'||e.sys==='graphic').length;
+  const logins=ev.filter(e=>e.sys==='team').map(e=>e.text.replace('New team login: ',''));
+  const lessons=wk.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  const decisions=(D.decisions||[]).filter(x=>inWeek(x.date)).slice(0,6);
+  const cc=(D.waCrosscheck&&D.waCrosscheck.totalAsks)?D.waCrosscheck:null;
+  const unused=D.skills.filter(s=>s.depth===0), quietSk=D.skills.filter(s=>s.depth>0&&s.quiet);
+  const pick=D.agent&&D.agent.pushToday?humanSkill(D.agent.pushToday):(unused[0]?humanSkill(unused[0].name):'');
+  const quietCl=(D.clients||[]).filter(c=>c.lastActive&&daysAgo(c.lastActive)>=14).sort((a,b)=>b.total-a.total).slice(0,6);
+  const gaps=D.gaps===null?[]:(D.gaps||[]);
+  const fed=(D.sources||[]).filter(s=>s.ok!==null).length, red=(D.sources||[]).filter(s=>s.ok===false).map(s=>s.name);
+  const busiest=rows[0], clusterCount={}; for(const e of wk)clusterCount[e.cluster]=(clusterCount[e.cluster]||0)+1;
+  const topCluster=Object.entries(clusterCount).sort((a,b)=>b[1]-a[1])[0];
+  const nm=c=>(C[c]||{}).name||c;
 
-THE HEADLINE
-${wk.length} lesson${wk.length===1?'':'s'} learned this week${clRows.length?' from '+clRows.length+' client'+(clRows.length===1?'':'s'):''}.
-Newest capability: ${humanSkill(newest.name)} (added ${newest.mtime}).
+  /* ── the WhatsApp text, same facts, plain ── */
+  const txt=
+`THE WEEK AT BUSINESS BOOSTER · ${weekLabel}
+As the Digital Brain saw it · ${SITE}
 
-WHERE WE GREW
-${grew.length?grew.map(g=>'- '+g).join('\n'):'- no new lessons logged this week, which is itself the finding'}
-${top?'Busiest skill: '+humanSkill(top[0])+', '+top[1]+' lessons.':''}
+THE WEEK IN NUMBERS
+- ${rows.length} client${rows.length===1?'':'s'} moved · ${tasksWk} task${tasksWk===1?'':'s'} created, ${doneWk} done · ${shootsWk} shoot${shootsWk===1?'':'s'} · ${projWk} video and design project${projWk===1?'':'s'}
+- ${wk.length} lesson${wk.length===1?'':'s'} learned · ${decisions.length} decision${decisions.length===1?'':'s'} captured${logins.length?' · new logins: '+logins.join(', '):''}
 
-CLIENT ACTIVITY THIS WEEK
-${clRows.length?clRows.slice(0,10).map(([c,n])=>'- '+c+', '+n+' entr'+(n===1?'y':'ies')).join('\n'):'- nothing client-tagged this week'}
-Top teachers all time: ${(D.clients||[]).slice(0,5).map(c=>c.name+' ('+c.total+')').join(', ')}.
+CLIENT BY CLIENT
+${rows.length?rows.slice(0,12).map(r=>'- '+r.n+': '+[r.tasks?r.tasks+' task'+(r.tasks===1?'':'s')+(r.done?' ('+r.done+' done)':''):'',r.shoots?r.shoots+' shoot'+(r.shoots===1?'':'s'):'',r.projects?r.projects+' project'+(r.projects===1?'':'s'):'',r.lessons?r.lessons+' lesson'+(r.lessons===1?'':'s'):'',r.chats?r.chats+' chat note'+(r.chats===1?'':'s'):'',r.wa?r.wa+' WhatsApp line'+(r.wa===1?'':'s'):''].filter(Boolean).join(', ')).join('\n'):'- nothing client-tagged this week, which is itself the finding'}
 
-WHAT MOVED IN THE SYSTEMS
-${sysWk.length?'- '+sysWk.length+' events from the live tables this week: '+sysLine:'- the systems feed logged nothing new this week'}
-${cc?'- WhatsApp cross-check: '+cc.totalAsks+' asks in the exports, '+cc.totalMatched+' became tasks, '+cc.totalOpen+' still have no task':''}
+WHAT WE LEARNED
+${lessons.length?lessons.map(l=>'- '+l.date+' · '+String(l.summary).slice(0,140)+(l.clients&&l.clients.length?' ('+l.clients.slice(0,2).join(', ')+')':'')).join('\n'):'- no lessons logged this week'}
+
+DECISIONS CAPTURED
+${decisions.length?decisions.map(x=>'- '+x.date+' · '+(x.client?x.client+': ':'')+String(x.snippet).slice(0,120)).join('\n'):'- none captured this week'}
+
+ASKED IN WHATSAPP, NOT IN THE TASK BOOK
+${cc?'- '+cc.totalAsks+' asks in the exports, '+cc.totalMatched+' became tasks ('+cc.totalMatchedDone+' done), '+cc.totalOpen+' still have no task':'- no WhatsApp exports this week, so the cross-check slept. Friday exports wake it.'}
 
 SKILLS NOBODY IS USING
-- ${unusedAll.length} never used and ${quietAll.length} gone quiet, out of ${D.totals.skills}.
-- The Brain holds these whether we use them or not. Open Today and push the top ones to this group.
+- ${unused.length} never used and ${quietSk.length} gone quiet out of ${D.totals.skills}.${pick?' This week push: '+pick+'.':''}
 
-THE MACHINE RIGHT NOW
-- ${D.totals.skills} skills · ${D.totals.entries} lessons · ${D.totals.clientsFull||(D.clients||[]).length} clients on record
-- ${D.totals.chatDiscussed||0} facts absorbed from Claude chats
-- learning loops on ${loops} of ${D.totals.skills} skills
-- deepest area: ${thick.name} (depth ${thick.d}; depth counts logged uses, never quality)
-- thinnest area: ${thin.name} (depth ${thin.d})
-
-ONE MOVE FOR NEXT WEEK
-Push ${pushPicks.length?pushPicks.join(', '):'the top unused skills'} to the team from the Today page, then watch the unused count next week. It should fall every single week.`;
+GOING QUIET
+${quietCl.length?quietCl.map(c=>'- '+c.name+', '+daysAgo(c.lastActive)+' days since the brain heard anything').join('\n'):'- every active client touched the brain in the last two weeks'}
+${gaps.length?'\nOPEN QUESTIONS\n'+gaps.slice(0,4).map(g=>'- '+String(g.created_at).slice(0,10)+' · '+g.question).join('\n')+'\n':''}
+The brain fed from ${fed} sources${red.length?', not feeding: '+red.join(', '):''} · generated ${ld(D.generated)}.`;
   document.getElementById('report-txt').value=txt;
 
-  /* ── weekly momentum: entries per week over the last 8 ISO weeks ── */
-  const wkKey=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+6)%7));x.setHours(0,0,0,0);return x.getTime();};
-  const buckets={}; for(const e of D.timeline){const k=wkKey(e.date);buckets[k]=(buckets[k]||0)+1;}
-  const weeks=[]; let cur=new Date(monday); for(let i=7;i>=0;i--){const d=new Date(cur);d.setDate(d.getDate()-i*7);const k=wkKey(d);weeks.push({k, label:d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}), n:buckets[k]||0});}
-  const lastWk=weeks[7].n, prevWk=weeks[6].n, wkDelta=lastWk-prevWk;
-  const clActiveThisWk=clRows.length;
-  const maxW=Math.max(1,...weeks.map(w=>w.n));
-  // area sparkline
-  const W=360,H=118,pad=6;
-  const pts=weeks.map((w,i)=>[pad+i*(W-2*pad)/7, H-8-(w.n/maxW)*(H-24)]);
-  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
-  const area=`M${pts[0][0].toFixed(1)} ${H-8} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${pts[7][0].toFixed(1)} ${H-8} Z`;
-  const spark=`<svg class="r-spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
-    <defs><linearGradient id="rg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3d7de0" stop-opacity=".28"/><stop offset="1" stop-color="#3d7de0" stop-opacity="0"/></linearGradient></defs>
-    <path d="${area}" fill="url(#rg)"/><path d="${line}" fill="none" stroke="#3d7de0" stroke-width="2" stroke-linejoin="round"/>
-    ${pts.map((p,i)=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i===7?3.5:2}" fill="#3d7de0"/>`).join('')}
-    ${weeks.map((w,i)=>`<text x="${pts[i][0].toFixed(1)}" y="${H-1}" font-size="7" fill="#a6adba" text-anchor="middle">${w.label}</text>`).join('')}
-  </svg>`;
-  // capability depth bars
-  const dranked=[...D.clusters].map(c=>({...c,d:D.totals.depthByCluster[c.id]})).sort((a,b)=>b.d-a.d);
-  const maxD=Math.max(1,dranked[0].d);
-  const bars=dranked.map(r=>`<div class="r-bar"><span class="lb">${esc(r.name)}</span><span class="tr"><span class="fl" style="width:${Math.max(2,100*r.d/maxD)}%;background:${r.color}"></span></span><span class="n">${r.d}</span></div>`).join('');
-  // top clients table
-  const clientRows=(D.clients||[]).slice(0,8).map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="r">${c.total}</td><td class="r">${c.lessonCount}</td><td class="r">${c.chatCount}</td><td class="r">${c.waCount||0}</td><td class="r">${c.lastActive||'none'}</td></tr>`).join('');
+  /* ── the document ── */
   const logo=document.querySelector('.brandbox img').src;
-  const dstr=D.generated.slice(0,10);
-  /* masthead motif: a mini constellation of the real cluster colors */
-  const motif=`<svg width="120" height="96" viewBox="0 0 120 96">${D.clusters.map((c,i)=>{
-    const mx=18+((i*43)%84), my=14+((i*29)%68);
-    return `<circle cx="${mx}" cy="${my}" r="${3+((i*7)%4)}" fill="${c.color}" opacity="0.9"/><circle cx="${mx}" cy="${my}" r="${8+((i*7)%4)}" fill="${c.color}" opacity="0.15"/>`;
-  }).join('')}</svg>`;
-  const waTotal=D.totals.waFacts||0, gapsOpen=D.gaps===null?null:(D.gaps||[]).length;
-  const heroLine=`This week the brain gained <b>${wk.length} lessons</b>${clRows.length?` from <b>${clRows.length} client${clRows.length===1?'':'s'}</b>`:''}, absorbed <b>${D.totals.chatDiscussed||0} facts</b> from your conversations${waTotal?` and <b>${waTotal} from WhatsApp</b>`:''}${gapsOpen?`, and is carrying <b>${gapsOpen} open question${gapsOpen===1?'':'s'}</b> it wants answered`:''}.`;
+  const cell=v=>v?`<td class="r"><b>${v}</b></td>`:'<td class="r" style="color:#b0b6c2">·</td>';
+  const clientRows=rows.slice(0,12).map(r=>`<tr><td><b>${esc(r.n)}</b></td>${cell(r.tasks)}${cell(r.done)}${cell(r.shoots+r.projects)}${cell(r.lessons)}${cell(r.chats+r.wa)}<td class="r">${esc(r.last)}</td></tr>`).join('');
+  const li=(pre,body,tag)=>`<div style="font-size:12.5px;color:#3a4457;padding:9px 12px;border:1px solid #e7eaf0;border-radius:8px;margin-bottom:7px;line-height:1.5"><b style="color:#6b7383">${esc(pre)}</b> · ${body}${tag?` <span style="color:#8a92a3">(${esc(tag)})</span>`:''}</div>`;
   const doc=`
-    <div class="r-head"><div class="motif">${motif}</div><img src="${logo}" alt="Business Booster"><div class="kick">The Digital Brain</div><h1>Weekly Intelligence Briefing</h1><div class="sub">Week of ${mondayStr} · generated ${dstr} · encrypted, team-only</div></div>
-    <div class="r-hero">${heroLine}</div>
+    <div class="r-head"><img src="${logo}" alt="Business Booster"><div class="kick">Business Booster</div><h1>The Week</h1><div class="sub">${esc(weekLabel)} · as the Digital Brain saw it · generated ${esc(ld(D.generated))} · encrypted, team-only</div></div>
+    <div class="r-hero">${rows.length?`<b>${rows.length} client${rows.length===1?'':'s'}</b> moved this week: <b>${tasksWk} task${tasksWk===1?'':'s'}</b> created${doneWk?` and <b>${doneWk}</b> finished`:''}, <b>${shootsWk} shoot${shootsWk===1?'':'s'}</b>, <b>${projWk} project${projWk===1?'':'s'}</b> on the boards, <b>${wk.length} lesson${wk.length===1?'':'s'}</b> learned and <b>${decisions.length} decision${decisions.length===1?'':'s'}</b> captured.`:'Nothing client-tagged reached the brain this week. That is the finding: either nothing happened, or it happened where the brain cannot see it.'}</div>
     <div class="r-body">
-      <div class="r-kick">The machine right now</div>
+      <div class="r-kick">The week in numbers</div>
       <div class="r-kpis">
-        <div class="r-kpi"><div class="k">Lessons learned</div><div class="v">${D.totals.entries}</div><div class="d${wkDelta>0?'':' flat'}">${wkDelta>0?'▲ +'+wkDelta:(wkDelta<0?'▼ '+wkDelta:'level')} vs last week</div></div>
-        <div class="r-kpi" style="border-left-color:#8b5cf6"><div class="k">Skills mapped</div><div class="v">${D.totals.skills}</div><div class="d flat">newest: ${esc(newest.name.replace(/^bb-/,''))}</div></div>
-        <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Clients on record</div><div class="v">${D.totals.clientsFull||(D.clients||[]).length}</div><div class="d${clActiveThisWk?'':' flat'}">${clActiveThisWk?'▲ '+clActiveThisWk+' active this week':'none active this week'}</div></div>
-        <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Chat facts absorbed</div><div class="v">${D.totals.chatDiscussed||0}</div><div class="d flat">from your conversations</div></div>
+        <div class="r-kpi"><div class="k">Clients that moved</div><div class="v">${rows.length}</div><div class="d flat">of ${(D.clients||[]).length} on record</div></div>
+        <div class="r-kpi" style="border-left-color:#1a9d5a"><div class="k">Tasks created</div><div class="v">${tasksWk}</div><div class="d flat">${doneWk} marked done</div></div>
+        <div class="r-kpi" style="border-left-color:#8b5cf6"><div class="k">Shoots and projects</div><div class="v">${shootsWk+projWk}</div><div class="d flat">${shootsWk} shoots · ${projWk} on the boards</div></div>
+        <div class="r-kpi" style="border-left-color:#f5a623"><div class="k">Lessons learned</div><div class="v">${wk.length}</div><div class="d flat">${topCluster?'most in '+esc(nm(topCluster[0])):'none this week'}</div></div>
       </div>
-      <div class="r-kick">What the brain has absorbed</div>
-      <div class="r-abs">
-        <div class="a"><b>${D.totals.chatDiscussed||0}</b>facts from Claude chats</div>
-        <div class="a"><b>${waTotal}</b>facts from WhatsApp exports</div>
-        <div class="a"><b>${(D.agentFeed&&D.agentFeed.online)?D.agentFeed.entries.length:'offline'}</b>machine-agent learnings</div>
-        <div class="a"><b>${(D.decisions||[]).length}</b>decisions captured</div>
-      </div>
-      <div class="r-kick">Momentum and depth</div>
-      <div class="r-grid2">
-        <div class="r-card"><h3>Learning momentum</h3><div class="cap">Lessons added per week · last 8 weeks</div>${spark}</div>
-        <div class="r-card"><h3>Capability depth</h3><div class="cap">Logged uses by area, never a quality score</div>${bars}</div>
-      </div>
-      <div class="r-kick">Top clients teaching the brain</div>
-      <table class="r-tbl"><thead><tr><th>Client</th><th class="r">Total</th><th class="r">Lessons</th><th class="r">Discussed</th><th class="r">WhatsApp</th><th class="r">Last active</th></tr></thead><tbody>${clientRows||'<tr><td colspan="6" style="color:#8a93a6">none yet</td></tr>'}</tbody></table>
-      ${gapsOpen?`<div class="r-kick">Open questions the brain cannot answer</div>
-      ${(D.gaps||[]).slice(0,5).map(g=>`<div style="font-size:12.5px;color:#3a4457;padding:9px 12px;border:1px solid #e7eaf0;border-radius:8px;margin-bottom:7px"><b style="color:#b45309">${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</div>`).join('')}`:''}
+      <div class="r-kick">Client by client</div>
+      ${rows.length?`<table class="r-tbl"><thead><tr><th>Client</th><th class="r">Tasks</th><th class="r">Done</th><th class="r">Shoots + projects</th><th class="r">Lessons</th><th class="r">Chat + WhatsApp</th><th class="r">Last touch</th></tr></thead><tbody>${clientRows}</tbody></table>`:'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No client-tagged activity this week.</div>'}
+      <div class="r-kick">What we learned this week</div>
+      ${lessons.length?lessons.map(l=>li(l.date,esc(String(l.summary).slice(0,160)),(l.clients&&l.clients.length?l.clients.slice(0,2).join(', '):''))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No lessons logged this week.</div>'}
+      <div class="r-kick">Decisions captured</div>
+      ${decisions.length?decisions.map(x=>li(x.date,(x.client?'<b>'+esc(x.client)+'</b>: ':'')+esc(String(x.snippet).slice(0,140)))).join(''):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">None captured this week.</div>'}
+      <div class="r-kick">Asked in WhatsApp, not in the task book</div>
+      ${cc?li('cross-check',cc.totalAsks+' asks in the exports · '+cc.totalMatched+' became tasks ('+cc.totalMatchedDone+' done) · <b>'+cc.totalOpen+' still have no task</b>'):'<div style="font-size:12.5px;color:#6b7383;padding:8px 0 14px">No WhatsApp exports this week, so the cross-check slept. The Friday exports wake it.</div>'}
+      <div class="r-kick">Skills nobody is using</div>
+      ${li(unused.length+' never used',quietSk.length+' more gone quiet, out of '+D.totals.skills+' in the brain.'+(pick?' This week push <b>'+esc(pick)+'</b> to the team from the Today page.':''))}
+      ${quietCl.length?`<div class="r-kick">Going quiet</div>${quietCl.map(c=>li(c.name,daysAgo(c.lastActive)+' days since the brain heard anything about them')).join('')}`:''}
+      ${gaps.length?`<div class="r-kick">Open questions the brain cannot answer</div>${gaps.slice(0,4).map(g=>li(String(g.created_at).slice(0,10),esc(g.question))).join('')}`:''}
       <div class="r-insights">
-        <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Key insights</h3><ul>
-          <li><b>${lastWk}</b> lessons learned this week${wkDelta?', '+(wkDelta>0?'up':'down')+' '+Math.abs(wkDelta)+' on last week':''}.</li>
-          <li>Busiest skill: <b>${top?humanSkill(top[0]):'none yet'}</b>${top?' ('+top[1]+' lessons)':''}.</li>
-          <li>Top teacher all-time: <b>${(D.clients||[])[0]?(D.clients||[])[0].name:'none yet'}</b>${(D.clients||[])[0]?' ('+(D.clients||[])[0].total+' entries)':''}.</li>
-          <li><b>${D.totals.chatDiscussed||0}</b> facts absorbed from conversations across the last 120 days.</li>
+        <div class="r-ins"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">This week's signal</h3><ul>
+          ${busiest?`<li><b>${esc(busiest.n)}</b> was the busiest account: ${busiest.tasks} task${busiest.tasks===1?'':'s'}, ${busiest.shoots+busiest.projects} shoot${busiest.shoots+busiest.projects===1?'':'s'} and project${busiest.shoots+busiest.projects===1?'':'s'}, ${busiest.lessons} lesson${busiest.lessons===1?'':'s'}.</li>`:'<li>No account moved in a way the brain could see.</li>'}
+          ${topCluster?`<li>Learning landed mostly in <b>${esc(nm(topCluster[0]))}</b> (${topCluster[1]} of ${wk.length}).</li>`:''}
+          <li><b>${decisions.length}</b> decision${decisions.length===1?'':'s'} captured from conversations${decisions.length?'; read them above before Monday.':'.'}</li>
+          ${logins.length?`<li>New logins this week: <b>${esc(logins.join(', '))}</b>.</li>`:''}
         </ul></div>
-        <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next steps</h3><ul>
-          <li>Push the top unused skills to the team from Today. <b>${D.skills.filter(s=>s.depth===0).length}</b> have never logged a use.</li><li>Install learning loops in <b>${thin.name}</b> (depth ${thin.d}) so it starts compounding.</li>
-          ${zeroLoopClusters.length?'<li>Areas not logging yet: <b>'+zeroLoopClusters.join(', ')+'</b>. Open each in the brain and copy its grow plan.</li>':''}
-          <li>Keep naming the client in every lesson so client memory keeps growing on its own.</li>
-          <li>Learning loops live on <b>${loops} of ${D.totals.skills}</b> skills.</li>
+        <div class="r-ins act"><h3 style="font-family:Poppins;font-size:14px;font-weight:800;margin-bottom:14px">Next week</h3><ul>
+          ${pick?`<li>Push <b>${esc(pick)}</b> to the team, then watch the unused count fall.</li>`:''}
+          ${quietCl.length?`<li>Touch the quiet accounts first: <b>${esc(quietCl.slice(0,3).map(c=>c.name).join(', '))}</b>.</li>`:''}
+          <li>${cc?'Clear the <b>'+cc.totalOpen+'</b> asks that never became tasks.':'Start the Friday WhatsApp exports so promises get checked against the task book.'}</li>
+          <li>Every real piece of work becomes a task the same day, or the brain cannot see it.</li>
         </ul></div>
       </div>
     </div>
-    <div class="r-foot"><img src="${logo}" alt="Business Booster"><div class="rf-r">The BB Digital Brain<br>${SITE.replace('https://','')}</div></div>`;
+    <div class="r-foot"><img src="${logo}" alt="Business Booster"><div class="rf-r">The brain fed from ${fed} sources${red.length?', not feeding: '+esc(red.join(', ')):''}<br>${SITE.replace('https://','')}</div></div>`;
   document.getElementById('rdoc').innerHTML=doc;
   document.getElementById('report-ov').classList.add('open');
 }
@@ -2037,7 +2010,7 @@ function openDossier(name){
     `<button class="tbtn" onclick="setView('clients')" style="margin-bottom:16px">← All clients</button>
      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-left:3px solid ${col};padding-left:18px">
        <div><h2 style="font-size:26px;color:${col}">${esc(cl.name)}</h2>
-       <div style="font-size:12.5px;color:var(--text-2)">${cl.total} facts on record · ${cl.lessonCount} lessons · ${cl.chatCount} from Claude · ${cl.waCount||0} from WhatsApp · first seen ${cl.firstSeen||'—'} · last active ${cl.lastActive||'—'}</div></div>
+       <div style="font-size:12.5px;color:var(--text-2)">${cl.total} facts on record · ${cl.lessonCount} lessons · ${cl.chatCount} from Claude · ${cl.waCount||0} from WhatsApp · first seen ${cl.firstSeen||'unknown'} · last active ${cl.lastActive||'unknown'}</div></div>
        <div style="margin-left:auto">${ring}</div>
      </div>
      ${secH('Activity rhythm - last 12 weeks')}
@@ -2830,7 +2803,7 @@ async function runSelfTest(){
   ok('Person: picker roster has people', roster.length>=3, roster.length+' names');
   ok('Agent: trace present on Today', !!D.agent, D.agent?(D.agent.delta?'deltas':'first run'):'missing');
   try{ openReport(); const t=document.getElementById('report-txt').value; document.getElementById('report-ov').classList.remove('open');
-    ok('Report: zero em dashes', !/—/.test(t), (t.match(/—/g)||[]).length+' found in '+t.length+' chars');
+    ok('Report: zero em dashes', !new RegExp(String.fromCharCode(8212)).test(t), (t.match(new RegExp(String.fromCharCode(8212),'g'))||[]).length+' found in '+t.length+' chars');
     ok('Report: zero bar lines', !/━/.test(t), 'scanned');
     ok('Report: zero serial commas', !/, (and|or|but|nor)[\s\n]/.test(t), 'scanned');
     ok('Report: carries the usage drive', /SKILLS NOBODY IS USING/.test(t), 'section present');
