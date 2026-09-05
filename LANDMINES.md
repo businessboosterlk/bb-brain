@@ -77,3 +77,21 @@ a document that CONTAINS the check".
 at runtime, never as literals. Proven: the agent went red on the literal form
 and green once assembled. Manual rule for future checks: if a check scans a
 surface, its own text must not be able to satisfy it.
+
+## L-BRAIN-011 | The lit sector was a white blob while every check was green
+**Symptom:** 37 then 38 of 38 in-page checks and the captured picture failed the brief three ways.
+**Root cause:** r137 treats a hex as linear light; emissive .3 plus bloom at threshold .62 whited
+out the region and thirty additive client nodes on one spot summed to white.
+**Block:** data colours converted once, emissive .09, bloom .8/.45/.3, client nodes blend normally.
+Manual rule: every 3D change ships with captures of whole, lit, child, client and fallback at 390
+and 1440. The harness proves state, never colour.
+
+## L-BRAIN-012 | Another session's agent published the half-built engine three times
+**Symptom:** live served a mid-build cinematic brain at 20:02, 20:05 and 20:16 on 2026-09-05.
+**Root cause:** brain-agent.sh commits the whole worktree on green; the tree is shared.
+**Block:** manual. Long builds land on a branch or a copy and merge once. See rock-solid L-031.
+
+## L-BRAIN-013 | Harness checks that sleep flip red in a hidden pane
+**Symptom:** the FALLBACK check went red three times on timing alone.
+**Root cause:** a hidden Browser pane throttles timers to one-second ticks.
+**Block:** the harness polls for the state it wants with a hard cap (until()), never a fixed sleep.
