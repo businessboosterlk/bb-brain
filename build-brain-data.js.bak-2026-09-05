@@ -825,21 +825,14 @@ async function ingestSystems() {
     /* graphic_projects: NEVER select image_url or thumb_url, that is the 92MB base64
        landmine. Named light columns only, here and everywhere. */
     const [members, tasks, shoots, clientRows, videos, graphics] = await Promise.all([
-      sbGet('/team_members?select=id,name,role,active,created_at&order=created_at.desc&limit=40'),
-      sbGet('/tasks?select=title,category,client_id,done,due,assign,created_at,updated_at&order=created_at.desc&limit=400'),
+      sbGet('/team_members?select=name,role,active,created_at&order=created_at.desc&limit=40'),
+      sbGet('/tasks?select=title,category,client_id,done,due,created_at&order=created_at.desc&limit=400'),
       sbGet('/smm_shoots?select=title,client_id,shoot_date,status,video_count,created_at&order=created_at.desc&limit=40'),
       sbGet('/clients?select=id,name&limit=120'),
-      sbGet('/video_projects?select=title,client_id,current_stage,deadline,assigned_editor_id,created_at,updated_at&order=updated_at.desc&limit=120'),
-      sbGet('/graphic_projects?select=title,client_name,client_id,current_stage,type,assigned_designer,assigned_designer_id,created_at,updated_at&order=updated_at.desc&limit=120'),
+      sbGet('/video_projects?select=title,client_id,current_stage,deadline,created_at&order=created_at.desc&limit=60'),
+      sbGet('/graphic_projects?select=title,client_name,client_id,current_stage,type,created_at&order=created_at.desc&limit=60'),
     ]);
     const cname = {}; for (const c of clientRows) cname[c.id] = c.name;
-    /* WHO DID IT (2026-09-05, Thulaib: "is what my designer, my editor, my SMM does going to the
-       brain?"). Yes, and now with the person on it. Names only, from the live roster. */
-    const mname = {}; for (const m of members) if (m.id != null) mname[m.id] = String(m.name || '').trim();
-    const who = (id, fallback) => { const nm = (id != null && mname[id]) || (fallback ? String(fallback).trim() : ''); return nm ? ' by ' + nm : ''; };
-    const moved = (r, days) => r.updated_at && r.created_at && (new Date(r.updated_at) - new Date(r.created_at) > 60000) && (Date.now() - new Date(r.updated_at) < days * 86400000);
-    const people = {};
-    const tally = (nm, kind) => { if (!nm) return; const k = nm.trim(); if (!k) return; people[k] = people[k] || { graphics: 0, videos: 0, tasks: 0, moves: 0 }; people[k][kind]++; };
     /* live client names are ALL CAPS; route them through the alias matcher so the
        dossier they land in is the same record every other source feeds */
     const display = raw => { const hits = clientsIn(String(raw || '')); return hits[0] || (raw ? String(raw).toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase()) : null); };
@@ -852,8 +845,7 @@ async function ingestSystems() {
     for (const t of tasks) {
       if (new Date(t.created_at) < cutoff) continue;
       const cl = t.client_id != null ? display(cname[t.client_id]) : null;
-      ev.push({ date: t.created_at.slice(0, 10), sys: 'tasks', client: cl, text: 'Task' + (cl ? ' for ' + cl : '') + (t.assign ? ' for ' + String(t.assign).slice(0, 24) : '') + ': ' + String(t.title || '').slice(0, 90) + (t.done ? ' (done)' : t.due ? ', due ' + String(t.due).slice(0, 10) : '') });
-      if (t.assign) tally(String(t.assign).split(/[,+&]/)[0], 'tasks');
+      ev.push({ date: t.created_at.slice(0, 10), sys: 'tasks', client: cl, text: 'Task' + (cl ? ' for ' + cl : '') + ': ' + String(t.title || '').slice(0, 90) + (t.done ? ' (done)' : t.due ? ', due ' + String(t.due).slice(0, 10) : '') });
     }
     const soon = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     for (const s of shoots) {
@@ -864,22 +856,15 @@ async function ingestSystems() {
     for (const v of videos) {
       if (new Date(v.created_at) < cutoff) continue;
       const cl = v.client_id != null ? display(cname[v.client_id]) : null;
-      const vw = who(v.assigned_editor_id, null);
-      ev.push({ date: v.created_at.slice(0, 10), sys: 'video', client: cl, text: 'Video' + (cl ? ' for ' + cl : '') + vw + ': ' + String(v.title || '').slice(0, 80) + (v.current_stage ? ' (' + v.current_stage + ')' : '') });
-      if (vw) tally(vw.slice(4), 'videos');
-      if (moved(v, 14)) { ev.push({ date: v.updated_at.slice(0, 10), sys: 'video', client: cl, text: 'Video' + (cl ? ' for ' + cl : '') + vw + ' moved to ' + (v.current_stage || 'a new stage') + ': ' + String(v.title || '').slice(0, 70) }); if (vw) tally(vw.slice(4), 'moves'); }
+      ev.push({ date: v.created_at.slice(0, 10), sys: 'video', client: cl, text: 'Video' + (cl ? ' for ' + cl : '') + ': ' + String(v.title || '').slice(0, 80) + (v.current_stage ? ' (' + v.current_stage + ')' : '') });
     }
     for (const g of graphics) {
       if (new Date(g.created_at) < cutoff) continue;
       const cl = display(g.client_name || (g.client_id != null ? cname[g.client_id] : null));
-      const gw = who(g.assigned_designer_id, g.assigned_designer);
-      ev.push({ date: g.created_at.slice(0, 10), sys: 'graphic', client: cl, text: 'Design' + (cl ? ' for ' + cl : '') + gw + ': ' + String(g.title || '').slice(0, 80) + (g.current_stage ? ' (' + g.current_stage + ')' : '') });
-      if (gw) tally(gw.slice(4), 'graphics');
-      if (moved(g, 14)) { ev.push({ date: g.updated_at.slice(0, 10), sys: 'graphic', client: cl, text: 'Design' + (cl ? ' for ' + cl : '') + gw + ' moved to ' + (g.current_stage || 'a new stage') + ': ' + String(g.title || '').slice(0, 70) }); if (gw) tally(gw.slice(4), 'moves'); }
+      ev.push({ date: g.created_at.slice(0, 10), sys: 'graphic', client: cl, text: 'Design' + (cl ? ' for ' + cl : '') + ': ' + String(g.title || '').slice(0, 80) + (g.current_stage ? ' (' + g.current_stage + ')' : '') });
     }
     ev.sort((a, b) => b.date.localeCompare(a.date));
-    res.events = ev.slice(0, 200);
-    res.people = Object.entries(people).map(([name, c]) => ({ name, ...c })).sort((a, b) => (b.graphics + b.videos + b.tasks + b.moves) - (a.graphics + a.videos + a.tasks + a.moves));
+    res.events = ev.slice(0, 120);
     res.online = true;
     res.counts = { team: members.length, activeTeam: members.filter(m => m.active).length, tasks: tasks.length, shoots: shoots.length, videos: videos.length, graphics: graphics.length };
     /* the live roster feeds the person picker (2026-08-31): names and roles only,
