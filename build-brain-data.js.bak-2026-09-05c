@@ -903,18 +903,12 @@ async function ingestSystems() {
        the same client, created from 2 days before to 7 days after, sharing a real
        keyword. What survives is the list that matters: ASKED IN THE CHAT, ABSENT
        FROM THE BOOK. Empty inbox = the check sleeps, it never invents. ── */
-    /* ASK RULE v2 (2026-09-05): v1 counted BB's own replies ('will make these changes')
-       as asks, so 513 'asks' was noise. An ask is now: sent by the CLIENT side (not a
-       BB name), carrying a request verb, and not a reply opener. */
-    const WA_ASK = /(can you|could you|can we|could we|please|pls\b|kindly|need (a|an|the|to|you)|want (a|an|the|to|you)|make (a|an|the|it|sure)|create |send (me|us|the|a)|share (the|a|me|us)|post (this|the|it|these)|boost|design |edit |change (this|the|it|that)|fix |update (the|this)|schedule|upload|remove |add |include |replace )/i;
-    const WA_REPLY = /^(will|sure|noted|ok|okay|done|yes|yep|got it|thanks|thank you|great|good morning|good afternoon|good evening|hi |hello)/i;
-    const BB_SENDER = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana|farhath|rajeewa|thulka|kaneesha|umanda/i;
+    const WA_ASK = /(can you|could you|please|pls\b|need |want you|make |create |send |share |post |boost|design |edit |change |fix |update |schedule|upload|caption|video for|story for)/i;
     const crosscheck = { perClient: {}, totalAsks: 0, totalMatched: 0, totalMatchedDone: 0, totalOpen: 0 };
     for (const [clName, lines] of Object.entries(wa.perClient)) {
       const cc = { asks: 0, matched: 0, matchedDone: 0, open: [] };
       for (const ln of lines) {
-        if (BB_SENDER.test(ln.sender || '')) continue;                 // only the client's asks
-        if (WA_REPLY.test(ln.snippet) || !WA_ASK.test(ln.snippet)) continue;
+        if (!WA_ASK.test(ln.snippet)) continue;
         cc.asks++; crosscheck.totalAsks++;
         const askKw = kwOf(ln.snippet);
         const lo = new Date(+new Date(ln.date) - 2 * 86400000).toISOString().slice(0, 10);
@@ -928,7 +922,7 @@ async function ingestSystems() {
           return false;
         });
         if (hit) { cc.matched++; crosscheck.totalMatched++; if (hit.done) { cc.matchedDone++; crosscheck.totalMatchedDone++; } }
-        else if (cc.open.length < 10) cc.open.push({ date: ln.date, sender: (ln.sender || '').slice(0, 24), snippet: ln.snippet.slice(0, 140) });
+        else if (cc.open.length < 5) cc.open.push({ date: ln.date, snippet: ln.snippet.slice(0, 120) });
       }
       crosscheck.totalOpen += cc.open.length;
       if (cc.asks) crosscheck.perClient[clName] = cc;

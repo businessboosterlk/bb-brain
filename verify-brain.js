@@ -27,6 +27,9 @@ if (d) {
     const leaks = snips.filter(x => SEC.test(x));
     ok('no credential in WhatsApp lines', snips.length > 0 && !leaks.length, snips.length + ' lines scanned, ' + leaks.length + ' credential-like');
     const wa = d.wa || {}; ok('WhatsApp inbox fed', (wa.files || 0) >= 12 && (wa.kept || 0) > 100, (wa.files || 0) + ' files, ' + (wa.kept || 0) + ' lines kept, ' + (wa.redacted || 0) + ' redacted, ' + (wa.clients || 0) + ' clients'); }
+  { const BBS = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana/i; let opens = 0, bb = 0;
+    for (const cc of Object.values(((d.systems || {}).crosscheck || {}).perClient || {})) for (const o of (cc.open || [])) { opens++; if (BBS.test(o.sender || '')) bb++; }
+    ok('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }
   ok('no phantom clients', !hit.length, names.length + ' clients, phantoms: ' + (hit.join(', ') || 'none'));
   ok('client count sane', names.length >= 15 && names.length <= 60, names.length + ' records');
   ok('systems feed online', d.systems && d.systems.online, d.systems ? (d.systems.online ? d.systems.events.length + ' events' : 'OFFLINE ' + d.systems.error) : 'missing');
