@@ -35,7 +35,7 @@ update the routine, never the other way round.
 From a Claude Code session: `RemoteTrigger list_runs` with the routine id, then `get_run_log`
 on the newest run. A run that never created a session (paused, cap, clone refused before start)
 leaves no row, so also `get` the routine and read `enabled` and `next_run_at`. On the Mac:
-`ls ~/bb-consultancy/synthesis/` on Monday morning should show a new review file, and the
+`ls ~/bb-consultancy/synthesis/` on Monday morning should show a new review file and the
 Brain's Today line should say ten sources fed with none red.
 
 Manage, pause or delete it at https://claude.ai/code/routines/trig_01VxpMAuq2pJQYJ4vqdQFuiZ
@@ -43,6 +43,6 @@ Manage, pause or delete it at https://claude.ai/code/routines/trig_01VxpMAuq2pJQ
 ## What is not known yet
 
 Whether the cloud environment can clone and push the two private repositories. The first run
-tells. If it cannot, the run writes `synthesis/FAILED-<date>.md` in whichever repo it reached,
-or the run log shows the clone refusal, and the fix is granting the environment access to the
+tells. If it cannot, the run writes `synthesis/FAILED-<date>.md` in whichever repo it reached
+or the run log shows the clone refusal and the fix is granting the environment access to the
 two repositories on GitHub.
