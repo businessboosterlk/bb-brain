@@ -59,6 +59,14 @@ try {
   const out = cp.execFileSync('python3', [path.join(process.env.HOME, '.claude/skills/bb-rock-solid/guard.py'), path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
   ok('rock-solid guard', /PASS/.test(out), out.trim().split('\n').pop());
 } catch (e) { ok('rock-solid guard', false, String(e.stdout || e.message).trim().split('\n').pop()); }
+/* the growth ledger (2026-09-06): the brain's history of itself, counts only, in git */
+try {
+  const L = JSON.parse(fs.readFileSync(path.join(HERE, 'growth-ledger.json'), 'utf8'));
+  const today = d ? d.generated.slice(0, 10) : null; const row = L.find(r => r.date === today);
+  ok('growth ledger has today', !!row && row.total > 0 && row.pct >= 0 && row.pct <= 100 && row.levels.reduce((a, b) => a + b, 0) === row.skills, row ? row.rungs + ' of ' + row.total + ' (' + row.pct + '%), ' + L.length + ' day' + (L.length === 1 ? '' : 's') + ' kept' : 'no row for ' + today);
+  ok('growth ledger holds counts only', !/summary|lesson|whatsapp|"name"/i.test(JSON.stringify(L)), 'no names, no text');
+  ok('growth ledger is tracked by git', !/growth-ledger/.test(fs.readFileSync(path.join(HERE, '.gitignore'), 'utf8')), 'not ignored');
+} catch (e) { ok('growth ledger present', false, e.message); }
 /* the cinematic layer (2026-09-05): static invariants the page must keep */
 const bbx = html.slice(html.indexOf('const BBX=(function(){'), html.indexOf('/* ═══ THE LANDING STATE IS A ROUTE TOO'));
 ok('3D: engine block present', bbx.length > 20000, bbx.length + ' chars');

@@ -448,6 +448,7 @@ table.r-tbl td b{color:#0e1830}
     <div id="more-menu" role="menu">
       <button role="menuitem" onclick="closeMore();setView('tl')">Timeline</button>
       <button role="menuitem" onclick="closeMore();setView('gaps')">Gap radar</button>
+      <button role="menuitem" onclick="closeMore();setView('growth')">Growth</button>
       <button role="menuitem" onclick="closeMore();openReport()">Weekly report</button>
       <button role="menuitem" onclick="closeMore();openBYS()">Before you start a task</button>
       <button role="menuitem" onclick="closeMore();togglePresent(true)">Present mode</button>
@@ -498,6 +499,7 @@ table.r-tbl td b{color:#0e1830}
 
 <div class="tl" id="gaps-view" style="display:none"></div>
 <div class="tl" id="today-view" style="display:none"></div>
+<div class="tl" id="growth-view" style="display:none"></div>
 <div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
 <div class="tl" id="explore-view" style="display:none;max-width:none">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="x3d-chips"></div>
@@ -629,7 +631,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788706866739"></script>
+<script src="brain-data.enc.js?v=1788708188452"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1598,6 +1600,8 @@ function openReport(){
   const nm=c=>(C[c]||{}).name||c;
   /* quoted lines are BB's own notes, so they get house style too: no serial comma, no dash */
   const hs=t=>String(t).replace(/, (and|or|but|nor)(\s)/g,' $1$2').replace(/\s*[\u2014\u2013]\s*/g,', ');
+  const gw=D.growth&&D.growth.week||{}, gt=D.growth&&D.growth.today;
+  const gLine=gt?'- Brain Index '+gt.pct+' percent, '+gt.rungs+' of '+gt.total+' rungs'+(gw.rungsClimbed!=null?', '+(gw.rungsClimbed>0?'+':'')+gw.rungsClimbed+' this week':'')+' (five rungs per skill: exists, used, confirmed, loop on, proven on three clients)':'';
 
   /* ── the WhatsApp text, same facts, plain ── */
   const txt=
@@ -1606,7 +1610,7 @@ As the Digital Brain saw it · ${SITE}
 
 THE WEEK IN NUMBERS
 - ${rows.length} client${rows.length===1?'':'s'} moved · ${tasksWk} task${tasksWk===1?'':'s'} created, ${doneWk} done · ${shootsWk} shoot${shootsWk===1?'':'s'} · ${projWk} video and design project${projWk===1?'':'s'}
-- ${wk.length} lesson${wk.length===1?'':'s'} learned · ${decisions.length} decision${decisions.length===1?'':'s'} captured${logins.length?' · new logins: '+logins.map(titleName).join(', '):''}
+- ${wk.length} lesson${wk.length===1?'':'s'} learned · ${decisions.length} decision${decisions.length===1?'':'s'} captured${logins.length?' · new logins: '+logins.map(titleName).join(', '):''}${gLine?'\n'+gLine:''}
 
 CLIENT BY CLIENT
 ${rows.length?rows.slice(0,12).map(r=>'- '+r.n+': '+[r.tasks?r.tasks+' task'+(r.tasks===1?'':'s')+(r.done?' ('+r.done+' done)':''):'',r.shoots?r.shoots+' shoot'+(r.shoots===1?'':'s'):'',r.projects?r.projects+' project'+(r.projects===1?'':'s'):'',r.lessons?r.lessons+' lesson'+(r.lessons===1?'':'s'):'',r.chats?r.chats+' chat note'+(r.chats===1?'':'s'):'',r.wa?r.wa+' WhatsApp line'+(r.wa===1?'':'s'):''].filter(Boolean).join(', ')).join('\n'):'- nothing client-tagged this week, which is itself the finding'}
@@ -1982,7 +1986,7 @@ function renderToday(){
 
   document.getElementById('today-view').innerHTML=
     `<h2 style="font-size:20px;margin-bottom:3px">${getPerson()?esc(getPerson())+', here is today':'Today'}</h2>
-     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">${esc(dayName)} · the brain fed ${fed} source${fed===1?'':'s'} at ${esc(D.generated.slice(11,16))}${dl?', '+sign(dl.entries)+' lessons since the last run':''}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</p>
+     <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">${esc(dayName)} · the brain fed ${fed} source${fed===1?'':'s'} at ${esc(D.generated.slice(11,16))}${dl?', '+sign(dl.entries)+' lessons since the last run':''}${growthClause()}${red.length?` · <span style="color:#e06c5a">not feeding: ${esc(red.join(', '))}</span>`:''}</p>
      ${installCard()}${visitDelta()}
      ${block('What needs you · '+needs.length,needs,4,needs.length?'The only part of this page that asks for a decision.':'')}
      ${block('Learned in the last 2 days · '+learned.length,learned,3,'What your teammates and the agents just learned.')}
@@ -1994,6 +1998,56 @@ function renderToday(){
        return rows.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:24px"><span style="font-size:11px;font-weight:700;color:var(--text-3)">Taught the brain this week</span>${rows.map(([n,c])=>{const st=streakOf(n);return `<span class="pill">${esc(n)} <span style="color:var(--blue)">· ${c}</span>${st>=2?` <span style="color:#4ade80">${st}w</span>`:''}</span>`;}).join('')}</div>`:'';
      })()}
      ${machine.length?`<div style="margin-bottom:8px"><button class="fchip" onclick="const m=document.getElementById('machine-block');m.style.display=m.style.display==='none'?'block':'none';this.textContent=m.style.display==='none'?'Show the machine':'Hide the machine'">Show the machine</button><div id="machine-block" style="display:none;margin-top:12px">${machine.join('')}</div></div>`:''}`;
+}
+/* ═══ THE GROWTH PAGE (2026-09-06, Thulaib: "end of each week I want the brain to feel
+   upgraded and boosted, a bar for how far we have come and how much is left"). The
+   Brain Index is a ladder with a denominator, five rungs per skill, cumulative. The
+   ledger it reads is the brain's history of itself, counts only, kept in git. ═══ */
+function growthClause(){
+  const g=D.growth; if(!g||!g.today)return '';
+  const d=(g.week||{}).rungsClimbed;
+  return ` · Brain Index <b style="color:var(--text)">${g.today.pct}%</b>${d!=null&&d!==0?' ('+(d>0?'+':'')+d+' rungs this week)':''} · <a href="#" onclick="setView('growth');return false" style="color:var(--text-2);text-decoration:underline">Growth</a>`;
+}
+function renderGrowth(){
+  const el=document.getElementById('growth-view'); const g=D.growth;
+  if(!g||!g.today){ el.innerHTML='<h2 style="font-size:19px">Growth</h2><p style="color:var(--text-3);font-size:12.5px">The ledger has not been built yet. It appears after the next feed.</p>'; return; }
+  const t=g.today, w=g.week||{}, hist=g.history||[];
+  const bar=(pct,colour)=>`<div style="height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden"><div style="width:${Math.max(0,Math.min(100,pct))}%;height:100%;background:${colour||'linear-gradient(90deg,#5B9DFF,#A78BFA)'};border-radius:99px"></div></div>`;
+  const nm=c=>(C[c]||{}).name||c, col=c=>(C[c]||{}).color||'#8fa2c0';
+  const sectors=Object.entries(t.perSector||{}).sort((a,b)=>b[1]-a[1]);
+  /* weeks from the ledger: the last row of each week, its climb against the week before */
+  const mondayOf=d=>{ const x=new Date(d+'T00:00:00'); x.setDate(x.getDate()-((x.getDay()+6)%7)); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+  const byWeek={}; hist.forEach(r=>{ byWeek[mondayOf(r.date)]=r; });
+  const weeks=Object.entries(byWeek).sort((a,b)=>a[0].localeCompare(b[0]));
+  const weekRows=weeks.map(([mon,r],i)=>{ const prev=i?weeks[i-1][1]:null; return {mon,r,d:prev?r.rungs-prev.rungs:null}; }).reverse();
+  const label=mon=>{ const a=new Date(mon+'T00:00:00'), b=new Date(a); b.setDate(a.getDate()+6); const f=x=>x.getDate()+' '+x.toLocaleString('en-GB',{month:'short'}); return f(a)+' to '+f(b); };
+  const sg=n=>(n>0?'+':'')+n;
+  const chip=n=>`<button class="fchip" onclick="openSkill('${esc(n)}')">${esc(humanSkill(n))}</button>`;
+  el.innerHTML=`
+   <h2 style="font-size:20px;margin-bottom:3px">The brain's growth</h2>
+   <p style="font-size:12.5px;color:var(--text-2);margin-bottom:18px;line-height:1.6">Five rungs per skill, in order: it exists, it was used on real work, its lessons are confirmed, a learning loop feeds it, it is proven on three clients. The index only moves when one of those happens.</p>
+   <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:44px;font-weight:800;line-height:1">${t.pct}%</span><span style="font-size:13px;color:var(--text-2)">${t.rungs} of ${t.total} rungs · ${t.skills} skills</span>${w.rungsClimbed!=null?`<span style="font-size:13px;color:${w.rungsClimbed>0?'#4ADE80':'var(--text-3)'}">${sg(w.rungsClimbed)} this week</span>`:'<span style="font-size:13px;color:var(--text-3)">first week measured</span>'}</div>
+   ${bar(t.pct)}
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin:14px 0 26px">${g.ladder.map((l,i)=>`<div style="background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px"><div style="font-size:18px;font-weight:800">${t.levels[i]}</div><div style="font-size:10.5px;color:var(--text-3)">level ${i+1} · ${esc(l)}</div></div>`).join('')}</div>
+   <h3 style="font-size:14px;margin-bottom:8px">By sector</h3>
+   ${sectors.map(([id,pct])=>`<div style="display:grid;grid-template-columns:minmax(110px,170px) 1fr 40px;gap:10px;align-items:center;margin-bottom:7px"><span style="font-size:12.5px;color:${col(id)}">${esc(nm(id))}</span>${bar(pct,col(id))}<span style="font-size:12px;color:var(--text-2);text-align:right">${pct}%</span></div>`).join('')}
+   <h3 style="font-size:14px;margin:26px 0 4px">This week</h3>
+   <p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Since Monday ${esc(w.monday||'')}.</p>
+   <div class="tl-item" style="display:block;font-size:12.5px;line-height:1.7">
+     ${w.entriesAdded} lesson${w.entriesAdded===1?'':'s'} added${w.confirmedEntries?', '+w.confirmedEntries+' of them confirmed':''}${w.loopsOn?', '+sg(w.loopsOn)+' learning loop'+(Math.abs(w.loopsOn)===1?'':'s'):''}.<br>
+     ${w.firstUses&&w.firstUses.length?`First use this week: ${w.firstUses.map(chip).join(' ')}`:'No skill got its first use this week.'}<br>
+     ${w.taughtBy&&w.taughtBy.length?`Clients that taught it: ${w.taughtBy.map(x=>esc(x.name)+' ('+x.n+')').join(', ')}.`:'No client taught it a dated lesson this week.'}
+     ${w.staleRules?`<br>${w.staleRules} older rule${w.staleRules===1?'':'s'} now read as stale and want a fresh use.`:''}
+   </div>
+   ${g.review?`<h3 style="font-size:14px;margin:22px 0 4px">The brain's own review</h3><p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Written by the Sunday cloud run on ${esc(g.review.date)} from every client dossier.</p><div class="tl-item" style="display:block;font-size:12.5px;line-height:1.7;white-space:pre-wrap">${esc(g.review.text)}</div>`:''}
+   <h3 style="font-size:14px;margin:22px 0 4px">Try next week</h3>
+   <p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Each first use is one rung${w.busySector?', picked from '+esc(nm(w.busySector))+', the sector the team worked in most':''}.</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${(w.tryNext||[]).map(n=>`<span class="tl-item" style="display:inline-flex;gap:8px;align-items:center;padding:8px 10px"><b style="font-size:12.5px">${esc(humanSkill(n))}</b><button class="tbtn" style="font-size:11px" onclick="pushSkillNudge('${esc(n)}')">Push to team</button></span>`).join('')}</div>
+   ${w.askClient?`<div class="tl-item" style="display:block;font-size:12.5px">${esc(w.askClient.name)} has ${w.askClient.open} WhatsApp ask${w.askClient.open===1?'':'s'} with no task and only ${w.askClient.lessons} lesson${w.askClient.lessons===1?'':'s'} on record. Log what you learn there first.</div>`:''}
+   <h3 style="font-size:14px;margin:26px 0 8px">Week by week</h3>
+   ${weekRows.map(x=>`<div style="display:grid;grid-template-columns:minmax(96px,130px) 1fr 44px 76px;gap:10px;align-items:center;margin-bottom:7px;font-size:12px"><span style="color:var(--text-2)">${esc(label(x.mon))}</span>${bar(x.r.pct)}<span style="text-align:right">${x.r.pct}%</span><span style="color:var(--text-3);text-align:right">${x.d==null?'first':sg(x.d)+' rungs'}</span></div>`).join('')}
+   <h3 style="font-size:14px;margin:26px 0 6px">What 100 means</h3>
+   <p style="font-size:12.5px;color:var(--text-2);line-height:1.6">Every one of the ${t.skills} skills at level five. Today ${t.levels[0]} have never been used, so each first use is the cheapest rung there is and ${t.levels[4]} ${t.levels[4]===1?'skill is':'skills are'} proven on three clients. The bar cannot be moved by writing more words. It moves when a skill is used, when a second client confirms a lesson, when a loop switches on.</p>`;
 }
 /* ═══ USAGE DRIVE (2026-08-30, Thulaib: "if a skill has not been used, push it
    to the team"): a skill that exists and is never used is paid-for capability
@@ -2074,7 +2128,7 @@ function openDossier(name){
 
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',dossier:'dossier-view',explore:'explore-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',dossier:'dossier-view',explore:'explore-view'};
 function setView(v){
   /* 2026-08-30, the merge: Brain and Clients ARE the 3D now. The constellation
      stays as the Present-mode surface and the automatic fallback when the 3D
@@ -2120,6 +2174,7 @@ function applyView(v,prev){
   document.getElementById('gaps-view').style.display = v==='gaps'?'block':'none';
   document.getElementById('explore-view').style.display = v==='explore'?'block':'none';
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
+  document.getElementById('growth-view').style.display = v==='growth'?'block':'none';
   document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain'||(v==='explore'&&BBX.getMode()==='brain'));
@@ -2129,6 +2184,7 @@ function applyView(v,prev){
   if(DOSSIER&&v!=='dossier'){ DOSSIER=null; if(location.hash.startsWith('#client')) history.replaceState(null,'','#'); }
   if(v==='gaps'){ renderGaps(); return; }
   if(v==='explore'){ BBX.open(); return; }
+  if(v==='growth'){ renderGrowth(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
@@ -3152,6 +3208,16 @@ async function runSelfTest(){
     ok('Report: zero serial commas', !/, (and|or|but|nor)[\s\n]/.test(t), 'scanned');
     ok('Report: carries the usage drive', /SKILLS NOBODY IS USING/.test(t), 'section present');
   }catch(e){ ok('Report: generates', false, e.message); }
+  /* GROWTH (2026-09-06): the ledger, the index and the page */
+  { const g=D.growth;
+    ok('Growth: ledger row for today with a denominator', !!(g&&g.today&&g.today.total>0&&g.today.rungs<=g.today.total&&g.today.date===D.generated.slice(0,10)), g&&g.today?g.today.rungs+' of '+g.today.total+' on '+g.today.date:'missing');
+    ok('Growth: levels add up to the skills', !!(g&&g.today&&g.today.levels.reduce((a,b)=>a+b,0)===D.skills.length), g&&g.today?g.today.levels.join('/')+' = '+D.skills.length:'missing');
+    ok('Growth: the index is recomputed from the skills, never stored alone', !!(g&&g.today&&g.today.rungs===D.skills.reduce((a,x)=>a+(x.level||0),0)), 'rungs equal the sum of skill levels');
+    try{ setView('growth'); renderGrowth(); const gv=document.getElementById('growth-view'); const gtxt=gv.innerText;   /* rendered directly: setView swaps views after a 200ms fade */
+      ok('Growth: page shows the bar, every sector, the week and the ladder', /%/.test(gtxt)&&(D.clusters||[]).every(c=>gtxt.includes(c.name))&&/What 100 means/.test(gtxt)&&/Week by week/.test(gtxt)&&gv.querySelectorAll('button').length>0, gv.querySelectorAll('button').length+' actions on the page');
+    }catch(e){ ok('Growth: page renders', false, e.message); }
+    ok('Report: carries the Brain Index', /Brain Index \d+ percent/.test(document.getElementById('report-txt').value), 'line present');
+  }
   const cssText=[...document.styleSheets].map(ss=>{try{return [...ss.cssRules].map(r=>r.cssText).join('\n');}catch(e){return '';}}).join('\n');
   ok('Foundations: no double-tap zoom', getComputedStyle(document.documentElement).touchAction==='manipulation', getComputedStyle(document.documentElement).touchAction);
   ok('Foundations: canvas owns its gestures', getComputedStyle(document.getElementById('x3d-canvas')).touchAction==='none', 'canvas touch-action');
@@ -3205,7 +3271,7 @@ async function runSelfTest(){
       BBX.select('web'); BBX.step(220); BBX.focusSkill(sk); BBX.step(140);
       const ids=['x3d-crumb','x3d-rail','x3d-card','x3d-attrib','x3d-cue','x3d-skip'];
       const els=ids.map(i=>document.getElementById(i)).filter(Boolean).concat([...document.querySelectorAll('#x3d-stage .x3d-ui button')]);
-      const vis=els.filter(el=>el.offsetParent!==null&&getComputedStyle(el).opacity!=='0'&&getComputedStyle(el).display!=='none');
+      const vis=els.filter(el=>el.offsetParent!==null&&getComputedStyle(el).opacity!=='0'&&getComputedStyle(el).display!=='none'&&!(el.id==='x3d-cue'&&!el.classList.contains('show')));   /* a cue mid-fade is not a control */
       const rects=vis.map(el=>({id:el.id||el.textContent.trim().slice(0,12),r:el.getBoundingClientRect()})).filter(x=>x.r.width>0);
       const hits=[]; const inside=(p,q)=>p.left>=q.left-1&&p.right<=q.right+1&&p.top>=q.top-1&&p.bottom<=q.bottom+1;
       for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){ const a=rects[i].r,b=rects[j].r; if(inside(a,b)||inside(b,a))continue; if(a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom)hits.push(rects[i].id+' x '+rects[j].id); }

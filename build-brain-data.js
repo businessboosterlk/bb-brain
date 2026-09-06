@@ -341,8 +341,9 @@ if (chatMem.length) (learningsBySkill['bb-brain'] = learningsBySkill['bb-brain']
    layer the whole consultancy reasons from, never reached the brain before. Each
    graded entry becomes a brain entry under its owning skill with the TIER stated in
    the summary, so search and dossiers can quote what BB has actually proven. ── */
-function marketPatternEntries() {
-  const file = path.join(HOME, 'bb-consultancy/PATTERNS.md');
+function marketPatternEntries(fileName, via) {
+  /* 2026-09-06: the same parser reads synthesis/PATTERNS-cloud.md, written by the Sunday cloud routine */
+  const file = path.join(HOME, 'bb-consultancy', fileName || 'PATTERNS.md');
   let raw; try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return []; }
   const mtime = fs.statSync(file).mtime.toISOString().slice(0, 10);
   const entries = [];
@@ -353,7 +354,7 @@ function marketPatternEntries() {
     const date = (block.match(/\*\*Last strengthened:\*\*\s*(\d{4}-\d{2}-\d{2})/) || [])[1] || mtime;
     const retired = /RETIRED/.test(block.slice(0, 200));
     if (retired || !sentence) continue;
-    entries.push({ date, summary: (h[1].trim() + '. ' + sentence.trim()).slice(0, 220) + (tier ? ' [' + tier.replace(/\*\*/g, '').replace('Tier: ', '') + ']' : ''), body: block, via: 'file' });
+    entries.push({ date, summary: (h[1].trim() + '. ' + sentence.trim()).slice(0, 220) + (tier ? ' [' + tier.replace(/\*\*/g, '').replace('Tier: ', '') + ']' : ''), body: block, via: via || 'file' });
   }
   return entries;
 }
@@ -370,7 +371,7 @@ function adPatternEntries() {
   return entries;
 }
 {
-  const mp = marketPatternEntries();
+  const mp = marketPatternEntries().concat(marketPatternEntries('synthesis/PATTERNS-cloud.md', 'cloud'));
   if (mp.length) (learningsBySkill['bb-mother-brain'] = learningsBySkill['bb-mother-brain'] || []).push(...mp);
   const ap = adPatternEntries();
   if (ap.length) (learningsBySkill['bb-meta-ads-expert-plus'] = learningsBySkill['bb-meta-ads-expert-plus'] || []).push(...ap);
@@ -1001,6 +1002,59 @@ Promise.all([
   };
   fs.writeFileSync(statePath, JSON.stringify(cur));
   console.log('agent trace:', out.agent.delta ? JSON.stringify(out.agent.delta) : 'first run', '· push today:', out.agent.pushToday);
+}
+
+/* ── THE GROWTH LEDGER (2026-09-06, Thulaib: "end of each week I want the brain to feel
+   upgraded, a bar for how far we have come and how much is left"). The Brain Index is a
+   ladder with a DENOMINATOR: five rungs per skill, cumulative, each rung a thing that
+   happened on real work. The ledger is the brain's history of itself, counts only, no
+   client name and no text, committed in plaintext so the timeline survives in git. ── */
+{
+  const clientsUsing = name => out.clients.filter(c => (c.skills || []).some(x => x.s === name)).length;
+  const level = s => { if (!s.depth) return 1; if (!(s.conf && s.conf.confirmed)) return 2; if (!s.hasLoop) return 3; if (clientsUsing(s.name) < 3) return 4; return 5; };
+  const LADDER = ['exists', 'used on real work', 'lessons confirmed', 'learning loop on', 'proven on three clients'];
+  const per = {}; let rungs = 0; const counts = [0, 0, 0, 0, 0, 0];
+  out.skills.forEach(s => { const l = level(s); s.level = l; rungs += l; counts[l]++; const p = per[s.cluster] = per[s.cluster] || { rungs: 0, total: 0 }; p.rungs += l; p.total += 5; });
+  const total = out.skills.length * 5;
+  const today = out.generated.slice(0, 10);
+  const row = { date: today, rungs, total, pct: Math.round(rungs / total * 100), levels: counts.slice(1),
+    perSector: Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(p.rungs / p.total * 100)])),
+    entries: out.totals.entries, dated: out.totals.datedEntries, skills: out.skills.length,
+    used: out.skills.filter(s => s.depth > 0).length, confirmed: out.skills.filter(s => s.conf && s.conf.confirmed).length,
+    loops: out.skills.filter(s => s.hasLoop).length, proven: counts[5], clients: out.clients.length,
+    taughtBy5: out.clients.filter(c => (c.lessonCount || 0) >= 5).length,
+    sourcesOk: (out.sources || []).filter(s => s.ok !== false).length, sources: (out.sources || []).length };
+  const ledgerPath = path.join(__dirname, 'growth-ledger.json');
+  let ledger = []; try { ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8')); if (!Array.isArray(ledger)) ledger = []; } catch (e) {}
+  ledger = ledger.filter(r => r.date !== today); ledger.push(row); ledger.sort((a, b) => a.date.localeCompare(b.date));
+  fs.writeFileSync(ledgerPath, JSON.stringify(ledger).replace(/\},\{/g, '},\n{'));   // one row per line so a git diff reads as a day
+  /* the week's note, computed, never written by hand: what climbed, who taught it, what to try */
+  const nowD = new Date(); const monday = new Date(nowD); monday.setDate(nowD.getDate() - ((nowD.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0);
+  const mondayIso = monday.getFullYear() + '-' + String(monday.getMonth() + 1).padStart(2, '0') + '-' + String(monday.getDate()).padStart(2, '0');
+  const before = ledger.filter(r => r.date < mondayIso).slice(-1)[0] || null;
+  const wkEntries = out.timeline.filter(e => e.date && e.date >= mondayIso);
+  const firstUse = {}; out.timeline.forEach(e => { if (!e.date || !e.skill) return; if (!firstUse[e.skill] || e.date < firstUse[e.skill]) firstUse[e.skill] = e.date; });
+  const firstUses = out.skills.filter(s => s.depth > 0 && firstUse[s.name] && firstUse[s.name] >= mondayIso).map(s => s.name);
+  const taughtBy = out.clients.map(c => ({ name: c.name, n: (c.lessons || []).filter(l => l.date && l.date >= mondayIso).length })).filter(x => x.n > 0).sort((a, b) => b.n - a.n);
+  const busy = Object.entries(wkEntries.reduce((a, e) => { a[e.cluster] = (a[e.cluster] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1])[0];
+  const tryNext = out.skills.filter(s => s.depth === 0 && (!busy || s.cluster === busy[0])).slice(0, 3).map(s => s.name);
+  out.skills.filter(s => s.depth === 0 && !tryNext.includes(s.name)).slice(0, Math.max(0, 3 - tryNext.length)).forEach(s => tryNext.push(s.name));
+  const askClient = out.clients.filter(c => c.waCheck && c.waCheck.open && c.waCheck.open.length && (c.lessonCount || 0) < 5).sort((a, b) => b.waCheck.open.length - a.waCheck.open.length)[0];
+  out.growth = { ladder: LADDER, today: row, history: ledger.slice(-120),
+    week: { monday: mondayIso, firstWeek: !before, rungsClimbed: before ? rungs - before.rungs : null, entriesAdded: wkEntries.length,
+      firstUses, confirmedEntries: wkEntries.filter(e => e.conf === 'confirmed').length, taughtBy: taughtBy.slice(0, 8),
+      loopsOn: before ? row.loops - before.loops : null, staleRules: out.timeline.filter(e => e.stale).length,
+      busySector: busy ? busy[0] : null, tryNext,
+      askClient: askClient ? { name: askClient.name, open: askClient.waCheck.open.length, lessons: askClient.lessonCount || 0 } : null } };
+  /* the cloud routine's weekly review and its source row (part 3 of the growth build) */
+  try {
+    const dir = path.join(HOME, 'bb-consultancy/synthesis');
+    const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^review-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort() : [];
+    const cloudPatterns = (learningsBySkill['bb-mother-brain'] || []).filter(e => e.via === 'cloud').length;
+    if (files.length) { const f = files[files.length - 1]; out.growth.review = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 1600) }; }
+    out.sources.push({ name: 'Cloud synthesis', detail: files.length ? files.length + ' weekly review' + (files.length === 1 ? '' : 's') + ', ' + cloudPatterns + ' cross-client patterns' : 'waiting for the first Sunday run, not a fault', newest: files.length ? files[files.length - 1].slice(7, 17) : null, ok: files.length ? true : null });
+  } catch (e) { out.sources.push({ name: 'Cloud synthesis', detail: 'unreadable: ' + e.message, newest: null, ok: false }); }
+  console.log('growth ledger:', row.rungs + ' of ' + row.total + ' rungs (' + row.pct + '%)', '· levels', counts.slice(1).join('/'), '· ' + ledger.length + ' day' + (ledger.length === 1 ? '' : 's') + ' kept', '· this week', out.growth.week.rungsClimbed == null ? 'first week' : (out.growth.week.rungsClimbed >= 0 ? '+' : '') + out.growth.week.rungsClimbed + ' rungs');
 }
 
 /* plaintext stays LOCAL ONLY (gitignored) - the published artifact is encrypted */
