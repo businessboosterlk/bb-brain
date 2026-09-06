@@ -40,9 +40,10 @@ Brain's Today line should say ten sources fed with none red.
 
 Manage, pause or delete it at https://claude.ai/code/routines/trig_01VxpMAuq2pJQYJ4vqdQFuiZ
 
-## What is not known yet
+## Proven on the first run, 2026-09-06
 
-Whether the cloud environment can clone and push the two private repositories. The first run
-tells. If it cannot, the run writes `synthesis/FAILED-<date>.md` in whichever repo it reached
-or the run log shows the clone refusal and the fix is granting the environment access to the
-two repositories on GitHub.
+The environment cloned both private repositories first time and pushed `cloud synthesis
+2026-09-06` (commit 72d4b2b) to main: six patterns (three PRINCIPLE, two PATTERN, one
+HYPOTHESIS) and a 460-word review, both house-style clean, nothing else touched. The Mac's
+21:30 backup run rebased it in the same evening and the Brain ingested it the same night.
+The run took about ten minutes on Opus 5.
