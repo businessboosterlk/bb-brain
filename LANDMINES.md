@@ -95,3 +95,20 @@ and 1440. The harness proves state, never colour.
 **Symptom:** the FALLBACK check went red three times on timing alone.
 **Root cause:** a hidden Browser pane throttles timers to one-second ticks.
 **Block:** the harness polls for the state it wants with a hard cap (until()), never a fixed sleep.
+
+## L-BRAIN-014 | The morning run died on a bare PATH and the first fix pinned the wrong folder
+**Symptom:** 07:20 on 2026-09-06, "node: command not found", yesterday's brain stayed live all day;
+the flag file and notification fired but nobody read them until the evening.
+**Root cause:** launchd runs with a bare PATH. The 21:30 run passes because bb-end.sh is a login
+shell. The first fix pinned Homebrew's folder; node on this Mac lives in ~/.local/node/bin, so the fix
+only passed in the interactive shell that already had it.
+**Block:** brain-agent.sh exports its own PATH with the real node folder first, proven by running the
+agent under `env -i` with a bare PATH before trusting it. Rule for every launchd job: prove it under a
+bare PATH, never in a login shell. Open: the shout reaches a file and a Mac notification, not a phone.
+
+## L-BRAIN-015 | One transient fetch failure turned a whole feed red
+**Symptom:** 20:28 on 2026-09-06, "systems feed online: OFFLINE fetch failed", three dependent
+checks red, publish refused, while the same endpoint answered 200 in 300ms a minute later.
+**Root cause:** the system fetch tried once. A one-second blip read as an outage.
+**Block:** three tries four seconds apart in the generator, then the honest OFFLINE. The agent's
+refusal was correct behaviour and stays.

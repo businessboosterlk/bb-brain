@@ -794,7 +794,15 @@ out.totals = {
 
 /* ── decay-loop verdicts + answer gaps (fetched at build time, applied to the dataset) ── */
 async function sbGet(pathq) {
-  const r = await fetch(SB_URL + pathq, { headers: { apikey: SB_KEY }, signal: AbortSignal.timeout(15000) });
+  /* a transient blip must not cost a whole feed: 2026-09-06 20:28 one "fetch failed" turned
+     three checks red and the agent refused to publish while the endpoint answered in 300ms a
+     minute later. Three tries, four seconds apart, then the honest OFFLINE. */
+  let r = null, lastErr = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try { r = await fetch(SB_URL + pathq, { headers: { apikey: SB_KEY }, signal: AbortSignal.timeout(15000) }); break; }
+    catch (e) { lastErr = e; if (attempt < 3) await new Promise(res => setTimeout(res, 4000)); }
+  }
+  if (!r) throw lastErr;
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
