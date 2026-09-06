@@ -1023,7 +1023,7 @@ Promise.all([
     const dir = path.join(HOME, 'bb-consultancy/synthesis');
     const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^review-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort() : [];
     const cloudPatterns = (learningsBySkill['bb-mother-brain'] || []).filter(e => e.via === 'cloud').length;
-    if (files.length) { const f = files[files.length - 1]; cloudReview = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 1600) }; }
+    if (files.length) { const f = files[files.length - 1]; cloudReview = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 4200) }; }   /* a 450-word note fits in ~3000; the cap only stops a runaway file bloating the encrypted payload */
     out.sources.push({ name: 'Cloud synthesis', detail: files.length ? files.length + ' weekly review' + (files.length === 1 ? '' : 's') + ', ' + cloudPatterns + ' cross-client patterns' : 'waiting for the first Sunday run, not a fault', newest: files.length ? files[files.length - 1].slice(7, 17) : null, ok: files.length ? true : null });
   } catch (e) { out.sources.push({ name: 'Cloud synthesis', detail: 'unreadable: ' + e.message, newest: null, ok: false }); }
   const row = { date: today, rungs, total, pct: Math.round(rungs / total * 100), levels: counts.slice(1),

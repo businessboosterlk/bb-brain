@@ -631,7 +631,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788712472074"></script>
+<script src="brain-data.enc.js?v=1788712853251"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2008,6 +2008,26 @@ function growthClause(){
   const d=(g.week||{}).rungsClimbed;
   return ` · Brain Index <b style="color:var(--text)">${g.today.pct}%</b>${d!=null&&d!==0?' ('+(d>0?'+':'')+d+' rungs this week)':''} · <a href="#" onclick="setView('growth');return false" style="color:var(--text-2);text-decoration:underline">Growth</a>`;
 }
+/* the cloud's review arrives as markdown. Render the four things it actually uses
+   (heading, bold, bullet, numbered line) and never print a raw asterisk. Escaped
+   FIRST, so nothing the routine writes can become markup. 2026-09-06. */
+const gBold=x=>x.replace(/\*\*([^*]+)\*\*/g,'<b style="color:var(--text)">$1</b>');
+function gMarkdown(t){
+  return String(t).split(/\n{2,}/).map(block=>{
+    const lines=block.split('\n').filter(l=>l.trim());
+    if(!lines.length)return '';
+    const h=lines[0].match(/^#+\s*(.+)$/);
+    if(h&&lines.length===1)return `<div style="font-weight:700;color:var(--text);font-size:13px;margin:16px 0 7px">${gBold(esc(h[1]))}</div>`;
+    /* a bullet may wrap over several lines, so fold every continuation into the
+       item above it. Without this a three-item list reads as one long sentence. */
+    const fold=(re)=>{ const items=[]; for(const l of lines){ if(re.test(l))items.push(l.replace(re,'')); else if(items.length)items[items.length-1]+=' '+l.trim(); else return null; } return items; };
+    if(/^\s*[-*]\s/.test(lines[0])){ const items=fold(/^\s*[-*]\s*/);
+      if(items)return `<ul style="margin:0 0 11px 18px;padding:0">${items.map(t=>`<li style="margin-bottom:6px">${gBold(esc(t))}</li>`).join('')}</ul>`; }
+    if(/^\s*\d+\.\s/.test(lines[0])){ const items=fold(/^\s*\d+\.\s*/);
+      if(items)return `<ol style="margin:0 0 11px 20px;padding:0">${items.map(t=>`<li style="margin-bottom:6px">${gBold(esc(t))}</li>`).join('')}</ol>`; }
+    return `<p style="margin:0 0 11px">${gBold(esc(lines.join(' ')))}</p>`;
+  }).join('');
+}
 function renderGrowth(){
   const el=document.getElementById('growth-view'); const g=D.growth;
   if(!g||!g.today){ el.innerHTML='<h2 style="font-size:19px">Growth</h2><p style="color:var(--text-3);font-size:12.5px">The ledger has not been built yet. It appears after the next feed.</p>'; return; }
@@ -2039,8 +2059,8 @@ function renderGrowth(){
      ${w.taughtBy&&w.taughtBy.length?`Clients that taught it: ${w.taughtBy.map(x=>esc(x.name)+' ('+x.n+')').join(', ')}.`:'No client taught it a dated lesson this week.'}
      ${w.staleRules?`<br>${w.staleRules} older rule${w.staleRules===1?'':'s'} now read as stale and want a fresh use.`:''}
    </div>
-   ${g.review?`<h3 style="font-size:14px;margin:22px 0 4px">The brain's own review</h3><p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Written by the Sunday cloud run on ${esc(g.review.date)} from every client dossier.</p><div class="tl-item" style="display:block;font-size:12.5px;line-height:1.7;white-space:pre-wrap">${esc(g.review.text)}</div>`:''}
-   <h3 style="font-size:14px;margin:22px 0 4px">Try next week</h3>
+   ${g.review?`<h3 style="font-size:14px;margin:22px 0 4px">The brain's own review</h3><p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Written by the Sunday cloud run on ${esc(g.review.date)} from every client dossier.</p><div class="tl-item" style="display:block;font-size:12.5px;line-height:1.65">${gMarkdown(g.review.text)}</div>`:''}
+   <h3 style="font-size:14px;margin:22px 0 4px">Skills to try next week</h3>
    <p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Each first use is one rung${w.busySector?', picked from '+esc(nm(w.busySector))+', the sector the team worked in most':''}.</p>
    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${(w.tryNext||[]).map(n=>`<span class="tl-item" style="display:inline-flex;gap:8px;align-items:center;padding:8px 10px"><b style="font-size:12.5px">${esc(humanSkill(n))}</b><button class="tbtn" style="font-size:11px" onclick="pushSkillNudge('${esc(n)}')">Push to team</button></span>`).join('')}</div>
    ${w.askClient?`<div class="tl-item" style="display:block;font-size:12.5px">${esc(w.askClient.name)} has ${w.askClient.open} WhatsApp ask${w.askClient.open===1?'':'s'} with no task and only ${w.askClient.lessons} lesson${w.askClient.lessons===1?'':'s'} on record. Log what you learn there first.</div>`:''}
@@ -3214,6 +3234,8 @@ async function runSelfTest(){
     ok('Growth: levels add up to the skills', !!(g&&g.today&&g.today.levels.reduce((a,b)=>a+b,0)===D.skills.length), g&&g.today?g.today.levels.join('/')+' = '+D.skills.length:'missing');
     ok('Growth: the index is recomputed from the skills, never stored alone', !!(g&&g.today&&g.today.rungs===D.skills.reduce((a,x)=>a+(x.level||0),0)), 'rungs equal the sum of skill levels');
     try{ setView('growth'); renderGrowth(); const gv=document.getElementById('growth-view'); const gtxt=gv.innerText;   /* rendered directly: setView swaps views after a 200ms fade */
+      const rawMd=/\*\*|^##\s/m.test(gtxt);
+      ok('Growth: the cloud review reads as a page, never as raw markdown', !rawMd&&(!D.growth.review||/own review/.test(gtxt)), rawMd?'raw markdown visible':(D.growth.review?'review rendered':'no review yet'));
       ok('Growth: page shows the bar, every sector, the week and the ladder', /%/.test(gtxt)&&(D.clusters||[]).every(c=>gtxt.includes(c.name))&&/What 100 means/.test(gtxt)&&/Week by week/.test(gtxt)&&gv.querySelectorAll('button').length>0, gv.querySelectorAll('button').length+' actions on the page');
     }catch(e){ ok('Growth: page renders', false, e.message); }
     ok('Report: carries the Brain Index', /Brain Index \d+ percent/.test(document.getElementById('report-txt').value), 'line present');
