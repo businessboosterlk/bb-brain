@@ -1017,6 +1017,15 @@ Promise.all([
   out.skills.forEach(s => { const l = level(s); s.level = l; rungs += l; counts[l]++; const p = per[s.cluster] = per[s.cluster] || { rungs: 0, total: 0 }; p.rungs += l; p.total += 5; });
   const total = out.skills.length * 5;
   const today = out.generated.slice(0, 10);
+  let cloudReview = null;
+  /* the cloud routine's weekly review and its source row (part 3 of the growth build) */
+  try {
+    const dir = path.join(HOME, 'bb-consultancy/synthesis');
+    const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^review-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort() : [];
+    const cloudPatterns = (learningsBySkill['bb-mother-brain'] || []).filter(e => e.via === 'cloud').length;
+    if (files.length) { const f = files[files.length - 1]; cloudReview = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 1600) }; }
+    out.sources.push({ name: 'Cloud synthesis', detail: files.length ? files.length + ' weekly review' + (files.length === 1 ? '' : 's') + ', ' + cloudPatterns + ' cross-client patterns' : 'waiting for the first Sunday run, not a fault', newest: files.length ? files[files.length - 1].slice(7, 17) : null, ok: files.length ? true : null });
+  } catch (e) { out.sources.push({ name: 'Cloud synthesis', detail: 'unreadable: ' + e.message, newest: null, ok: false }); }
   const row = { date: today, rungs, total, pct: Math.round(rungs / total * 100), levels: counts.slice(1),
     perSector: Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(p.rungs / p.total * 100)])),
     entries: out.totals.entries, dated: out.totals.datedEntries, skills: out.skills.length,
@@ -1046,14 +1055,7 @@ Promise.all([
       loopsOn: before ? row.loops - before.loops : null, staleRules: out.timeline.filter(e => e.stale).length,
       busySector: busy ? busy[0] : null, tryNext,
       askClient: askClient ? { name: askClient.name, open: askClient.waCheck.open.length, lessons: askClient.lessonCount || 0 } : null } };
-  /* the cloud routine's weekly review and its source row (part 3 of the growth build) */
-  try {
-    const dir = path.join(HOME, 'bb-consultancy/synthesis');
-    const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^review-\d{4}-\d{2}-\d{2}\.md$/.test(f)).sort() : [];
-    const cloudPatterns = (learningsBySkill['bb-mother-brain'] || []).filter(e => e.via === 'cloud').length;
-    if (files.length) { const f = files[files.length - 1]; out.growth.review = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 1600) }; }
-    out.sources.push({ name: 'Cloud synthesis', detail: files.length ? files.length + ' weekly review' + (files.length === 1 ? '' : 's') + ', ' + cloudPatterns + ' cross-client patterns' : 'waiting for the first Sunday run, not a fault', newest: files.length ? files[files.length - 1].slice(7, 17) : null, ok: files.length ? true : null });
-  } catch (e) { out.sources.push({ name: 'Cloud synthesis', detail: 'unreadable: ' + e.message, newest: null, ok: false }); }
+  if (cloudReview) out.growth.review = cloudReview;
   console.log('growth ledger:', row.rungs + ' of ' + row.total + ' rungs (' + row.pct + '%)', '· levels', counts.slice(1).join('/'), '· ' + ledger.length + ' day' + (ledger.length === 1 ? '' : 's') + ' kept', '· this week', out.growth.week.rungsClimbed == null ? 'first week' : (out.growth.week.rungsClimbed >= 0 ? '+' : '') + out.growth.week.rungsClimbed + ' rungs');
 }
 
