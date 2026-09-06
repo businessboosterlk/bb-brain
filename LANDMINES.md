@@ -47,7 +47,7 @@ check: any decoder path change must be exercised in a sabotage copy.
 
 ## L-BRAIN-007 | Every camera tween flew into empty space
 **Root cause:** the model was recentred before scaling, leaving it 19 units off
-origin, and sector boxes included the spinal cord.
+origin and sector boxes included the spinal cord.
 **Block:** normalise after scale in root space; centres are outlier-filtered
 means. The self-test CENTRES check asserts every sector centre sits inside the
 core radius.
@@ -57,19 +57,19 @@ core radius.
 or not.
 **Root cause:** push_repo did `git add -A` with no verification.
 **Block:** brain-agent.sh runs build, then verify-brain.js, then publishes only
-on green, and SHOUTS (flag file plus notification) on red. bb-end.sh calls the
+on green and SHOUTS (flag file plus notification) on red. bb-end.sh calls the
 agent instead of pushing the brain itself.
 
 ## L-BRAIN-009 | Test bench mistaken for the live site
 **Symptom:** "still the same thing shows" on a localhost preview.
-**Block:** manual. Never leave a preview server running past a session, and any
+**Block:** manual. Never leave a preview server running past a session and any
 bench copy carries a visible TEST BENCH banner if it is ever shown to Thulaib.
 
 ## L-BRAIN-010 | A check that scans the page found itself
 **Symptom:** the agent's very first real run refused to publish: "no secret
 literals in index" and the rock-solid guard both went red the moment the
 in-page self-test was added.
-**Root cause:** the self-test carried the secret PATTERNS as literal text, and
+**Root cause:** the self-test carried the secret PATTERNS as literal text and
 both the page verifier and guard.py scan the page for those patterns. The check
 matched its own source. Same class as the registry's "a check must not search
 a document that CONTAINS the check".
