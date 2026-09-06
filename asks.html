@@ -124,7 +124,7 @@ list.addEventListener('click',function(ev){
   }).catch(function(e){card.querySelectorAll('button').forEach(function(x){x.disabled=false;});toast('That did not save: '+e.message);});
 });
 window.BBASKS={load:load,api:api,rows:function(){return rows;}};
-loadPeople().then(load);
+var READY=loadPeople().then(load);
 if('serviceWorker' in navigator){try{navigator.serviceWorker.register('sw.js');}catch(e){}}
 
 /* ── SELFTEST (?selftest): the checks a phone would fail and a desktop would pass ── */
@@ -148,7 +148,7 @@ if(location.search.indexOf('selftest')>-1){
     ok('Shell: status strip and topbar follow the inset', Math.round(sf)===59&&Math.round(tb)===69, 'strip '+sf+'px, topbar padding '+tb+'px at 59');
     ok('Shell: viewport-fit=cover present', /viewport-fit=cover/.test(document.querySelector('meta[name=viewport]').content), 'meta read');
     ok('Shell: manifest and theme colour present', !!document.querySelector('link[rel=manifest]')&&!!document.querySelector('meta[name=theme-color]'), 'both read');
-    var clone=document.body.cloneNode(true); clone.querySelectorAll('.ask p,.ask .meta,#st,option').forEach(function(e){e.remove();}); var txt=clone.innerText||clone.textContent;
+    var clone=document.body.cloneNode(true); clone.querySelectorAll('.ask p,.ask .meta,#st,option,script').forEach(function(e){e.remove();}); var txt=clone.innerText||clone.textContent;
     ok('Copy: BB\'s own words carry no em or en dash and no emoji', !/[\u2013\u2014]/.test(txt)&&!/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u.test(txt), txt.length+' chars of BB copy scanned, client quotes excluded');
     ok('Tells: no eyebrow bar, no gradient text', !document.querySelector('[class*=eyebrow],[class*=kicker]')&&!/background-clip:\s*text/.test(document.querySelector('style').textContent), 'style and markup scanned');
     ok('Data: asks load as rows', Array.isArray(rows), rows.length+' proposed asks in the list');
@@ -160,7 +160,7 @@ if(location.search.indexOf('selftest')>-1){
       window.BBASKS.selftest=R;
     });
   };
-  var wait=function(n){ if(rows.length||n>40) run(); else setTimeout(function(){wait(n+1);},250); }; wait(0);
+  READY.then(run);
 }
 })();
 </script>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#070b12">
+<title>The 2027 plan</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-48.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* BB EXECUTION SYSTEM PAGE (2026-09-05). Every move of the 2027 growth plan, grouped by
+   month, with its owner and the done_when a stranger can verify. Reads bb_plan_moves
+   (anon), writes through bb_plan_update. No overlays by design. Same tokens as asks.html
+   and the Digital Brain so the three read as one system. */
+:root{
+  --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+  --bg:#070b12; --surface:#0d1420; --surface-2:#121a29; --line:rgba(160,190,255,.09); --line-2:rgba(160,190,255,.18);
+  --text:#e9eef8; --text-2:#9aa8c0; --text-3:#5d6a83; --blue:#5B9DFF; --green:#3ccf8e; --amber:#f2b84b; --danger:#ff6b6b;
+  --r:16px; --r-md:12px; --r-sm:9px; --ease:cubic-bezier(.16,1,.3,1); --dur:200ms;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{touch-action:manipulation;background:var(--bg);overscroll-behavior-y:none}
+body{margin:0;font:15px/1.5 'Inter',system-ui,sans-serif;color:var(--text);background:var(--bg);overscroll-behavior-y:none;padding-bottom:calc(28px + var(--sab));min-height:100dvh}
+button,label,[role=button]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+@media (pointer:coarse){input,select,textarea{font-size:16px!important}}
+.statusfill{position:fixed;top:0;left:0;right:0;height:var(--sat);background:var(--bg);z-index:9}
+.topbar{position:sticky;top:0;z-index:8;background:rgba(7,11,18,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:calc(10px + var(--sat)) 16px 10px}
+.topbar .row{display:flex;align-items:center;gap:12px;max-width:760px;margin:0 auto}
+h1{font:600 19px/1.2 'Poppins',system-ui,sans-serif;margin:0;flex:1;letter-spacing:-.01em}
+.count{font-variant-numeric:tabular-nums;color:var(--text-2);font-size:13.5px;white-space:nowrap}
+.controls{display:flex;flex-wrap:wrap;gap:8px;max-width:760px;margin:10px auto 0}
+.controls select{flex:1 1 calc(50% - 4px)}
+@media (min-width:600px){.controls select{flex:1 1 0}}
+select{min-width:0;min-height:44px;background:var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa8c0' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;color:var(--text);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:0 36px 0 12px;font:inherit;font-size:15px;appearance:none;-webkit-appearance:none;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+select:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(91,157,255,.35)}
+.prog{max-width:760px;margin:10px auto 0;height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--green);width:0;transition:width var(--dur) var(--ease)}
+main{max-width:760px;margin:0 auto;padding:16px}
+.group{margin:0 0 22px}
+.group h2{font:600 13.5px/1.3 'Inter',system-ui,sans-serif;color:var(--text-2);margin:0 0 10px;display:flex;justify-content:space-between;align-items:baseline}
+.group h2 span{font-variant-numeric:tabular-nums;color:var(--text-3);font-weight:500}
+.mv{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 14px 12px;margin:0 0 10px;animation:in var(--dur) var(--ease) backwards}
+.mv.done{opacity:.55}
+.mv.blocked{border-color:rgba(255,107,107,.45)}
+.mv.doing{border-color:rgba(91,157,255,.45)}
+@keyframes in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px;color:var(--text-3);margin:0 0 6px}
+.meta b{color:var(--text-2);font-weight:500}
+.own{padding:1px 8px;border-radius:999px;border:1px solid var(--line-2);color:var(--text-2)}
+.own.THULAIB{border-color:var(--amber);color:var(--amber)}
+.own.CLAUDE{border-color:var(--blue);color:var(--blue)}
+.mv h3{font:600 15.5px/1.35 'Inter',system-ui,sans-serif;margin:0 0 6px}
+.mv p{margin:0 0 8px;color:var(--text-2);font-size:14px}
+.mv p.dw{color:var(--text);font-size:13.5px}
+.mv p.dw b{font-weight:600;color:var(--text-2)}
+.note{width:100%;min-height:44px;background:var(--surface-2);color:var(--text);border:1px solid var(--line-2);border-radius:var(--r-sm);padding:10px 12px;font:inherit;font-size:15px;margin:0 0 8px;resize:vertical}
+.acts{display:flex;gap:8px}
+.btn{min-height:44px;flex:1;border-radius:var(--r-sm);border:1px solid var(--line-2);background:var(--surface-2);color:var(--text);font:600 14px/1 'Inter',system-ui,sans-serif;cursor:pointer;transition:transform var(--dur) var(--ease)}
+.btn:active{transform:scale(.98)}
+.btn.ok{background:var(--green);border-color:var(--green);color:#06101f}
+.btn.go{background:var(--blue);border-color:var(--blue);color:#06101f}
+.btn[disabled]{opacity:.55;cursor:default}
+.empty{color:var(--text-2);padding:40px 16px;text-align:center}
+.empty b{display:block;color:var(--text);font:600 17px/1.3 'Poppins',system-ui,sans-serif;margin:0 0 6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + var(--sab));transform:translateX(-50%) translateY(20px);opacity:0;background:var(--surface-2);border:1px solid var(--line-2);color:var(--text);padding:12px 16px;border-radius:var(--r-md);font-size:13.5px;max-width:calc(100% - 32px);transition:opacity var(--dur),transform var(--dur) var(--ease);z-index:20;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%)}
+.lead{color:var(--text-3);font-size:12.5px;max-width:760px;margin:0 auto;padding:0 16px 8px}
+#st{max-width:760px;margin:0 auto;padding:16px;font:12.5px/1.5 ui-monospace,monospace;white-space:pre-wrap;color:var(--text-2);display:none}
+@media (prefers-reduced-motion:reduce){.mv,.toast,.btn,.prog i{animation:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="statusfill"></div>
+<header class="topbar">
+  <div class="row"><h1>The 2027 plan</h1><div class="count" id="count">loading</div></div>
+  <div class="controls">
+    <select id="who" aria-label="Your name"><option value="">Your name</option></select>
+    <select id="owner" aria-label="Owner"><option value="">Everyone's moves</option><option value="THULAIB">Thulaib's moves</option><option value="CLAUDE">Claude's moves</option><option value="TEAM">Team moves</option><option value="HIRE">Hires</option></select>
+    <select id="show" aria-label="Show"><option value="open">Open only</option><option value="all">Everything</option><option value="done">Done</option><option value="blocked">Blocked</option></select>
+  </div>
+  <div class="prog" aria-hidden="true"><i id="bar"></i></div>
+</header>
+<p class="lead">One card per move, grouped by the month it is due. Doing, done or blocked, with a note. Monday at 08:40 the plan reports itself to Thulaib's phone.</p>
+<main id="list"><div class="empty">Loading the plan</div></main>
+<pre id="st"></pre>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function(){
+'use strict';
+var SB='https://yyviiwnqgphyklcoijyd.supabase.co/rest/v1', KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5dmlpd25xZ3BoeWtsY29panlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjE5OTEsImV4cCI6MjA5MTI5Nzk5MX0.I8YiBr-rfLVcc6DE8Z1PxEP2oxXCelv6mxqAY_wY7lc';
+var H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+var $=function(s){return document.querySelector(s)}, list=$('#list'), who=$('#who'), ownerSel=$('#owner'), showSel=$('#show'), countEl=$('#count'), bar=$('#bar');
+var rows=[];
+function api(path,opt){opt=opt||{};opt.headers=H;opt.signal=AbortSignal.timeout(15000);return fetch(SB+path,opt).then(function(r){return r.text().then(function(t){if(!r.ok)throw new Error('HTTP '+r.status+' '+t.slice(0,160));return t?JSON.parse(t):null;});});}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function mlabel(ym){var p=ym.split('-');return MON[+p[1]-1]+' '+p[0];}
+var toastT; function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){t.classList.remove('on');},2800);}
+function visible(){
+  var o=ownerSel.value, s=showSel.value;
+  return rows.filter(function(r){ if(o&&r.owner!==o) return false; if(s==='open') return r.status==='planned'||r.status==='doing'; if(s==='done') return r.status==='done'; if(s==='blocked') return r.status==='blocked'; return true; });
+}
+function render(){
+  var done=rows.filter(function(r){return r.status==='done';}).length;
+  countEl.textContent=rows.length?(done+' of '+rows.length+' done'):'no moves yet';
+  bar.style.width=rows.length?Math.round(done/rows.length*100)+'%':'0';
+  var shown=visible();
+  if(!shown.length){list.innerHTML='<div class="empty"><b>'+(rows.length?'Nothing here':'The plan has not been loaded')+'</b>'+(rows.length?'Change the filters above.':'The moves arrive from the growth plan builder.')+'</div>';return;}
+  var by={}; shown.forEach(function(r){(by[r.start_month]=by[r.start_month]||[]).push(r);});
+  list.innerHTML=Object.keys(by).sort().map(function(m){
+    return '<section class="group"><h2>'+esc(mlabel(m))+'<span>'+by[m].length+'</span></h2>'+by[m].map(function(r,i){
+      return '<article class="mv '+esc(r.status)+'" data-id="'+r.id+'" style="animation-delay:'+Math.min(i*30,240)+'ms"><div class="meta"><span class="own '+esc(r.owner)+'">'+esc(r.owner)+'</span><b>'+esc(r.segment)+'</b><span>'+esc(r.status)+(r.updated_by?' · '+esc(r.updated_by):'')+'</span></div><h3>'+esc(r.title)+'</h3><p>'+esc(r.what)+'</p><p class="dw"><b>Done when</b> '+esc(r.done_when)+'</p>'+(r.note?'<p class="dw"><b>Note</b> '+esc(r.note)+'</p>':'')+'<textarea class="note" placeholder="A note, optional" rows="1"></textarea><div class="acts"><button class="btn go" data-st="doing">Doing</button><button class="btn ok" data-st="done">Done</button><button class="btn" data-st="blocked">Blocked</button></div></article>';
+    }).join('')+'</section>';
+  }).join('');
+}
+function load(){
+  return api('/bb_plan_moves?select=id,move_id,segment,title,what,owner,start_month,due_on,done_when,status,note,updated_by&order=due_on.asc,id.asc&limit=500').then(function(j){rows=j||[];render();}).catch(function(e){list.innerHTML='<div class="empty"><b>Could not load</b>'+esc(e.message)+'</div>';countEl.textContent='offline';});
+}
+function loadPeople(){
+  return api('/team_members?select=name&active=eq.true&order=name').then(function(j){var saved='';try{saved=localStorage.getItem('bb_asks_who')||'';}catch(e){}(j||[]).forEach(function(p){var o=document.createElement('option');o.value=p.name;o.textContent=p.name;who.appendChild(o);});who.value=saved;}).catch(function(){});
+}
+who.addEventListener('change',function(){try{localStorage.setItem('bb_asks_who',who.value);}catch(e){}});
+ownerSel.addEventListener('change',render); showSel.addEventListener('change',render);
+list.addEventListener('click',function(ev){
+  var b=ev.target.closest('button[data-st]'); if(!b) return;
+  var card=b.closest('.mv'), id=+card.dataset.id, st=b.dataset.st, note=card.querySelector('.note').value.trim();
+  if(!who.value){toast('Pick your name first, at the top');who.focus();return;}
+  card.querySelectorAll('button').forEach(function(x){x.disabled=true;});
+  api('/rpc/bb_plan_update',{method:'POST',body:JSON.stringify({p_id:id,p_status:st,p_note:note||null,p_who:who.value})}).then(function(){
+    var r=rows.filter(function(x){return x.id===id;})[0]; if(r){r.status=st;r.updated_by=who.value;if(note)r.note=note;}
+    render(); toast(st==='done'?'Done. Kept with your name.':st==='blocked'?'Marked blocked. Say why in the note if you have not.':'Marked doing.');
+  }).catch(function(e){card.querySelectorAll('button').forEach(function(x){x.disabled=false;});toast('That did not save: '+e.message);});
+});
+window.BBPLAN={load:load,api:api,rows:function(){return rows;}};
+var READY=loadPeople().then(load);
+if('serviceWorker' in navigator){try{navigator.serviceWorker.register('sw.js');}catch(e){}}
+
+if(location.search.indexOf('selftest')>-1){
+  var R=[], ok=function(n,p,d){R.push({n:n,p:!!p,d:String(d==null?'':d).slice(0,140)});};
+  var run=function(){
+    var cs=getComputedStyle(document.documentElement);
+    ok('App: double tap does not zoom', cs.touchAction==='manipulation', cs.touchAction);
+    ok('App: the page does not pull to refresh', cs.overscrollBehaviorY==='none', cs.overscrollBehaviorY);
+    var coarse=matchMedia('(pointer:coarse)').matches;
+    var fields=document.querySelectorAll('input,select,textarea'), small=[].slice.call(fields).filter(function(e){return parseFloat(getComputedStyle(e).fontSize)<16;});
+    ok('App: no field under 16px'+(coarse?'':' (fine pointer, rule is coarse only)'), !coarse||!small.length, small.length+' small of '+fields.length);
+    var btns=[].slice.call(document.querySelectorAll('button,select,textarea'));
+    var tiny=btns.filter(function(b){var r=b.getBoundingClientRect();return r.width&&r.height&&(r.height<44||r.width<44);});
+    ok('App: every tap target is at least 44px', btns.length>0&&!tiny.length, tiny.length+' of '+btns.length+' under 44px');
+    var over=[].slice.call(document.querySelectorAll('body *')).filter(function(e){var r=e.getBoundingClientRect();return r.width>0&&r.right>innerWidth+1&&getComputedStyle(e).position!=='fixed';});
+    ok('App: nothing clipped off the right edge', innerWidth>0&&!over.length, innerWidth?over.length+' overflow of '+document.querySelectorAll('body *').length:'viewport read 0, proved nothing');
+    document.documentElement.style.setProperty('--sat','59px');
+    var sf=document.querySelector('.statusfill').getBoundingClientRect().height, tb=parseFloat(getComputedStyle(document.querySelector('.topbar')).paddingTop);
+    document.documentElement.style.removeProperty('--sat');
+    ok('Shell: status strip and topbar follow the inset', Math.round(sf)===59&&Math.round(tb)===69, 'strip '+sf+'px, topbar padding '+tb+'px at 59');
+    ok('Shell: viewport-fit=cover, manifest, theme colour', /viewport-fit=cover/.test(document.querySelector('meta[name=viewport]').content)&&!!document.querySelector('link[rel=manifest]')&&!!document.querySelector('meta[name=theme-color]'), 'all three read');
+    var clone=document.body.cloneNode(true); clone.querySelectorAll('.mv h3,.mv p,#st,option,script').forEach(function(e){e.remove();}); var txt=clone.innerText||clone.textContent;
+    ok('Copy: BB\'s own words carry no em or en dash and no emoji', !/[\u2013\u2014]/.test(txt)&&!/[\u{1F300}-\u{1FAFF}\u2600-\u27BF]/u.test(txt), txt.length+' chars scanned, plan text and script excluded');
+    ok('Data: moves load as rows', Array.isArray(rows), rows.length+' moves');
+    ok('Data: every move carries owner, month and done_when', rows.length>0&&rows.every(function(r){return r.owner&&/^\d{4}-\d{2}$/.test(r.start_month)&&r.done_when;}), rows.length?rows.length+' rows checked':'0 rows, this check proved nothing');
+    ok('Data: people picker filled', who.options.length>2, (who.options.length-1)+' names');
+    api('/rpc/bb_plan_update',{method:'POST',body:JSON.stringify({p_id:-1,p_status:'done',p_note:null,p_who:'SELFTEST'})}).then(function(){ok('Data: update door refuses a bad id', false, 'it accepted id -1');}).catch(function(e){ok('Data: update door refuses a bad id', /no move -1/.test(e.message), e.message);}).then(function(){
+      var pass=R.filter(function(x){return x.p;}).length; var st=$('#st'); st.style.display='block';
+      st.textContent=R.map(function(x){return (x.p?'ok   ':'FAIL ')+x.n+' · '+x.d;}).join('\n')+'\nPLAN-SELFTEST: '+pass+' of '+R.length+' green'; window.BBPLAN.selftest=R;
+    });
+  };
+  READY.then(run);   /* run when the data call settles, empty or not; polling with setTimeout is throttled in a hidden pane */
+}
+})();
+</script>
+</body>
+</html>
