@@ -1,4 +1,7 @@
 #!/bin/bash
+# launchd runs with a bare PATH and cannot see Homebrew node: the 07:20 run on 2026-09-06 died with
+# "node: command not found" while the 21:30 run (via bb-end.sh, a login shell) passed. Own the PATH here.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 # brain-agent.sh (2026-08-31): the Digital Brain feeds itself, checks itself,
 # publishes itself and leaves a trace. Build, then verify, then publish, and any
 # red STOPS the publish and SHOUTS. Runs at 07:15 via launchd and from bb-end.sh
