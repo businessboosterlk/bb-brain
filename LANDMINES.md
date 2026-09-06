@@ -112,3 +112,24 @@ checks red, publish refused, while the same endpoint answered 200 in 300ms a min
 **Root cause:** the system fetch tried once. A one-second blip read as an outage.
 **Block:** three tries four seconds apart in the generator, then the honest OFFLINE. The agent's
 refusal was correct behaviour and stays.
+
+## L-BRAIN-016 | A new mouth was counted after the ledger had already counted the mouths
+**Symptom:** the growth ledger recorded 9 of 9 sources on the day a tenth source went live.
+**Root cause:** the cloud source row was pushed AFTER the ledger row was built, so the count was
+one short before anyone could see it.
+**Block:** the source row is registered before the ledger row is computed. Rule for every new
+mouth: register the source, then count. A count taken mid-registration is a count of the past.
+
+## L-BRAIN-017 | The cloud wrote markdown and the page printed the asterisks
+**Symptom:** the first cloud review reached the Growth page as raw text, "**bold**" and "##"
+visible, wrapped bullets run together into one sentence.
+**Root cause:** the review was rendered with pre-wrap and escaping, no formatter.
+**Block:** gMarkdown() renders heading, bold, bullet and numbered lines, escaping FIRST so the
+routine's text can never become markup and folding wrapped lines into their item. The harness
+fails if a double asterisk or a hash heading is visible on the page.
+
+## L-BRAIN-018 | A text cap cut the brain's own review mid-sentence
+**Symptom:** the review ended at "read a client's pub" on the page while the file was complete.
+**Root cause:** a 1600-character slice sized before anyone had seen a real review.
+**Block:** 4200 characters, which holds the 450-word note the prompt asks for with room to spare.
+The cap exists only to stop a runaway file bloating the encrypted payload, never to trim content.
