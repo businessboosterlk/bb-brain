@@ -133,3 +133,26 @@ fails if a double asterisk or a hash heading is visible on the page.
 **Root cause:** a 1600-character slice sized before anyone had seen a real review.
 **Block:** 4200 characters, which holds the 450-word note the prompt asks for with room to spare.
 The cap exists only to stop a runaway file bloating the encrypted payload, never to trim content.
+
+## L-BRAIN-019 | The morning feed failed because the Mac woke faster than its Wi-Fi
+**Symptom:** 07:15 on 2026-09-07, "fetch failed" on the live tables, four checks red, no
+publish. Supabase answered in 236ms two hours later from the same machine.
+**Root cause:** the generator's three retries over eight seconds are right for a network blip
+and far too short for a Mac that has just woken. This is not L-BRAIN-015 returning: that was a
+blip mid-session, this is a wake race at the scheduled hour.
+**Block:** brain-agent.sh waits up to two minutes for the Supabase host to answer BEFORE it
+builds, then proceeds anyway so it can never hang. The agent owns "am I ready to run", the
+generator owns "read the data". The refusal to publish was correct behaviour and stays.
+
+## L-BRAIN-020 | The home-screen icon was the wordmark cropped to "USINESS OOSTER"
+**Symptom:** Thulaib: "the app cover is so ugly". The icon was the full BUSINESS BOOSTER
+wordmark squeezed into a square, so both words were cut off at both edges and read as an
+illegible white smear at 60px. Four other BB apps had been fixed on 4 September. The Brain was
+never included.
+**Root cause:** a wordmark is not an icon and an estate-wide fix was applied per app by hand
+with no list of which apps still carried the old one.
+**Block:** build-icons.py generates every size from one canonical icon.svg and verify-brain.js
+now proves each file exists, is the size it claims, is not a byte-for-byte copy of its
+neighbour (eight identical files is how a dead render hides) and that the manifest declares
+only files that exist. Manual rule: when a fix is applied per app, write down which apps were
+done, because the one that was missed is invisible until somebody complains.
