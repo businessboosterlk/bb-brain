@@ -156,3 +156,21 @@ now proves each file exists, is the size it claims, is not a byte-for-byte copy 
 neighbour (eight identical files is how a dead render hides) and that the manifest declares
 only files that exist. Manual rule: when a fix is applied per app, write down which apps were
 done, because the one that was missed is invisible until somebody complains.
+
+## L-BRAIN-021 | A local named "out" shadowed the global and emptied the client roster
+**Symptom:** every pillar's evidence list came back with zero recognised clients, silently.
+**Root cause:** the pattern parser used `const out = []` for its own rows, shadowing the global
+`out` object the whole build writes to, so `out.clients` inside it was undefined.
+**Block:** the local is `rows`. What CAUGHT it was the count printed beside the list ("named
+clients recognised: 0 of 33"). Rule: every list the generator builds prints its denominator,
+because a silently empty list looks exactly like a list with nothing to say.
+
+## L-BRAIN-022 | A free-text evidence line turned prose into client names
+**Symptom:** the Pillars page said "32 pillars from 48 clients". BB has 33.
+**Root cause:** a pattern's Tier line carries prose after the count ("n=4: Mold 1 gaps derived,
+... not clients. It is a build principle") and splitting it on commas made sentence fragments
+into client names.
+**Block:** every parsed name is matched against the real client roster and anything unrecognised
+is dropped, so a count on that page can only ever be clients the brain knows. A pillar with no
+recognised names says "cases", never "clients". Same family as the estate's number rules: a
+figure a reader can check is the only kind worth printing.

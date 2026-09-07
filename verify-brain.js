@@ -59,6 +59,9 @@ try {
   const out = cp.execFileSync('python3', [path.join(process.env.HOME, '.claude/skills/bb-rock-solid/guard.py'), path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
   ok('rock-solid guard', /PASS/.test(out), out.trim().split('\n').pop());
 } catch (e) { ok('rock-solid guard', false, String(e.stdout || e.message).trim().split('\n').pop()); }
+ok('pillars graded and evidenced', !!(d && d.pillars && d.pillars.length >= 10 && d.pillars.every(p => p.tier && p.pattern && p.n >= 1)
+  && d.pillars.filter(p => p.tier === 'PRINCIPLE').every(p => p.n >= 4)),
+  d && d.pillars ? d.pillars.length + ' pillars, ' + d.pillars.filter(p => p.n >= 4).length + ' proven on four or more clients' : 'none');
 /* the growth ledger (2026-09-06): the brain's history of itself, counts only, in git */
 try {
   const L = JSON.parse(fs.readFileSync(path.join(HERE, 'growth-ledger.json'), 'utf8'));

@@ -448,6 +448,7 @@ table.r-tbl td b{color:#0e1830}
     <div id="more-menu" role="menu">
       <button role="menuitem" onclick="closeMore();setView('tl')">Timeline</button>
       <button role="menuitem" onclick="closeMore();setView('gaps')">Gap radar</button>
+      <button role="menuitem" onclick="closeMore();setView('pillars')">Pillars</button>
       <button role="menuitem" onclick="closeMore();setView('growth')">Growth</button>
       <button role="menuitem" onclick="closeMore();openReport()">Weekly report</button>
       <button role="menuitem" onclick="closeMore();openBYS()">Before you start a task</button>
@@ -500,6 +501,7 @@ table.r-tbl td b{color:#0e1830}
 <div class="tl" id="gaps-view" style="display:none"></div>
 <div class="tl" id="today-view" style="display:none"></div>
 <div class="tl" id="growth-view" style="display:none"></div>
+<div class="tl" id="pillars-view" style="display:none"></div>
 <div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
 <div class="tl" id="explore-view" style="display:none;max-width:none">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="x3d-chips"></div>
@@ -631,7 +633,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1788753116488"></script>
+<script src="brain-data.enc.js?v=1788761846106"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -1999,6 +2001,64 @@ function renderToday(){
      })()}
      ${machine.length?`<div style="margin-bottom:8px"><button class="fchip" onclick="const m=document.getElementById('machine-block');m.style.display=m.style.display==='none'?'block':'none';this.textContent=m.style.display==='none'?'Show the machine':'Hide the machine'">Show the machine</button><div id="machine-block" style="display:none;margin-top:12px">${machine.join('')}</div></div>`:''}`;
 }
+/* ═══ THE PILLARS (2026-09-07, Thulaib: "when we want to open a new business we have
+   certain pillars in place"). Every rule here was earned on real client work and carries
+   the number of CLIENTS that proved it. The order is the confidence framework's order,
+   never the order somebody liked. A single case is shown separately and never as a rule,
+   because a pattern stated above its evidence is how a deck over-claims. ═══ */
+const PILLAR_TIERS=[
+  ['PRINCIPLE','Safe to build on','Four clients or more said the same thing.','#4ADE80'],
+  ['PATTERN','Repeated, not yet proven','Two or three clients. Treat it as the way to bet, not as a law.','#5B9DFF'],
+  ['HYPOTHESIS','Seen once, worth testing','One client. This is a hunch with a name, never a rule.','#c9a15a'],
+];
+function pillarChecklist(){
+  const flat=t=>String(t||'').replace(/\*\*/g,'');   // the bank is markdown, a pasted checklist is not
+  const P=(D.pillars||[]).filter(p=>p.tier!=='HYPOTHESIS');
+  return `THE PILLARS · what BB knows must be in place\n`
+    +`From ${new Set(P.flatMap(p=>p.clients)).size} clients the brain has watched · ${SITE}\n\n`
+    +PILLAR_TIERS.slice(0,2).map(([t,label])=>{
+      const rows=P.filter(p=>p.tier===t); if(!rows.length)return '';
+      return label.toUpperCase()+'\n'+rows.map(p=>`  [ ] ${flat(p.name)}\n      ${flat(p.pattern)}\n      ${p.n} ${p.clients.length?'client':'case'}${p.n===1?'':'s'}${p.clients.length?': '+p.clients.join(', '):''}${p.applyWhen?'\n      Apply when: '+flat(p.applyWhen):''}`).join('\n\n');
+    }).filter(Boolean).join('\n\n')
+    +`\n\nA single case is not on this list on purpose. ${(D.pillars||[]).filter(p=>p.tier==='HYPOTHESIS').length} more are being watched.`;
+}
+function renderPillars(){
+  const el=document.getElementById('pillars-view'); const P=D.pillars||[];
+  if(!P.length){ el.innerHTML='<h2 style="font-size:19px">Pillars</h2><p style="color:var(--text-3);font-size:12.5px">No graded patterns yet. They appear as the pattern banks fill.</p>'; return; }
+  const clients=new Set(P.flatMap(p=>p.clients));
+  const card=p=>{
+    const c=(PILLAR_TIERS.find(t=>t[0]===p.tier)||[])[3]||'#8fa2c0';
+    return `<div class="tl-item" style="display:block;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap">
+        <b style="font-size:13.5px">${esc(p.name)}</b>
+        <span style="font-size:10.5px;color:${c};white-space:nowrap">${p.n} ${p.clients.length?'client':'case'}${p.n===1?'':'s'}${p.via==='cloud'?' · found by the brain':''}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-2);line-height:1.6;margin-top:5px">${gBold(esc(p.pattern))}</div>
+      ${p.applyWhen?`<div style="font-size:11.5px;color:var(--text-2);margin-top:6px"><b style="color:var(--text-3)">Apply when</b> ${gBold(esc(p.applyWhen))}</div>`:''}
+      ${p.limits?`<div style="font-size:11.5px;color:var(--text-3);margin-top:4px"><b>Limits</b> ${gBold(esc(p.limits))}</div>`:''}
+      ${p.clients.length?`<div style="font-size:11px;color:var(--text-3);margin-top:6px">Proved by ${p.clients.map(x=>esc(x)).join(', ')}</div>`:''}
+    </div>`;
+  };
+  const group=(tier,label,sub)=>{
+    const rows=P.filter(p=>p.tier===tier); if(!rows.length)return '';
+    const keep=tier==='HYPOTHESIS'?0:5, shown=keep?rows.slice(0,keep):[], rest=keep?rows.slice(keep):rows;
+    const id='pil-'+tier;
+    return `<h3 style="font-size:14px;margin:24px 0 3px">${esc(label)} · ${rows.length}</h3>
+      <p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">${esc(sub)}</p>
+      ${shown.map(card).join('')}
+      ${rest.length?`<div id="${id}" style="display:none">${rest.map(card).join('')}</div>
+        <button class="fchip" onclick="const b=document.getElementById('${id}');const o=b.style.display==='none';b.style.display=o?'block':'none';this.textContent=o?'Hide':'Show ${rest.length} more'" style="margin-bottom:6px">Show ${rest.length} more</button>`:''}`;
+  };
+  el.innerHTML=`
+   <h2 style="font-size:20px;margin-bottom:3px">The pillars</h2>
+   <p style="font-size:12.5px;color:var(--text-2);margin-bottom:6px;line-height:1.6">What the brain knows must be in place before anything else, for a new client, a new vertical or a new venture. Every line was earned on real work and carries the number of clients that proved it.</p>
+   <p style="font-size:11.5px;color:var(--text-3);margin-bottom:16px">${P.length} pillars, named on ${clients.size} client${clients.size===1?'':'s'} · a rule is never stated above its evidence, so a single case is listed last and never as a rule. A few were earned on BB's own builds rather than a client, and those say cases.</p>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+     <button class="tbtn" onclick="copyText(pillarChecklist(),'The pillars copied. Paste it into the client chat.')">Copy for a new client</button>
+     <button class="tbtn" onclick="openSkill('bb-mother-brain')">Where these come from</button>
+   </div>
+   ${PILLAR_TIERS.map(t=>group(t[0],t[1],t[2])).join('')}`;
+}
 /* ═══ THE GROWTH PAGE (2026-09-06, Thulaib: "end of each week I want the brain to feel
    upgraded and boosted, a bar for how far we have come and how much is left"). The
    Brain Index is a ladder with a denominator, five rungs per skill, cumulative. The
@@ -2148,7 +2208,7 @@ function openDossier(name){
 
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',dossier:'dossier-view',explore:'explore-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',pillars:'pillars-view',dossier:'dossier-view',explore:'explore-view'};
 function setView(v){
   /* 2026-08-30, the merge: Brain and Clients ARE the 3D now. The constellation
      stays as the Present-mode surface and the automatic fallback when the 3D
@@ -2195,6 +2255,7 @@ function applyView(v,prev){
   document.getElementById('explore-view').style.display = v==='explore'?'block':'none';
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
   document.getElementById('growth-view').style.display = v==='growth'?'block':'none';
+  document.getElementById('pillars-view').style.display = v==='pillars'?'block':'none';
   document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain'||(v==='explore'&&BBX.getMode()==='brain'));
@@ -2205,6 +2266,7 @@ function applyView(v,prev){
   if(v==='gaps'){ renderGaps(); return; }
   if(v==='explore'){ BBX.open(); return; }
   if(v==='growth'){ renderGrowth(); return; }
+  if(v==='pillars'){ renderPillars(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
@@ -3228,6 +3290,16 @@ async function runSelfTest(){
     ok('Report: zero serial commas', !/, (and|or|but|nor)[\s\n]/.test(t), 'scanned');
     ok('Report: carries the usage drive', /SKILLS NOBODY IS USING/.test(t), 'section present');
   }catch(e){ ok('Report: generates', false, e.message); }
+  /* PILLARS (2026-09-07): every rule graded, none stated above its evidence */
+  { const P=D.pillars||[];
+    ok('Pillars: graded rules present', P.length>=10&&P.every(p=>p.tier&&p.pattern&&p.n>=1), P.length+' pillars, tiers '+JSON.stringify(P.reduce((a,p)=>{a[p.tier]=(a[p.tier]||0)+1;return a;},{})));
+    ok('Pillars: evidence matches the tier', P.every(p=>(p.tier==='PRINCIPLE'&&p.n>=4)||(p.tier==='PATTERN'&&p.n>=2)||(p.tier==='HYPOTHESIS')), 'principles '+P.filter(p=>p.tier==='PRINCIPLE').map(p=>p.n).join('/')+', patterns '+P.filter(p=>p.tier==='PATTERN').map(p=>p.n).join('/'));
+    try{ setView('pillars'); renderPillars(); const pv=document.getElementById('pillars-view'); const txt=pv.textContent;   /* textContent, not innerText: a view still fading in is display:none and innerText reads empty */
+      ok('Pillars: the page shows every tier and its evidence', /Safe to build on/.test(txt)&&/Proved by/.test(txt)&&!/\*\*/.test(txt), pv.querySelectorAll('.tl-item').length+' cards rendered');
+      const cl=pillarChecklist();
+      ok('Pillars: the checklist a person copies carries no single-case rule and no markup', !P.filter(p=>p.tier==='HYPOTHESIS').some(p=>cl.includes(p.name))&&!/\*\*/.test(cl), P.filter(p=>p.tier==='HYPOTHESIS').length+' held back, '+cl.length+' chars copied');
+    }catch(e){ ok('Pillars: page renders', false, e.message); }
+  }
   /* GROWTH (2026-09-06): the ledger, the index and the page */
   { const g=D.growth;
     ok('Growth: ledger row for today with a denominator', !!(g&&g.today&&g.today.total>0&&g.today.rungs<=g.today.total&&g.today.date===D.generated.slice(0,10)), g&&g.today?g.today.rungs+' of '+g.today.total+' on '+g.today.date:'missing');
