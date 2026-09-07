@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <defs>
+    <radialGradient id="lightA" cx="0.22" cy="0.86" r="0.75">
+      <stop offset="0" stop-color="#4F93FF" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#4F93FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lightB" cx="0.82" cy="0.14" r="0.68">
+      <stop offset="0" stop-color="#A07CF8" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#A07CF8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F93FF"/>
+      <stop offset="1" stop-color="#A07CF8"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1000" height="1000" fill="#0A0D14"/>
+  <rect width="1000" height="1000" fill="url(#lightA)"/>
+  <rect width="1000" height="1000" fill="url(#lightB)"/>
+
+  <g transform="translate(500,500) scale(1.000) translate(-500,-500)">
+    <!-- OPTICALLY CENTRED. The first cut put the mark 4 percent high: the
+         monogram's cap top and the pill's foot must straddle y=500, not the
+         baseline. Cap top 259, pill foot 740, centre 499.5. -->
+    <text x="500" y="490" text-anchor="middle"
+          font-family="Poppins" font-weight="700" font-size="330"
+          letter-spacing="-12" fill="#FFFFFF">BB</text>
+
+    <rect x="242" y="588" width="516" height="152" rx="76" fill="url(#pill)"/>
+    <rect x="262" y="597" width="476" height="62" rx="31" fill="url(#gloss)"/>
+    <text x="500" y="694" text-anchor="middle"
+          font-family="Poppins" font-weight="700" font-size="90"
+          letter-spacing="14" fill="#0A0D14">BRAIN</text>
+  </g>
+</svg>

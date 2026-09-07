@@ -80,6 +80,31 @@ ok('3D: glow stack lazy and optional', /UnrealBloomPass\.js/.test(bbx) && /Q\.bl
 ok('3D: adaptive quality tiers', /high:\{bloom:true/.test(bbx) && /low:\{bloom:false/.test(bbx) && /function demote\(/.test(bbx), 'three tiers plus the frame watchdog');
 ok('3D: fallback untouched', /window\.X3D_FALLBACK=true/.test(bbx) && /x3d-fellback/.test(html), 'fail() plus the one-shot notice');
 ok('3D: no emoji in stage copy', !/[\u{1F300}-\u{1FAFF}]/u.test(html.slice(html.indexOf('id="explore-view"'), html.indexOf('id="report-ov"'))), 'stage markup scanned');
+/* the home-screen icon (2026-09-06). It was the wordmark cropped to "USINESS OOSTER"
+   until tonight, so the gate now proves every size exists, is the size it claims and is
+   not a copy of its neighbour (eight identical byte counts is how a dead render hides). */
+{
+  const want = [['icon-48.png', 48], ['icon-72.png', 72], ['icon-96.png', 96], ['icon-128.png', 128],
+    ['icon-144.png', 144], ['icon-152.png', 152], ['icon-192.png', 192], ['icon-384.png', 384],
+    ['icon-512.png', 512], ['apple-touch-icon.png', 180],
+    ['icon-maskable-192.png', 192], ['icon-maskable-512.png', 512]];
+  const bad = [], bytes = new Set();
+  for (const [name, px] of want) {
+    const f = path.join(HERE, name);
+    if (!fs.existsSync(f)) { bad.push(name + ' missing'); continue; }
+    const b = fs.readFileSync(f);
+    if (b.slice(0, 8).toString('hex') !== '89504e470d0a1a0a') { bad.push(name + ' is not a PNG'); continue; }
+    const w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+    if (w !== px || h !== px) bad.push(name + ' is ' + w + 'x' + h + ', wanted ' + px);
+    bytes.add(b.length);
+  }
+  ok('icons: every size present and true', !bad.length, want.length + ' files, ' + (bad.join('; ') || 'all correct'));
+  ok('icons: no two are the same file', bytes.size === want.length, bytes.size + ' distinct byte counts of ' + want.length);
+  const man = JSON.parse(fs.readFileSync(path.join(HERE, 'manifest.json'), 'utf8'));
+  const gone = man.icons.map(i => i.src.split('?')[0].replace(/^\.\//, '')).filter(s => !fs.existsSync(path.join(HERE, s)));
+  ok('icons: the manifest declares only files that exist', !gone.length, man.icons.length + ' declared, missing: ' + (gone.join(', ') || 'none'));
+  ok('icons: the canonical source ships with them', fs.existsSync(path.join(HERE, 'icon.svg')) && fs.existsSync(path.join(HERE, 'build-icons.py')), 'icon.svg plus the builder');
+}
 const fails = R.filter(r => !r.p);
 for (const r of R) console.log((r.p ? 'ok ' : 'XX ') + r.n + ' · ' + r.d);
 console.log('VERIFY-BRAIN: ' + (R.length - fails.length) + ' of ' + R.length + ' green' + (fails.length ? ' · FAILED: ' + fails.map(f => f.n).join(', ') : ''));

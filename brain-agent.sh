@@ -24,6 +24,22 @@ shout(){
   osascript -e "display notification \"$1\" with title \"BB BRAIN AGENT FAILED\"" 2>/dev/null
   echo "[$STAMP] XX $1" >> "$LOG"; echo "[$STAMP] XX $1"; exit 1
 }
+# 0. WAIT FOR THE NETWORK (2026-09-07). The 07:15 run fired while this Mac was still
+#    waking and Wi-Fi had not reconnected, so the live tables read "fetch failed", four
+#    checks went red and the brain did not feed. The generator already retries three times
+#    over eight seconds, which is right for a blip and far too short for a wake. The agent
+#    owns "am I ready to run", so it waits here, up to two minutes, then proceeds anyway
+#    and lets the honest OFFLINE happen rather than hanging. L-BRAIN-019.
+SB_HOST="yyviiwnqgphyklcoijyd.supabase.co"
+for i in $(seq 1 24); do
+  if curl -s -o /dev/null --max-time 4 "https://$SB_HOST/rest/v1/" 2>/dev/null; then
+    [ "$i" -gt 1 ] && echo "[$STAMP] note network reachable after $((i*5))s of waiting" >> "$LOG"
+    break
+  fi
+  [ "$i" = "24" ] && echo "[$STAMP] note network still unreachable after 120s, building anyway" >> "$LOG"
+  sleep 5
+done
+
 # 1. build. A failed build never reaches the public.
 if ! BUILD_OUT="$(node build-brain-data.js 2>&1)"; then
   shout "build failed: $(printf '%s' "$BUILD_OUT" | tail -1 | cut -c1-160)"
