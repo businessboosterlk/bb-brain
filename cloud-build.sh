@@ -37,6 +37,22 @@ fail(){ echo "XX cloud-build: $1" >&2; exit 1; }
 [ -f "$CONSULT/LEARNINGS.md" ] || fail "no LEARNINGS.md in $CONSULT"
 [ -n "${BB_PASS:-}" ] || fail "BB_PASS is not set, and a brain nobody can unlock is not worth publishing"
 
+# ── THE MAC WINS. This is a fallback, never a replacement. ───────────────────
+# A cloud brain is as fresh as last night's backup, so publishing one over a brain
+# the Mac fed this morning would make the machine go BACKWARDS. The run therefore
+# asks one question: has the brain already been fed today? The cloud fires at 04:00
+# UTC and the Mac's morning feed lands at 01:45 UTC, so a same-day stamp means the
+# laptop was awake and there is nothing to do.
+cd "$BRAIN" || fail "cannot reach $BRAIN"
+git fetch -q origin main 2>/dev/null || true
+LAST_DAY="$(git log -1 --format=%cd --date=format:%Y-%m-%d origin/main -- brain-data.enc.js 2>/dev/null)"
+TODAY="$(date -u +%Y-%m-%d)"
+if [ "${BB_FORCE:-0}" != "1" ] && [ "$LAST_DAY" = "$TODAY" ]; then
+  echo "ok nothing to do: the Mac already fed the brain today ($LAST_DAY). The laptop wins when it is awake."
+  exit 0
+fi
+echo "the brain was last fed $LAST_DAY, today is $TODAY, so the laptop missed its run. Feeding from the cloud."
+
 # ── assemble a home ──────────────────────────────────────────────────────────
 mkdir -p "$STAGE/.claude/projects/-Users-thulaibhassen"
 ln -sfn "$BACKUP/skills"  "$STAGE/.claude/skills"
