@@ -56,7 +56,7 @@ try {
   cp.execFileSync(process.execPath, ['--check', tmp], { stdio: 'pipe' }); ok('concatenated JS syntax', true, blocks.length + ' blocks');
 } catch (e) { ok('concatenated JS syntax', false, String(e.stderr || e.message).split('\n')[0]); }
 try {
-  const out = cp.execFileSync('python3', [path.join(process.env.HOME, '.claude/skills/bb-rock-solid/guard.py'), path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
+  const out = cp.execFileSync('python3', [path.join(process.env.BB_HOME || process.env.HOME, '.claude/skills/bb-rock-solid/guard.py')  /* BB_HOME: the cloud stages a home, 2026-09-09 */, path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
   ok('rock-solid guard', /PASS/.test(out), out.trim().split('\n').pop());
 } catch (e) { ok('rock-solid guard', false, String(e.stdout || e.message).trim().split('\n').pop()); }
 ok('pillars graded and evidenced', !!(d && d.pillars && d.pillars.length >= 10 && d.pillars.every(p => p.tier && p.pattern && p.n >= 1)

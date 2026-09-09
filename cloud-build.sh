@@ -88,7 +88,7 @@ echo "staged: $MEM memory files, $LEARN learnings files, $(ls -1 "$BACKUP/skills
 # ── build, then the SAME gate the Mac uses. A cloud build gets no easier ride. ──
 cd "$BRAIN" || fail "cannot reach $BRAIN"
 BB_HOME="$STAGE" BB_CLOUD=1 BB_PASS="$BB_PASS" node build-brain-data.js || fail "build failed"
-node verify-brain.js || fail "the gate refused this build, nothing was published"
+BB_HOME="$STAGE" node verify-brain.js || fail "the gate refused this build, nothing was published"   # the guard lives in the staged skills
 
 if [ "${BB_PUBLISH:-1}" = "1" ]; then
   git add -A
