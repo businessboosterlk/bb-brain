@@ -23,10 +23,15 @@
 # Usage (in the cloud, with the two repos checked out beside each other):
 #   BB_PASS=... ./cloud-build.sh <path-to-bb-intelligence-backup> <path-to-consultancy>
 set -uo pipefail
+fail_early(){ echo "XX cloud-build: $1" >&2; exit 1; }
 export PATH="$HOME/.local/node/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-BACKUP="${1:?path to bb-intelligence-backup required}"
-CONSULT="${2:?path to bb-consultancy-engine required}"
+# ABSOLUTE, always (2026-09-09). The first cloud proof passed these as ../bb-intelligence-backup
+# and every symlink in the staged home pointed at a folder relative to the LINK, not the
+# working directory, so all of them dangled. Only the plugin-skill count followed its link,
+# so only it noticed: "0 plugin skills". The gate refused. Resolve once, here, for ever.
+BACKUP="$(cd "${1:?path to bb-intelligence-backup required}" 2>/dev/null && pwd)" || fail_early "cannot enter $1"
+CONSULT="$(cd "${2:?path to bb-consultancy-engine required}" 2>/dev/null && pwd)" || fail_early "cannot enter $2"
 BRAIN="$(cd "$(dirname "$0")" && pwd)"
 STAGE="${BB_STAGE:-$(mktemp -d)}"
 
@@ -72,8 +77,9 @@ for f in "$BACKUP"/home-docs/bb-*-learnings.md; do
   [ -e "$f" ] && ln -sfn "$f" "$STAGE/$(basename "$f")"
 done
 PLUG=$(find -L "$STAGE/Library" -name SKILL.md 2>/dev/null | wc -l | tr -d ' ')   # -L: the stage is symlinks, and find does not follow them by default
-LEARN=$(ls -1 "$STAGE"/bb-*-learnings.md 2>/dev/null | wc -l | tr -d ' ')
-MEM=$(ls -1 "$BACKUP/memory" 2>/dev/null | wc -l | tr -d ' ')
+LEARN=$(find -L "$STAGE" -maxdepth 1 -name 'bb-*-learnings.md' -type f 2>/dev/null | wc -l | tr -d ' ')   # -type f through -L: a dangling link does not count
+MEM=$(find -L "$STAGE/.claude/projects/-Users-thulaibhassen/memory" -maxdepth 1 -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')
+[ -d "$STAGE/.claude/skills" ] && [ -d "$STAGE/bb-consultancy" ] || fail "a staged link does not resolve: skills or consultancy. BACKUP=$BACKUP CONSULT=$CONSULT"
 echo "staged: $MEM memory files, $LEARN learnings files, $(ls -1 "$BACKUP/skills" | wc -l | tr -d ' ') own skills, $PLUG plugin skills"
 [ "$PLUG" -ge 60 ] || fail "only $PLUG plugin skills reached the stage, expected at least 60. Run sync.sh on the Mac."
 [ "$LEARN" -ge 20 ] || fail "only $LEARN learnings files reached the stage, expected at least 20"
