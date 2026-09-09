@@ -9,7 +9,15 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const HOME = os.homedir();
+/* HOME IS A KNOB (2026-09-09, Thulaib: "even if I close my laptop would work happen").
+   Every path below hangs off it, so a cloud run assembles a folder that looks like
+   this Mac's home out of the two private backup repos and points BB_HOME at it.
+   One override instead of a dozen, which is also why a future path cannot forget. */
+const HOME = process.env.BB_HOME || os.homedir();
+/* Built somewhere that has no Mac. Two mouths simply cannot exist there and it is
+   NOT a fault: the session transcripts are 1.4GB and live only on the laptop. A
+   cloud build says so rather than reporting a red source or pretending it is fed. */
+const CLOUD = process.env.BB_CLOUD === '1';
 
 /* ── data sources ── */
 const LOCAL_SKILLS = path.join(HOME, '.claude/skills');
@@ -381,7 +389,7 @@ function adPatternEntries() {
 /* ── assemble ── */
 const DAY = 86400000;
 const now = new Date();
-const out = { generated: now.toISOString(), clusters: CLUSTERS, skills: [], timeline: [], undatedCount: totalUndated };
+const out = { generated: now.toISOString(), builtIn: CLOUD ? 'cloud' : 'mac', clusters: CLUSTERS, skills: [], timeline: [], undatedCount: totalUndated };
 
 /* ── STEP 2: confidence + decay, computed honestly from the entries themselves ──
    confirmed = explicit repetition marker in the text, OR 2+ sibling entries on the same topic.
@@ -700,7 +708,10 @@ out.metrics = metricsCanon;      // the numbers canon, with per-metric status
     { name: 'Skill rulebooks', detail: skills.length + ' skills scanned', newest: null, ok: skills.length > 50 },
     { name: 'Learnings files', detail: allFiles.length + ' files feeding ' + Object.keys(learningsBySkill).length + ' skills', newest: learnDates.sort().pop() || null, ok: allFiles.length >= 25 },
     { name: 'Chat memories', detail: chatMem.length + ' facts', newest: newestOf(chatMem), ok: chatMem.length > 0 },
-    { name: 'Chat transcripts', detail: (chatFilesScanned || 0) + ' sessions swept, ' + chatDiscussed + ' client mentions', newest: newestOf(chatDecisions), ok: (chatFilesScanned || 0) > 0 },
+    { name: 'Chat transcripts', detail: CLOUD && !(chatFilesScanned || 0)
+      ? 'not reachable from the cloud: the session logs are 1.4GB and live only on the Mac'
+      : (chatFilesScanned || 0) + ' sessions swept, ' + chatDiscussed + ' client mentions',
+      newest: newestOf(chatDecisions), ok: CLOUD && !(chatFilesScanned || 0) ? null : (chatFilesScanned || 0) > 0 },
     { name: 'WhatsApp inbox', detail: wa.files ? wa.files + ' exports, ' + wa.kept + ' lines kept' : 'no exports yet - a habit, not a fault', newest: null, ok: null },
     { name: 'Pattern banks', detail: (learningsBySkill['bb-mother-brain'] || []).filter(e => /^P-\d/.test(e.summary)).length + ' market + ' + (learningsBySkill['bb-meta-ads-expert-plus'] || []).filter(e => /^AP-\d/.test(e.summary)).length + ' ad patterns', newest: null, ok: true },
     { name: 'Client folders', detail: Object.keys(clientDocs.perClient).length + ' clients, ' + clientDocs.filesRead + ' docs', newest: null, ok: clientDocs.filesRead > 0 },
@@ -1138,7 +1149,8 @@ fs.writeFileSync(path.join(__dirname, 'brain-data.js'),
    The public site ships ONLY brain-data.enc.js; without the passcode it is noise. ── */
 try {
   const crypto = require('crypto');
-  const pass = fs.readFileSync(path.join(HOME, '.bb-brain-pass'), 'utf8').trim();
+  const pass = (process.env.BB_PASS || fs.readFileSync(path.join(HOME, '.bb-brain-pass'), 'utf8')).trim();
+  if (!pass) throw new Error('the passcode is empty, refusing to publish an unlockable brain');
   if (pass.length < 8) throw new Error('passcode too short');
   // salt is DERIVED from the passcode, not random: stable across nightly rebuilds so
   // remembered device keys keep working. IV stays random per build (GCM requirement).
