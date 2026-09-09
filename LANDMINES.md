@@ -189,3 +189,12 @@ breakpoint that resets the header, which is the one screen that has a notch. The
 forces a 59px island and asserts the chrome moved, forces zero and asserts no dead gap
 and asserts the strip paints. **Rule for every audit: count USES, never declarations. A
 grep for the knob's name passes on an app where the knob does nothing.**
+
+### L-BRAIN-024 (2026-09-09): a relative path makes every symlink dangle, and only find -L notices
+The cloud feed staged a fake home out of symlinks to the two repos. GitHub Actions passed the
+repos as `../bb-intelligence-backup`, and `ln -s ../x target` points at `../x` relative to the
+LINK, not the shell. Every link dangled. `ls` counted the dead names as present. `find -L` did
+not, and the gate refused. Fix: `BACKUP="$(cd "$1" && pwd)"` once at the top; every count is
+`find -L ... -type f`. Sibling: verify-brain.js reached guard.py via process.env.HOME, a
+stranger's home in the cloud; it honours BB_HOME now. Proof runs 34320497086 (0 plugin skills),
+34320823573 (guard not found), 34321070119 (43 of 43).
