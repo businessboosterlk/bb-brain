@@ -198,3 +198,11 @@ not, and the gate refused. Fix: `BACKUP="$(cd "$1" && pwd)"` once at the top; ev
 `find -L ... -type f`. Sibling: verify-brain.js reached guard.py via process.env.HOME, a
 stranger's home in the cloud; it honours BB_HOME now. Proof runs 34320497086 (0 plugin skills),
 34320823573 (guard not found), 34321070119 (43 of 43).
+
+### L-BRAIN-025 (2026-09-09): a backup that copies a list can never find what is off the list
+Seventy of 145 skills lived in a UUID folder under Library that no sync line named. The
+backup said ok nightly. Only a RESTORE elsewhere (the cloud feed) found the gap. Fix:
+coverage.py walks the laptop and fails the night on anything that is not git, synced,
+a named secret or excluded with a written reason. Sibling: the Mac's rsync is openrsync,
+which does not know --max-depth and exits 0 having copied one file; never silence its
+stderr, and print the count of what was written.
