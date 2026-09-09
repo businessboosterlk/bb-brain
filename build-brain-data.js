@@ -1037,6 +1037,20 @@ Promise.all([
     if (files.length) { const f = files[files.length - 1]; cloudReview = { date: f.slice(7, 17), text: fs.readFileSync(path.join(dir, f), 'utf8').replace(/^#[^\n]*\n/, '').trim().slice(0, 4200) }; }   /* a 450-word note fits in ~3000; the cap only stops a runaway file bloating the encrypted payload */
     out.sources.push({ name: 'Cloud synthesis', detail: files.length ? files.length + ' weekly review' + (files.length === 1 ? '' : 's') + ', ' + cloudPatterns + ' cross-client patterns' : 'waiting for the first Sunday run, not a fault', newest: files.length ? files[files.length - 1].slice(7, 17) : null, ok: files.length ? true : null });
   } catch (e) { out.sources.push({ name: 'Cloud synthesis', detail: 'unreadable: ' + e.message, newest: null, ok: false }); }
+  /* LAPTOP SAFETY (2026-09-09). Thulaib: "make sure this never happens again". coverage.py
+     walks the laptop every night and writes coverage.json; the brain shows it as a source so
+     "backed up nowhere" is a red row on the Today page, not a discovery months later. */
+  try {
+    const cf = path.join(HOME, 'bb-intelligence-backup/coverage.json');
+    if (!fs.existsSync(cf)) throw new Error('coverage.json not written yet');
+    const c = JSON.parse(fs.readFileSync(cf, 'utf8'));
+    const ageH = (Date.now() - new Date(c.generated).getTime()) / 36e5;
+    const fresh = ageH < 26;
+    out.sources.push({ name: 'Laptop safety',
+      detail: c.checked + ' places checked, ' + c.uncovered + ' backed up nowhere, ' + (c.mismatches || []).length + ' count mismatches'
+        + (fresh ? '' : ', last audit ' + Math.round(ageH) + 'h ago'),
+      newest: c.generated.slice(0, 10), ok: !!c.ok && fresh });
+  } catch (e) { out.sources.push({ name: 'Laptop safety', detail: 'no audit yet: ' + e.message, newest: null, ok: null }); }
   const row = { date: today, rungs, total, pct: Math.round(rungs / total * 100), levels: counts.slice(1),
     perSector: Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(p.rungs / p.total * 100)])),
     entries: out.totals.entries, dated: out.totals.datedEntries, skills: out.skills.length,

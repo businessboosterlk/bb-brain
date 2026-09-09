@@ -65,6 +65,7 @@ ln -sfn "$BACKUP/memory"  "$STAGE/.claude/projects/-Users-thulaibhassen/memory"
 ln -sfn "$CONSULT"        "$STAGE/bb-consultancy"
 [ -d "$BACKUP/systems" ]     && ln -sfn "$BACKUP/systems"     "$STAGE/bb-systems"
 [ -d "$BACKUP/brain-inbox" ] && ln -sfn "$BACKUP/brain-inbox" "$STAGE/bb-brain-inbox"
+ln -sfn "$BACKUP" "$STAGE/bb-intelligence-backup"   # the laptop-safety audit (coverage.json) travels with the backup
 # the plugin skills sit in a UUID path under Library. 70 of the 145 skills live there
 # and the first cloud test found only 75, so the gate refused to publish. That refusal
 # is what found them being backed up nowhere at all.
