@@ -1,4 +1,4 @@
--- bb_brain_feed_watch.sql (prepared 2026-09-06, NOT APPLIED: schema changes wait for Thulaib's go)
+-- bb_brain_feed_watch.sql (prepared 2026-09-06, APPLIED 2026-09-09 as migration bb_brain_feed_watch on Thulaib's go: all 7 proofs green, agent.log "ok heartbeat recorded" 11:47)
 --
 -- WHY. On 2026-09-06 the 07:15 brain feed died and the agent shouted into a file and a Mac
 -- notification that nobody read for thirteen hours (L-BRAIN-014). A shout has to reach a phone.

@@ -40,7 +40,7 @@ fail(){ echo "XX cloud-build: $1" >&2; exit 1; }
 # ── THE MAC WINS. This is a fallback, never a replacement. ───────────────────
 # A cloud brain is as fresh as last night's backup, so publishing one over a brain
 # the Mac fed this morning would make the machine go BACKWARDS. The run therefore
-# asks one question: has the brain already been fed today? The cloud fires at 04:00
+# asks one question: has the brain already been fed today? The cloud fires at 03:00
 # UTC and the Mac's morning feed lands at 01:45 UTC, so a same-day stamp means the
 # laptop was awake and there is nothing to do.
 cd "$BRAIN" || fail "cannot reach $BRAIN"
