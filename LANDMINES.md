@@ -174,3 +174,18 @@ into client names.
 is dropped, so a count on that page can only ever be clients the brain knows. A pillar with no
 recognised names says "cases", never "clients". Same family as the estate's number rules: a
 figure a reader can check is the only kind worth printing.
+
+## L-BRAIN-023 | The safe-area variables were declared and applied nowhere
+**Symptom:** on a notched iPhone the BUSINESS BOOSTER wordmark sat 10px from the top of
+the screen, under the clock and the Dynamic Island and the last row of every page sat
+under the home indicator. Measured 2026-09-09 with the inset forced to 59px.
+**Root cause:** `--sat` and `--sab` were declared in `:root` and `viewport-fit=cover` was
+present, so every grep for "safe-area-inset" said yes. `--sat` was used once, by a
+`.statusfill` that had no background and therefore painted nothing. `--sab` was used zero
+times. The knob existed and was never turned.
+**Block:** the insets are applied to the header, the body, the toast, the bottom sheet,
+both full-screen overlays, the report bar and the 3D stage and repeated inside the phone
+breakpoint that resets the header, which is the one screen that has a notch. The self-test
+forces a 59px island and asserts the chrome moved, forces zero and asserts no dead gap
+and asserts the strip paints. **Rule for every audit: count USES, never declarations. A
+grep for the knob's name passes on an app where the knob does nothing.**
