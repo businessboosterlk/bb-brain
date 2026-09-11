@@ -59,6 +59,13 @@ try {
   const out = cp.execFileSync('python3', [path.join(process.env.BB_HOME || process.env.HOME, '.claude/skills/bb-rock-solid/guard.py')  /* BB_HOME: the cloud stages a home, 2026-09-09 */, path.join(HERE, 'index.html')], { stdio: 'pipe' }).toString();
   ok('rock-solid guard', /PASS/.test(out), out.trim().split('\n').pop());
 } catch (e) { ok('rock-solid guard', false, String(e.stdout || e.message).trim().split('\n').pop()); }
+/* the Library (2026-09-11): every document the machine runs on, in the payload, capped */
+ok('library fed', !!(d && d.library && d.library.length >= 80 && new Set(d.library.map(e => e.category)).size >= 5
+  && d.library.every(e => e.title && e.category && e.updated && e.excerpt && (!e.text || Buffer.byteLength(e.text, 'utf8') <= 30000))),
+  d && d.library ? d.library.length + ' documents, ' + new Set(d.library.map(e => e.category)).size + ' shelves, ' + d.library.filter(e => e.full).length + ' in full' : 'none');
+ok('library page and route present', /id="library-view"/.test(html) && /library:'library-view'/.test(html) && /function renderLibrary/.test(html) && /setView\('library'\)/.test(html), 'container, VIEW_EL, renderer, menu');
+ok('industries mapped, unplaced named', !!(d && d.industries && d.industries.list.length >= 6 && Array.isArray(d.industries.unclassified)),
+  d && d.industries ? d.industries.list.length + ' industries, ' + d.industries.unclassified.length + ' not yet classified' : 'none');
 ok('pillars graded and evidenced', !!(d && d.pillars && d.pillars.length >= 10 && d.pillars.every(p => p.tier && p.pattern && p.n >= 1)
   && d.pillars.filter(p => p.tier === 'PRINCIPLE').every(p => p.n >= 4)),
   d && d.pillars ? d.pillars.length + ' pillars, ' + d.pillars.filter(p => p.n >= 4).length + ' proven on four or more clients' : 'none');

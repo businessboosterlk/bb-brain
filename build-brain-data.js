@@ -697,6 +697,78 @@ function buildClients() {
   return list;
 }
 out.clients = buildClients();
+
+/* ═══ THE LIBRARY (2026-09-11). Thulaib: "is there a section to see these MD files on the
+   brain?" There was not: the Brain read 149 skills and 32 learnings files and never the 23
+   control docs, the master prompts or the 35 operating workflow docs that describe how BB
+   runs. They were backed up and unread. Now every document is a Library entry: title,
+   category, date, size, an excerpt, its headings, and the full text where it fits. THE CAP
+   is deliberate: the payload is decrypted on a phone, the biggest learnings file alone is
+   645KB, so full text travels only under FULL_CAP bytes and the rest carry an excerpt and
+   their headings with the path to open on the Mac. ═══ */
+const FULL_CAP = 30000, MEMORY_CAP = 0, EXCERPT = 420;   // MEMORY_CAP 0: memory travels as excerpt + headings, its facts are already in the brain; the first cut carried 1.2MB
+function libraryEntries() {
+  const out = [];
+  const add = (file, category, cap) => {
+    let raw; try { raw = fs.readFileSync(file, 'utf8'); } catch (e) { return; }
+    const st = fs.statSync(file);
+    let body = raw;
+    const fm = body.match(/^---\n[\s\S]*?\n---\n/); if (fm) body = body.slice(fm[0].length);
+    const h1 = body.match(/^#\s+(.+)$/m);
+    const title = (h1 ? h1[1] : path.basename(file, '.md')).replace(/[*_`]/g, '').trim();
+    const headings = [...body.matchAll(/^#{2,3}\s+(.+)$/gm)].map(m => m[1].replace(/[*_`]/g, '').trim()).slice(0, 14);
+    const plain = body.replace(/^#.*$/gm, '').replace(/[*_`>]/g, '').replace(/\n{2,}/g, '\n').trim();
+    const excerpt = plain.slice(0, EXCERPT).replace(/\s+\S*$/, '') + (plain.length > EXCERPT ? ' ...' : '');
+    const full = Buffer.byteLength(body, 'utf8') <= cap;
+    out.push({ id: category.slice(0, 2).toLowerCase() + ':' + path.basename(file, '.md'), title, category,
+      file: file.replace(HOME, '~'), updated: st.mtime.toISOString().slice(0, 10),
+      words: plain.split(/\s+/).filter(Boolean).length, excerpt, headings, full, text: full ? body : null });
+  };
+  for (const f of fs.readdirSync(HOME).filter(f => f.endsWith('.md')).sort()) {
+    const cat = /PROMPT/i.test(f) ? 'Master prompts' : /-learnings\.md$/.test(f) ? 'Learnings' : 'Control docs';
+    add(path.join(HOME, f), cat, cat === 'Learnings' ? 0 : FULL_CAP);   // learnings are already parsed into lessons: excerpt and headings only
+  }
+  const wf = path.join(HOME, 'bb-workflows');
+  if (fs.existsSync(wf)) for (const f of fs.readdirSync(wf).filter(f => f.endsWith('.md')).sort()) add(path.join(wf, f), 'Operating workflows', FULL_CAP);
+  if (fs.existsSync(MEMORY_DIR)) for (const f of fs.readdirSync(MEMORY_DIR).filter(f => f.endsWith('.md')).sort()) add(path.join(MEMORY_DIR, f), 'Memory', MEMORY_CAP);
+  return out;
+}
+out.library = libraryEntries();
+{
+  const cats = {}; out.library.forEach(e => { cats[e.category] = (cats[e.category] || 0) + 1; });
+  const bytes = Buffer.byteLength(JSON.stringify(out.library), 'utf8');
+  console.log('library: ' + out.library.length + ' documents ' + JSON.stringify(cats) + ' · ' + out.library.filter(e => e.full).length + ' in full · ' + Math.round(bytes / 1024) + 'KB');
+}
+
+/* ═══ THE INDUSTRIES (2026-09-11). Thulaib: "so many clients in different industries ... our
+   brain is so strong with so many different industry knowledges". It was not, and this is the
+   honest state of it: the Brain filed every lesson under a SKILL, never under an INDUSTRY, and
+   only 3 of 26 client brains carry an industry field. So the map below is the first industry
+   axis BB has had, hand-set from what the machine's memory is sure of, and every client it is
+   NOT sure of is listed on the page as "not yet classified" rather than guessed. Fill a gap by
+   adding the client here or by putting an industry field in the client's brain.json. ═══ */
+const INDUSTRY = {
+  'BSWL (Leon)': 'Education and tuition', 'Square 1 AI': 'Education and tuition', 'C Clarke': 'Education and tuition',
+  'Home Depot': 'Lighting and hardware retail', 'Mrlighting': 'Lighting and hardware retail',
+  'Sastho': 'Retail and e-commerce', 'Beys International': 'Consumer goods and wholesale',
+  'Clove Beach': 'Hospitality', 'Ceylon Carriers': 'Travel and tourism', 'Sapphire Trails': 'Travel and tourism', 'Seven Summits Rwanda': 'Travel and tourism',
+  'Auto Museum': 'Automotive care', 'Show Car Detailers': 'Automotive care',
+  'Cherry Kitchen': 'Food and restaurants', 'Pot Biriyani': 'Food and restaurants',
+  'Waverley': 'B2B equipment and supply', 'Bellvantage': 'BPO and outsourcing', 'Fusion Media': 'Events and production',
+};
+{
+  const byInd = {}; const unclassified = [];
+  for (const c of out.clients) {
+    let ind = INDUSTRY[c.name];
+    if (!ind) { try { const bj = JSON.parse(fs.readFileSync(path.join(HOME, 'bb-consultancy', c.key || '', 'brain.json'), 'utf8')); ind = bj.identity && bj.identity.industry; } catch (e) {} }
+    if (!ind) { unclassified.push(c.name); continue; }
+    (byInd[ind] = byInd[ind] || { name: ind, clients: [], lessons: 0, docs: 0, pillars: 0 });
+    byInd[ind].clients.push(c.name); byInd[ind].lessons += c.lessonCount || 0; byInd[ind].docs += c.docCount || (c.docs ? c.docs.length : 0) || 0;
+  }
+  for (const p of (out.pillars || [])) for (const ind of Object.values(byInd)) if ((p.clients || []).some(x => ind.clients.includes(x))) ind.pillars++;
+  out.industries = { list: Object.values(byInd).sort((a, b) => b.clients.length - a.clients.length), unclassified };
+  console.log('industries: ' + out.industries.list.length + ' with ' + Object.values(byInd).reduce((n, i) => n + i.clients.length, 0) + ' clients placed, ' + unclassified.length + ' not yet classified');
+}
 out.decisions = chatDecisions;   // recent decisions/facts pulled from chat (item 1)
 out.metrics = metricsCanon;      // the numbers canon, with per-metric status
 
@@ -1053,6 +1125,9 @@ Promise.all([
         + (fresh ? '' : ', last audit ' + Math.round(ageH) + 'h ago'),
       newest: c.generated.slice(0, 10), ok: !!c.ok && fresh });
   } catch (e) { out.sources.push({ name: 'Laptop safety', detail: 'no audit yet: ' + e.message, newest: null, ok: null }); }
+  { const cats = new Set(out.library.map(e => e.category));
+    out.sources.push({ name: 'Document library', detail: out.library.length + ' documents on ' + cats.size + ' shelves, ' + out.library.filter(e => e.full).length + ' readable in full',
+      newest: out.library.map(e => e.updated).sort().pop() || null, ok: out.library.length >= 80 }); }
   const row = { date: today, rungs, total, pct: Math.round(rungs / total * 100), levels: counts.slice(1),
     perSector: Object.fromEntries(Object.entries(per).map(([k, p]) => [k, Math.round(p.rungs / p.total * 100)])),
     entries: out.totals.entries, dated: out.totals.datedEntries, skills: out.skills.length,
@@ -1149,6 +1224,7 @@ function pillarEntries(fileName, via) {
   const seen = new Set();
   out.pillars = all.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; })
     .sort((a, b) => (RANK[a.tier] - RANK[b.tier]) || (b.n - a.n) || a.id.localeCompare(b.id));
+  if (out.industries) for (const ind of out.industries.list) ind.pillars = out.pillars.filter(p => (p.clients || []).some(x => ind.clients.includes(x))).length;   // pillars exist only now
   const byTier = out.pillars.reduce((acc, p) => { acc[p.tier] = (acc[p.tier] || 0) + 1; return acc; }, {});
   const named = new Set(out.pillars.flatMap(p => p.clients));
   console.log('pillars:', out.pillars.length, JSON.stringify(byTier),

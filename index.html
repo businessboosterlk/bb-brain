@@ -450,6 +450,7 @@ table.r-tbl td b{color:#0e1830}
       <button role="menuitem" onclick="closeMore();setView('gaps')">Gap radar</button>
       <button role="menuitem" onclick="closeMore();setView('pillars')">Pillars</button>
       <button role="menuitem" onclick="closeMore();setView('growth')">Growth</button>
+      <button role="menuitem" onclick="closeMore();setView('library')">Library</button>
       <button role="menuitem" onclick="closeMore();openReport()">Weekly report</button>
       <button role="menuitem" onclick="closeMore();openBYS()">Before you start a task</button>
       <button role="menuitem" onclick="closeMore();togglePresent(true)">Present mode</button>
@@ -502,6 +503,7 @@ table.r-tbl td b{color:#0e1830}
 <div class="tl" id="today-view" style="display:none"></div>
 <div class="tl" id="growth-view" style="display:none"></div>
 <div class="tl" id="pillars-view" style="display:none"></div>
+<div class="tl" id="library-view" style="display:none"></div>
 <div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
 <div class="tl" id="explore-view" style="display:none;max-width:none">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="x3d-chips"></div>
@@ -633,7 +635,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1789135815543"></script>
+<script src="brain-data.enc.js?v=1789136699170"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2088,6 +2090,57 @@ function gMarkdown(t){
     return `<p style="margin:0 0 11px">${gBold(esc(lines.join(' ')))}</p>`;
   }).join('');
 }
+/* ═══ THE LIBRARY (2026-09-11, Thulaib: "is there a section for us to see these MD files
+   separately on the brain?"). Every document the machine runs on, on five shelves, with a
+   search that reads inside the text and a reader that renders the markdown. Documents over
+   the size cap arrive as an excerpt and their headings, with the path to open on the Mac.
+   The search field is 16px on purpose: under 16px iOS zooms the whole screen on focus
+   (bb-app-foundations). ═══ */
+const LIB={tab:'docs',cat:'All',q:'',open:null};
+const LIB_SHELVES=['Control docs','Master prompts','Operating workflows','Learnings','Memory'];
+function libFilter(){
+  const L=D.library||[]; const q=LIB.q.trim().toLowerCase();
+  return L.filter(e=>(LIB.cat==='All'||e.category===LIB.cat)&&(!q||e.title.toLowerCase().includes(q)||e.excerpt.toLowerCase().includes(q)||(e.text||'').toLowerCase().includes(q)||e.headings.some(h=>h.toLowerCase().includes(q))));
+}
+function libSet(k,v){ LIB[k]=v; if(k!=='q') LIB.open=null; renderLibrary(); if(k==='q'){ const i=document.getElementById('lib-q'); if(i){ i.focus(); i.setSelectionRange(i.value.length,i.value.length); } } }
+function libOpen(id){ LIB.open=id; renderLibrary(); window.scrollTo(0,0); }
+function renderLibrary(){
+  const el=document.getElementById('library-view'); const L=D.library||[]; const IND=D.industries||{list:[],unclassified:[]};
+  if(!L.length){ el.innerHTML='<h2 style="font-size:19px">The library</h2><p style="color:var(--text-3);font-size:12.5px">No documents yet. They arrive with the next feed.</p>'; return; }
+  const tab=(k,label)=>`<button class="fchip${LIB.tab===k?' on':''}" onclick="libSet('tab','${k}')" style="${LIB.tab===k?'border-color:var(--accent);color:var(--text)':''}">${label}</button>`;
+  const head=`<h2 style="font-size:20px;margin-bottom:3px">The library</h2>
+    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:10px;line-height:1.6">Every document the machine runs on, readable here. ${L.length} documents on ${LIB_SHELVES.length} shelves, ${L.filter(e=>e.full).length} in full.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${tab('docs','Documents')}${tab('ind','Industries')}</div>`;
+  if(LIB.tab==='ind'){
+    const card=i=>`<div class="tl-item" style="display:block;margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="font-size:13.5px">${esc(i.name)}</b><span style="font-size:10.5px;color:var(--text-3)">${i.clients.length} client${i.clients.length===1?'':'s'} · ${i.lessons} lesson${i.lessons===1?'':'s'} · ${i.pillars} pillar${i.pillars===1?'':'s'}</span></div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:5px">${i.clients.map(esc).join(', ')}</div></div>`;
+    el.innerHTML=head+`<p style="font-size:11.5px;color:var(--text-3);margin-bottom:12px;line-height:1.6">What the brain knows, grouped by the industry the client is in. This is the first time it has had that axis: until today every lesson was filed under a skill, never under an industry.</p>
+      ${IND.list.map(card).join('')}
+      ${IND.unclassified.length?`<h3 style="font-size:14px;margin:20px 0 4px">Not yet classified · ${IND.unclassified.length}</h3><p style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">Clients the brain cannot place in an industry with confidence. Named rather than guessed.</p><div style="font-size:12px;color:var(--text-2)">${IND.unclassified.map(esc).join(', ')}</div>`:''}`;
+    return;
+  }
+  if(LIB.open){
+    const e=L.find(x=>x.id===LIB.open); if(!e){ LIB.open=null; return renderLibrary(); }
+    const body=e.full?gMarkdown(e.text):`<p style="font-size:13px;line-height:1.7;color:var(--text-2)">${esc(e.excerpt)}</p>
+      ${e.headings.length?`<h3 style="font-size:13px;margin:16px 0 6px">Inside this document</h3><ul style="font-size:12.5px;color:var(--text-2);line-height:1.8;padding-left:18px">${e.headings.map(h=>`<li>${esc(h)}</li>`).join('')}</ul>`:''}
+      <p style="font-size:11.5px;color:var(--text-3);margin-top:14px">Too large to carry in full (${e.words.toLocaleString()} words). Open on the Mac: <code>${esc(e.file)}</code></p>`;
+    el.innerHTML=head+`<button class="fchip" onclick="libSet('open',null)" style="margin-bottom:12px">Back to the shelf</button>
+      <h3 style="font-size:16px;margin:0 0 4px">${esc(e.title)}</h3>
+      <p style="font-size:11px;color:var(--text-3);margin-bottom:14px">${esc(e.category)} · updated ${esc(e.updated)} · ${e.words.toLocaleString()} words · <code>${esc(e.file)}</code></p>
+      <div class="lib-body" style="font-size:13px;line-height:1.7">${body}</div>`;
+    return;
+  }
+  const rows=libFilter();
+  const chip=c=>`<button class="fchip${LIB.cat===c?' on':''}" onclick="libSet('cat','${c}')" style="${LIB.cat===c?'border-color:var(--accent);color:var(--text)':''}">${c==='All'?'All':c} <span style="color:var(--text-3)">${c==='All'?L.length:L.filter(e=>e.category===c).length}</span></button>`;
+  const item=e=>`<div class="tl-item" style="display:block;margin-bottom:8px;cursor:pointer" onclick="libOpen('${e.id}')">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="font-size:13px">${esc(e.title)}</b><span style="font-size:10.5px;color:var(--text-3);white-space:nowrap">${esc(e.category)} · ${esc(e.updated)}${e.full?'':' · excerpt'}</span></div>
+      <div style="font-size:12px;color:var(--text-2);line-height:1.55;margin-top:4px">${esc(e.excerpt.slice(0,180))}${e.excerpt.length>180?' ...':''}</div></div>`;
+  el.innerHTML=head+`<input id="lib-q" type="search" enterkeyhint="search" placeholder="Search inside every document" value="${esc(LIB.q)}" oninput="libSet('q',this.value)" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg-2);color:var(--text);margin-bottom:10px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${['All',...LIB_SHELVES].map(chip).join('')}</div>
+    <p style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">${rows.length} document${rows.length===1?'':'s'}${LIB.q?' matching "'+esc(LIB.q)+'"':''}</p>
+    ${rows.slice(0,120).map(item).join('')}${rows.length>120?`<p style="font-size:11.5px;color:var(--text-3)">Showing 120 of ${rows.length}. Narrow the search.</p>`:''}`;
+}
 function renderGrowth(){
   const el=document.getElementById('growth-view'); const g=D.growth;
   if(!g||!g.today){ el.innerHTML='<h2 style="font-size:19px">Growth</h2><p style="color:var(--text-3);font-size:12.5px">The ledger has not been built yet. It appears after the next feed.</p>'; return; }
@@ -2208,7 +2261,7 @@ function openDossier(name){
 
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',pillars:'pillars-view',dossier:'dossier-view',explore:'explore-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',pillars:'pillars-view',library:'library-view',dossier:'dossier-view',explore:'explore-view'};
 function setView(v){
   /* 2026-08-30, the merge: Brain and Clients ARE the 3D now. The constellation
      stays as the Present-mode surface and the automatic fallback when the 3D
@@ -2245,6 +2298,7 @@ function setView(v){
   },200);
 }
 function applyView(v,prev){
+  document.querySelectorAll('.vout').forEach(e=>e.classList.remove('vout'));   /* a switch within 200ms of a switch left the old box faded for ever (2026-09-11) */
   const onStage = v==='brain'||v==='clients';
   document.getElementById('brain-view').style.display = onStage?'flex':'none';
   document.getElementById('legend').style.display = v==='brain'?'flex':'none';   // skill legend only on Brain
@@ -2256,6 +2310,7 @@ function applyView(v,prev){
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
   document.getElementById('growth-view').style.display = v==='growth'?'block':'none';
   document.getElementById('pillars-view').style.display = v==='pillars'?'block':'none';
+  document.getElementById('library-view').style.display = v==='library'?'block':'none';   /* 2026-09-11: the first cut rendered into a box this list never showed */
   document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain'||(v==='explore'&&BBX.getMode()==='brain'));
@@ -2267,6 +2322,7 @@ function applyView(v,prev){
   if(v==='explore'){ BBX.open(); return; }
   if(v==='growth'){ renderGrowth(); return; }
   if(v==='pillars'){ renderPillars(); return; }
+  if(v==='library'){ renderLibrary(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
@@ -3335,6 +3391,25 @@ async function runSelfTest(){
     ok('Growth: ledger row for today with a denominator', !!(g&&g.today&&g.today.total>0&&g.today.rungs<=g.today.total&&g.today.date===D.generated.slice(0,10)), g&&g.today?g.today.rungs+' of '+g.today.total+' on '+g.today.date:'missing');
     ok('Growth: levels add up to the skills', !!(g&&g.today&&g.today.levels.reduce((a,b)=>a+b,0)===D.skills.length), g&&g.today?g.today.levels.join('/')+' = '+D.skills.length:'missing');
     ok('Growth: the index is recomputed from the skills, never stored alone', !!(g&&g.today&&g.today.rungs===D.skills.reduce((a,x)=>a+(x.level||0),0)), 'rungs equal the sum of skill levels');
+    /* THE LIBRARY (2026-09-11): every document readable, searchable, rendered not raw */
+    try{
+      const L=D.library||[]; const shelves=new Set(L.map(e=>e.category));
+      ok('Library: the documents are in the payload', L.length>=80&&shelves.size>=5&&L.every(e=>e.title&&e.category&&e.updated&&e.excerpt), L.length+' documents, '+shelves.size+' shelves');
+      setView('library'); LIB.tab='docs'; LIB.cat='All'; LIB.q=''; LIB.open=null; renderLibrary();
+      const lv=document.getElementById('library-view'); await new Promise(r=>setTimeout(r,320));
+      ok('Library: the page is on screen, not just rendered into a hidden box', getComputedStyle(lv).display==='block'&&lv.offsetHeight>200&&!lv.classList.contains('vout'), getComputedStyle(lv).display+' '+lv.offsetHeight+'px');
+      ok('Library: the page shows every shelf with a count', [...shelves].every(c=>lv.textContent.includes(c)), [...shelves].join(', '));
+      const inp=document.getElementById('lib-q'); const fs=inp?parseFloat(getComputedStyle(inp).fontSize):0;
+      ok('Library: the search field is 16px so iOS does not zoom on focus', fs>=16, fs+'px');
+      const before=libFilter().length; const probe=L.find(e=>e.full&&e.words>200); LIB.q=probe.title.split(' ').slice(0,2).join(' '); renderLibrary(); const after=libFilter().length;
+      ok('Library: search reads inside the documents and narrows the shelf', after<before&&after>=1&&libFilter().some(e=>e.id===probe.id), before+' to '+after+' for "'+LIB.q+'"');
+      LIB.q=''; libOpen(probe.id); const body=document.querySelector('#library-view .lib-body');
+      ok('Library: the reader renders markdown, never raw', !!body&&/<(h2|h3|p|li)/.test(body.innerHTML)&&!/\*\*/.test(body.textContent), body?body.innerHTML.length+' chars rendered':'no reader');
+      const big=L.find(e=>!e.full); if(big){ libOpen(big.id); ok('Library: a document over the cap says so and names its path', /Too large|Open on the Mac/.test(document.getElementById('library-view').textContent)&&document.getElementById('library-view').textContent.includes(big.file.replace('~/','')), big.title); }
+      LIB.open=null; LIB.tab='ind'; renderLibrary(); const IND=D.industries||{list:[]};
+      ok('Library: the industries map places clients and names the unplaced', IND.list.length>=6&&IND.list.every(i=>i.clients.length>=1)&&document.getElementById('library-view').textContent.includes('Not yet classified'), IND.list.length+' industries, '+(IND.unclassified||[]).length+' unclassified');
+      LIB.tab='docs';
+    }catch(e){ ok('Library: harness block ran', false, e.message); }
     try{ setView('growth'); renderGrowth(); const gv=document.getElementById('growth-view'); const gtxt=gv.innerText;   /* rendered directly: setView swaps views after a 200ms fade */
       const rawMd=/\*\*|^##\s/m.test(gtxt);
       ok('Growth: the cloud review reads as a page, never as raw markdown', !rawMd&&(!D.growth.review||/own review/.test(gtxt)), rawMd?'raw markdown visible':(D.growth.review?'review rendered':'no review yet'));
