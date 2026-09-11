@@ -748,13 +748,17 @@ out.library = libraryEntries();
    NOT sure of is listed on the page as "not yet classified" rather than guessed. Fill a gap by
    adding the client here or by putting an industry field in the client's brain.json. ═══ */
 const INDUSTRY = {
-  'BSWL (Leon)': 'Education and tuition', 'Square 1 AI': 'Education and tuition', 'C Clarke': 'Education and tuition',
-  'Home Depot': 'Lighting and hardware retail', 'Mrlighting': 'Lighting and hardware retail',
-  'Sastho': 'Retail and e-commerce', 'Beys International': 'Consumer goods and wholesale',
-  'Clove Beach': 'Hospitality', 'Ceylon Carriers': 'Travel and tourism', 'Sapphire Trails': 'Travel and tourism', 'Seven Summits Rwanda': 'Travel and tourism',
-  'Auto Museum': 'Automotive care', 'Show Car Detailers': 'Automotive care',
-  'Cherry Kitchen': 'Food and restaurants', 'Pot Biriyani': 'Food and restaurants',
-  'Waverley': 'B2B equipment and supply', 'Bellvantage': 'BPO and outsourcing', 'Fusion Media': 'Events and production',
+  /* Confirmed by Thulaib 2026-09-11, in his words. Broad on purpose: a garage, a detailer and a
+     parts shop share one buyer, so one industry lets each learn from the others. The first cut
+     put Seven Summits Rwanda under travel on a guess; it is tea and coffee. Never guess here. */
+  'BSWL (Leon)': 'Education', 'Square 1 AI': 'Education', 'C Clarke': 'Education', 'Seekers': 'Education',
+  'Home Depot': 'Lighting and hardware', 'Mrlighting': 'Lighting and hardware', 'LGL': 'Lighting and hardware',
+  'Sastho': 'Retail', 'Beys International': 'Personal care products',
+  'Clove Beach': 'Hospitality', 'Ceylon Carriers': 'Travel and tourism', 'Sapphire Trails': 'Travel and tourism',
+  'Seven Summits Rwanda': 'Tea and coffee',
+  'Auto Museum': 'Automotive', 'Show Car Detailers': 'Automotive', 'Maruichi': 'Automotive',
+  'Cherry Kitchen': 'Food', 'Pot Biriyani': 'Food', 'Cherry Fish': 'Food',
+  'Waverley': 'Commercial equipment and repairs', 'Bellvantage': 'Call centre and BPO', 'Fusion Media': 'Events and equipment rental',
 };
 {
   const byInd = {}; const unclassified = [];
