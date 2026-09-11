@@ -14,6 +14,7 @@ const os = require('os');
    this Mac's home out of the two private backup repos and points BB_HOME at it.
    One override instead of a dozen, which is also why a future path cannot forget. */
 const HOME = process.env.BB_HOME || os.homedir();
+const HERE = __dirname;
 /* Built somewhere that has no Mac. Two mouths simply cannot exist there and it is
    NOT a fault: the session transcripts are 1.4GB and live only on the laptop. A
    cloud build says so rather than reporting a red source or pretending it is fed. */
@@ -734,6 +735,11 @@ function libraryEntries() {
   return out;
 }
 out.library = libraryEntries();
+/* THE REPORT CARD (2026-09-11): audit-brain.js writes audit-log.json; the brain carries the last
+   two rows so the Growth page can show the score and the change. The card measures the machine
+   around the brain; the Brain Index measures what the brain knows. Two different numbers. */
+try { const log = JSON.parse(fs.readFileSync(path.join(HERE, 'audit-log.json'), 'utf8')); out.audit = { last: log[log.length - 1] || null, prev: log.length > 1 ? log[log.length - 2] : null, runs: log.length }; }
+catch (e) { out.audit = { last: null, prev: null, runs: 0 }; }
 {
   const cats = {}; out.library.forEach(e => { cats[e.category] = (cats[e.category] || 0) + 1; });
   const bytes = Buffer.byteLength(JSON.stringify(out.library), 'utf8');

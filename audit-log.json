@@ -1,0 +1,63 @@
+[
+ {
+  "date": "2026-09-11",
+  "overall": 6.6,
+  "unknown": [
+   "Is it used"
+  ],
+  "areas": {
+   "Reliability": 7,
+   "Backup": 9,
+   "Breadth": 8,
+   "Honesty": 7,
+   "The app": 9,
+   "Self-improvement": 6,
+   "Security": 5,
+   "Depth": 3,
+   "Industry knowledge": 5,
+   "Is it used": null
+  },
+  "gaps": [
+   {
+    "area": "Is it used",
+    "gap": "no idea whether anyone reads the brain",
+    "close": "BUILD"
+   },
+   {
+    "area": "Depth",
+    "gap": "116 skills have never touched a client",
+    "close": "HUMAN"
+   },
+   {
+    "area": "Security",
+    "gap": "the lock is a short digits passcode on a public file",
+    "close": "DECIDE"
+   },
+   {
+    "area": "Industry knowledge",
+    "gap": "12 clients not placed in an industry",
+    "close": "HUMAN"
+   },
+   {
+    "area": "Self-improvement",
+    "gap": "the daily gym prompt is not being used",
+    "close": "HUMAN"
+   },
+   {
+    "area": "Reliability",
+    "gap": "feeds failing often",
+    "close": "BUILD"
+   },
+   {
+    "area": "Honesty",
+    "gap": "28 contradictions waiting for a ruling",
+    "close": "DECIDE"
+   },
+   {
+    "area": "The app",
+    "gap": "payload heavy for mobile data",
+    "close": "BUILD"
+   }
+  ]
+ }
+]

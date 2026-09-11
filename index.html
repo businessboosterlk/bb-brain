@@ -636,7 +636,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1789138018191"></script>
+<script src="brain-data.enc.js?v=1789139744082"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2174,7 +2174,16 @@ function renderLibrary(){
     ${rows.slice(0,120).map(item).join('')}${rows.length>120?`<p style="font-size:11.5px;color:var(--text-3)">Showing 120 of ${rows.length}. Narrow the search.</p>`:''}`;
 }
 function renderGrowth(){
-  const el=document.getElementById('growth-view'); const g=D.growth;
+  const el=document.getElementById('growth-view');
+  /* the report card (2026-09-11): the machine around the brain, scored by rules in audit-brain.js */
+  const AU=D.audit&&D.audit.last; const auPrev=D.audit&&D.audit.prev;
+  const auCard=AU?`<div class="tl-item" style="display:block;margin:0 0 18px;padding:14px 16px">
+    <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap"><b style="font-size:14px">Report card</b><span style="font-size:11px;color:var(--text-3)">${esc(AU.date)}${auPrev?' · last '+esc(auPrev.overall)+' on '+esc(auPrev.date):' · first audit, the baseline'}</span></div>
+    <div style="font-size:28px;font-weight:700;margin:6px 0 2px">${esc(AU.overall)}<span style="font-size:13px;color:var(--text-3);font-weight:500"> of 10${auPrev?' · '+((AU.overall-auPrev.overall)>=0?'+':'')+(AU.overall-auPrev.overall).toFixed(1)+' since last':''}</span></div>
+    <div style="font-size:11.5px;color:var(--text-2);line-height:1.7">${Object.entries(AU.areas).map(([k,v])=>esc(k)+' <b style="color:'+(v===null?'var(--text-3)':v>=8?'#7cc47c':v>=6?'var(--text)':'#e0a35a')+'">'+(v===null?'?':v)+'</b>').join(' · ')}</div>
+    ${AU.unknown&&AU.unknown.length?`<div style="font-size:11px;color:var(--text-3);margin-top:6px">Unknown, not guessed: ${AU.unknown.map(esc).join(', ')}</div>`:''}
+    ${AU.gaps&&AU.gaps.length?`<div style="font-size:11.5px;color:var(--text-2);margin-top:8px"><b style="color:var(--text-3)">Weakest</b> ${esc(AU.gaps[0].gap)} (${esc(AU.gaps[0].close)})</div>`:''}
+  </div>`:''; const g=D.growth;
   if(!g||!g.today){ el.innerHTML='<h2 style="font-size:19px">Growth</h2><p style="color:var(--text-3);font-size:12.5px">The ledger has not been built yet. It appears after the next feed.</p>'; return; }
   const t=g.today, w=g.week||{}, hist=g.history||[];
   const bar=(pct,colour)=>`<div style="height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden"><div style="width:${Math.max(0,Math.min(100,pct))}%;height:100%;background:${colour||'linear-gradient(90deg,#5B9DFF,#A78BFA)'};border-radius:99px"></div></div>`;
@@ -2188,7 +2197,7 @@ function renderGrowth(){
   const label=mon=>{ const a=new Date(mon+'T00:00:00'), b=new Date(a); b.setDate(a.getDate()+6); const f=x=>x.getDate()+' '+x.toLocaleString('en-GB',{month:'short'}); return f(a)+' to '+f(b); };
   const sg=n=>(n>0?'+':'')+n;
   const chip=n=>`<button class="fchip" onclick="openSkill('${esc(n)}')">${esc(humanSkill(n))}</button>`;
-  el.innerHTML=`
+  el.innerHTML=`${auCard}
    <h2 style="font-size:20px;margin-bottom:3px">The brain's growth</h2>
    <p style="font-size:12.5px;color:var(--text-2);margin-bottom:18px;line-height:1.6">Five rungs per skill, in order: it exists, it was used on real work, its lessons are confirmed, a learning loop feeds it, it is proven on three clients. The index only moves when one of those happens.</p>
    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:44px;font-weight:800;line-height:1">${t.pct}%</span><span style="font-size:13px;color:var(--text-2)">${t.rungs} of ${t.total} rungs · ${t.skills} skills</span>${w.rungsClimbed!=null?`<span style="font-size:13px;color:${w.rungsClimbed>0?'#4ADE80':'var(--text-3)'}">${sg(w.rungsClimbed)} this week</span>`:'<span style="font-size:13px;color:var(--text-3)">first week measured</span>'}</div>
@@ -3442,7 +3451,8 @@ async function runSelfTest(){
       ok('Library: the industries map places clients and names the unplaced', IND.list.length>=6&&IND.list.every(i=>i.clients.length>=1)&&document.getElementById('library-view').textContent.includes('Not yet classified'), IND.list.length+' industries, '+(IND.unclassified||[]).length+' unclassified');
       LIB.tab='docs';
     }catch(e){ ok('Library: harness block ran', false, e.message); }
-    try{ setView('growth'); renderGrowth(); const gv=document.getElementById('growth-view'); const gtxt=gv.innerText;   /* rendered directly: setView swaps views after a 200ms fade */
+    try{ setView('growth'); renderGrowth(); const gv=document.getElementById('growth-view'); const gtxt=gv.innerText;
+      if(D.audit&&D.audit.last){ ok('Growth: the report card renders with its score and its unknowns', /Report card/.test(gtxt)&&gtxt.includes(String(D.audit.last.overall))&&(D.audit.last.unknown.length===0||/Unknown, not guessed/.test(gtxt)), D.audit.last.overall+' of 10, '+D.audit.last.unknown.length+' unknown'); }   /* rendered directly: setView swaps views after a 200ms fade */
       const rawMd=/\*\*|^##\s/m.test(gtxt);
       ok('Growth: the cloud review reads as a page, never as raw markdown', !rawMd&&(!D.growth.review||/own review/.test(gtxt)), rawMd?'raw markdown visible':(D.growth.review?'review rendered':'no review yet'));
       ok('Growth: page shows the bar, every sector, the week and the ladder', /%/.test(gtxt)&&(D.clusters||[]).every(c=>gtxt.includes(c.name))&&/What 100 means/.test(gtxt)&&/Week by week/.test(gtxt)&&gv.querySelectorAll('button').length>0, gv.querySelectorAll('button').length+' actions on the page');
