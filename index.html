@@ -422,6 +422,7 @@ table.r-tbl td b{color:#0e1830}
   .r-head,.r-kpi,.r-bar .fl,.r-ins li::before,.r-foot img{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 @media(max-width:720px){.r-kpis{grid-template-columns:1fr 1fr}.r-grid2,.r-insights{grid-template-columns:1fr}.r-body,.r-head,.r-foot{padding-left:22px;padding-right:22px}}
+.lib-body h1,.lib-body h2{font-size:15px;margin:18px 0 6px;line-height:1.35}.lib-body h3,.lib-body h4{font-size:13.5px;margin:14px 0 4px}.lib-body p{margin:0 0 10px}.lib-body ul,.lib-body ol{padding-left:20px;margin:0 0 10px}.lib-body li{margin:3px 0}.lib-body blockquote{border-left:2px solid var(--line-2);margin:0 0 10px;padding:2px 12px;color:var(--text-2)}.lib-body pre{white-space:pre-wrap;word-break:break-word;font-size:11.5px;background:var(--surface-2);padding:10px;border-radius:8px}.lib-body code{font-size:12px;background:var(--surface-2);padding:1px 4px;border-radius:4px}.lib-body hr{border:0;border-top:1px solid var(--line);margin:14px 0}.lib-table{overflow-x:auto;margin:0 0 10px}.lib-body table{border-collapse:collapse;font-size:12px;min-width:100%}.lib-body th,.lib-body td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}.lib-body th{color:var(--text);background:var(--surface-2)}
 </style>
 </head>
 <body>
@@ -635,7 +636,7 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1789136699170"></script>
+<script src="brain-data.enc.js?v=1789136868671"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2096,6 +2097,37 @@ function gMarkdown(t){
    the size cap arrive as an excerpt and their headings, with the path to open on the Mac.
    The search field is 16px on purpose: under 16px iOS zooms the whole screen on focus
    (bb-app-foundations). ═══ */
+/* the Library's own markdown (2026-09-11): headings, quotes, lists, code, tables, wrapped
+   bullets. gMarkdown was built for one review file and shows # and > raw; a reader that
+   prints the marks is not a reader. */
+function libMarkdown(t){
+  const lines=String(t||'').replace(/\r/g,'').split('\n'); const out=[];
+  let para=[], list=null, quote=[], table=[], code=false, codeBuf=[];
+  const inline=x=>gBold(esc(x)).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\[([^\]]+)\]\([^)]+\)/g,'$1').replace(/(^|\s)_([^_]+)_(?=\s|$|[.,;:])/g,'$1<i>$2</i>');
+  const flushP=()=>{ if(para.length){ out.push('<p>'+inline(para.join(' '))+'</p>'); para=[]; } };
+  const flushL=()=>{ if(list){ out.push('<'+list.tag+'>'+list.items.map(i=>'<li>'+inline(i)+'</li>').join('')+'</'+list.tag+'>'); list=null; } };
+  const flushQ=()=>{ if(quote.length){ out.push('<blockquote>'+inline(quote.join(' '))+'</blockquote>'); quote=[]; } };
+  const flushT=()=>{ if(table.length){ const rows=table.filter(r=>!/^\|?\s*:?-{2,}/.test(r)); out.push('<div class="lib-table"><table>'+rows.map((r,i)=>'<tr>'+r.replace(/^\||\|$/g,'').split('|').map(c=>'<'+(i?'td':'th')+'>'+inline(c.trim())+'</'+(i?'td':'th')+'>').join('')+'</tr>').join('')+'</table></div>'); table=[]; } };
+  const flushAll=()=>{ flushP(); flushL(); flushQ(); flushT(); };
+  for(const raw of lines){
+    const l=raw.replace(/\s+$/,''); let m;
+    if(/^\s*```/.test(l)){ if(code){ out.push('<pre>'+esc(codeBuf.join('\n'))+'</pre>'); codeBuf=[]; code=false; } else { flushAll(); code=true; } continue; }
+    if(code){ codeBuf.push(raw); continue; }
+    if((m=l.match(/^(#{1,6})\s+(.*)$/))){ flushAll(); const n=Math.min(m[1].length+1,4); out.push('<h'+n+'>'+inline(m[2].replace(/\s#+$/,''))+'</h'+n+'>'); continue; }
+    if(/^\s*\|/.test(l)){ flushP(); flushL(); flushQ(); table.push(l.trim()); continue; }
+    if((m=l.match(/^\s*>\s?(.*)$/))){ flushP(); flushL(); flushT(); quote.push(m[1]); continue; }
+    if((m=l.match(/^\s*[-*+]\s+(.*)$/))){ flushP(); flushQ(); flushT(); if(!list||list.tag!=='ul'){ flushL(); list={tag:'ul',items:[]}; } list.items.push(m[1]); continue; }
+    if((m=l.match(/^\s*\d+[.)]\s+(.*)$/))){ flushP(); flushQ(); flushT(); if(!list||list.tag!=='ol'){ flushL(); list={tag:'ol',items:[]}; } list.items.push(m[1]); continue; }
+    if(/^\s*([-*_]\s*){3,}$/.test(l)){ flushAll(); out.push('<hr>'); continue; }
+    if(!l.trim()){ flushAll(); continue; }
+    if(list&&/^\s{2,}\S/.test(raw)){ list.items[list.items.length-1]+=' '+l.trim(); continue; }
+    if(quote.length){ quote.push(l.trim()); continue; }
+    flushL(); flushT(); para.push(l.trim());
+  }
+  if(code) out.push('<pre>'+esc(codeBuf.join('\n'))+'</pre>');
+  flushAll();
+  return out.join('');
+}
 const LIB={tab:'docs',cat:'All',q:'',open:null};
 const LIB_SHELVES=['Control docs','Master prompts','Operating workflows','Learnings','Memory'];
 function libFilter(){
@@ -2122,7 +2154,7 @@ function renderLibrary(){
   }
   if(LIB.open){
     const e=L.find(x=>x.id===LIB.open); if(!e){ LIB.open=null; return renderLibrary(); }
-    const body=e.full?gMarkdown(e.text):`<p style="font-size:13px;line-height:1.7;color:var(--text-2)">${esc(e.excerpt)}</p>
+    const body=e.full?libMarkdown(e.text.replace(/^---\n[\s\S]*?\n---\n/,'').replace(/^#\s+[^\n]*\n/,'')):   /* the title is shown above, so the document's own H1 and front matter are dropped */`<p style="font-size:13px;line-height:1.7;color:var(--text-2)">${esc(e.excerpt)}</p>
       ${e.headings.length?`<h3 style="font-size:13px;margin:16px 0 6px">Inside this document</h3><ul style="font-size:12.5px;color:var(--text-2);line-height:1.8;padding-left:18px">${e.headings.map(h=>`<li>${esc(h)}</li>`).join('')}</ul>`:''}
       <p style="font-size:11.5px;color:var(--text-3);margin-top:14px">Too large to carry in full (${e.words.toLocaleString()} words). Open on the Mac: <code>${esc(e.file)}</code></p>`;
     el.innerHTML=head+`<button class="fchip" onclick="libSet('open',null)" style="margin-bottom:12px">Back to the shelf</button>
@@ -3404,7 +3436,7 @@ async function runSelfTest(){
       const before=libFilter().length; const probe=L.find(e=>e.full&&e.words>200); LIB.q=probe.title.split(' ').slice(0,2).join(' '); renderLibrary(); const after=libFilter().length;
       ok('Library: search reads inside the documents and narrows the shelf', after<before&&after>=1&&libFilter().some(e=>e.id===probe.id), before+' to '+after+' for "'+LIB.q+'"');
       LIB.q=''; libOpen(probe.id); const body=document.querySelector('#library-view .lib-body');
-      ok('Library: the reader renders markdown, never raw', !!body&&/<(h2|h3|p|li)/.test(body.innerHTML)&&!/\*\*/.test(body.textContent), body?body.innerHTML.length+' chars rendered':'no reader');
+      ok('Library: the reader renders markdown, never raw', !!body&&/<h[1-4]/.test(body.innerHTML)&&/<(p|li)/.test(body.innerHTML)&&!/\*\*/.test(body.textContent)&&!/^\s*[#>]/m.test(body.textContent)&&!/^\s*[-*]\s/m.test(body.textContent), body?body.innerHTML.length+' chars, '+(body.innerHTML.match(/<h[1-4]/g)||[]).length+' headings':'no reader');
       const big=L.find(e=>!e.full); if(big){ libOpen(big.id); ok('Library: a document over the cap says so and names its path', /Too large|Open on the Mac/.test(document.getElementById('library-view').textContent)&&document.getElementById('library-view').textContent.includes(big.file.replace('~/','')), big.title); }
       LIB.open=null; LIB.tab='ind'; renderLibrary(); const IND=D.industries||{list:[]};
       ok('Library: the industries map places clients and names the unplaced', IND.list.length>=6&&IND.list.every(i=>i.clients.length>=1)&&document.getElementById('library-view').textContent.includes('Not yet classified'), IND.list.length+' industries, '+(IND.unclassified||[]).length+' unclassified');

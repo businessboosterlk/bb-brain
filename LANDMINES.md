@@ -206,3 +206,13 @@ coverage.py walks the laptop and fails the night on anything that is not git, sy
 a named secret or excluded with a written reason. Sibling: the Mac's rsync is openrsync,
 which does not know --max-depth and exits 0 having copied one file; never silence its
 stderr, and print the count of what was written.
+
+### L-BRAIN-026 (2026-09-11): a page is five places, and a check that reads a hidden box passes
+The Library renderer, route, menu item and container were all in, the harness passed seven
+checks, and the page was invisible: applyView shows containers by an EXPLICIT list of
+getElementById lines and the new one was not on it. The harness read textContent and
+innerHTML, which a display:none box returns happily. Rule: adding a page to this app is
+FIVE places (container, VIEW_EL, the applyView display line, the applyView render branch,
+the menu) and every page check must first assert display block and offsetHeight over 200.
+Sibling: a switch within 200ms of a switch left the old box with 'vout' for ever, because
+clearTimeout skipped the removal; applyView now strips 'vout' from every box on entry.
