@@ -36,6 +36,8 @@ const LEARNINGS_MAP = {
   'bb-quality-gate-learnings.md': 'bb-quality-gate',
   'bb-say-it-out-loud-learnings.md': 'bb-say-it-out-loud',
   'bb-content-pipeline-learnings.md': 'bb-content-pipeline',
+  'bb-quarter-plan-learnings.md': 'bb-quarter-plan',
+  'bb-icp-learnings.md': 'bb-icp',
 };
 const EXTRA_LEARNINGS = [
   { file: path.join(HOME, 'bb-systems/FORGE-LEARNINGS.md'), skill: 'bb-system-forge' },
