@@ -40,6 +40,14 @@ for i in $(seq 1 24); do
   sleep 5
 done
 
+# 0b. DRAFTS ALWAYS READY (2026-09-18). Every client's next quarter is prefilled before the build, so
+#     the review screen always has a fresh draft. Never fatal: a draft that fails is a note, the
+#     Brain still feeds.
+if [ -f "$HOME/bb-consultancy/q4-2026/prefill_all.py" ]; then
+  PF="$(python3 "$HOME/bb-consultancy/q4-2026/prefill_all.py" 2>&1 | head -1)" || true
+  echo "[$STAMP] note $PF" >> "$LOG"
+fi
+
 # 1. build. A failed build never reaches the public.
 if ! BUILD_OUT="$(node build-brain-data.js 2>&1)"; then
   shout "build failed: $(printf '%s' "$BUILD_OUT" | tail -1 | cut -c1-160)"

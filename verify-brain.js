@@ -8,6 +8,25 @@ const HERE = __dirname, R = [];
 const ok = (n, p, d) => R.push({ n, p: !!p, d: String(d == null ? '' : d).slice(0, 200) });
 let d = null;
 
+/* THE VISUAL GATE (2026-09-18). Cards valid, no original inside cards/, the tool's own selftest green. */
+(function visualGate() {
+  const tool = path.join(process.env.BB_HOME || process.env.HOME, 'bb-brain-visuals', 'visual_intake.py');
+  if (!fs.existsSync(tool)) { ok('visual cards pass their gate', true, 'skipped: no visual folder on this machine'); return; }
+  try { const o = cp.execSync('python3 "' + tool + '" --check', { encoding: 'utf8', timeout: 60000 }); ok('visual cards pass their gate', true, o.trim().split('\n').pop()); }
+  catch (e) { ok('visual cards pass their gate', false, ((e.stdout || '') + '').trim().split('\n').slice(0, 3).join(' | ').slice(0, 190)); }
+})();
+
+/* THE PLAN DRAFT GATE (2026-09-18). A wrong fact in a client plan is worse than a blank, so the
+   prefill engine is re-marked against the approved plans on every gate run. Skipped in the cloud,
+   where the consultancy folder does not exist. */
+(function planGate() {
+  const bt = path.join(process.env.BB_HOME || process.env.HOME, 'bb-consultancy', 'q4-2026', 'backtest.py');
+  if (!fs.existsSync(bt)) { ok('prefill backtest has zero wrong facts', true, 'skipped: no consultancy folder on this machine'); return; }
+  try { const o = cp.execSync('python3 "' + bt + '" --gate', { encoding: 'utf8', timeout: 120000 }); const m = o.match(/ALL (\d+) scored facts: RIGHT (\d+) .*?OFFERED (\d+), HELD (\d+), WRONG (\d+)/);
+    ok('prefill backtest has zero wrong facts', /GATE PASSED/.test(o) && m && m[5] === '0', m ? m[1] + ' facts marked against the approved plans: ' + m[2] + ' right, ' + m[3] + ' offered, ' + m[4] + ' held, ' + m[5] + ' wrong' : o.slice(-150)); }
+  catch (e) { ok('prefill backtest has zero wrong facts', false, ((e.stdout || '') + '').split('\n').filter(l => /WRONG|GATE/.test(l)).slice(0, 3).join(' | ') || e.message.slice(0, 150)); }
+})();
+
 /* THE VAULT GATE (2026-09-18, SECURITY.md). Reads the PUBLISHED files, not the local plaintext,
    because the local file is complete by design and would pass while the public one leaked. */
 (function vaultGate() {
@@ -27,9 +46,9 @@ let d = null;
   };
   let pub = null; try { pub = open('brain-data.enc.js', 'window.BRAIN_ENC', pass); } catch (e) { ok('public file opens with the team lock', false, e.message); return; }
   ok('public file opens with the team lock', !!pub, (pub.clients || []).length + ' clients inside');
-  let quotes = 0, counted = 0; for (const c of pub.clients || []) { quotes += (c.whatsapp || []).length + (c.waCheck ? 1 : 0); counted += c.waCount || 0; }
+  let quotes = 0, counted = 0; for (const c of pub.clients || []) { quotes += (c.whatsapp || []).length + (c.waCheck ? 1 : 0) + (c.planDraft ? 1 : 0) + (c.visuals ? 1 : 0); counted += c.waCount || 0; }
   const cross = (pub.waCrosscheck ? 1 : 0) + ((pub.systems || {}).crosscheck ? 1 : 0);
-  ok('public file carries no client chat lines', quotes === 0 && cross === 0, quotes + ' quotes and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' counted');
+  ok('public file carries no client words, drafts or visual cards', quotes === 0 && cross === 0, quotes + ' tier B items and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' counted');
   const s = strength(pass); let vp = s.strong ? pass : (process.env.BB_VAULT_PASS || rd(path.join(HOME, '.bb-brain-vault-pass'))); if (!strength(vp).strong) vp = null;
   let vault; try { vault = open('brain-vault.enc.js', 'window.BRAIN_VAULT', vp || 'x'); } catch (e) { ok('vault is sealed strong or held', false, 'vault file does not open under the strong phrase: ' + e.message); return; }
   if (vault === null) ok('vault is sealed strong or held', !vp && (pub.vault || {}).state === 'held', 'held on this machine, team lock is ' + s.klass + ', ' + ((pub.vault || {}).lines || 0) + ' lines waiting');
@@ -41,6 +60,8 @@ if (d) {
   const ageH = (Date.now() - new Date(d.generated)) / 36e5;
   ok('build is fresh', ageH < 2, ageH.toFixed(1) + ' hours old');
   ok('skills scanned', d.skills.length > 100, d.skills.length + ' skills');
+  { const pd = (d.clients || []).filter(c => c.planDraft); const need = pd.reduce((n, c) => n + c.planDraft.fields.filter(f => f.state === 'unknown' || f.state === 'conflict').length, 0);
+    ok('plan drafts feeding', pd.length >= 5 || !fs.existsSync(path.join(process.env.BB_HOME || process.env.HOME, 'bb-consultancy', 'q4-2026', 'prefill.py')), pd.length + ' clients drafted, ' + need + ' fields need a person'); }
   ok('learning entries', d.totals.entries > 500, d.totals.entries + ' entries');
   const src = d.sources || [], bad = src.filter(s => s.ok === false);
   ok('sources feeding', src.length >= 9 && !bad.length, src.length + ' sources, ' + bad.length + ' red' + (bad.length ? ': ' + bad.map(s => s.name).join(', ') : ''));

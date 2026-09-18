@@ -1245,6 +1245,67 @@ function pillarEntries(fileName, via) {
     '· named clients recognised:', named.size, 'of', (out.clients || []).length);
 }
 
+/* ── VISUAL MEMORY (2026-09-18, Fable mould): cards from ~/bb-brain-visuals/cards, written by the
+   bb-visual-intake skill. The Brain carries the WORDS and where the original lives. Never the picture:
+   originals stay in Drive, sheets stay on the Mac. Tier B, vault only. ── */
+{
+  const vroot = path.join(HOME, 'bb-brain-visuals', 'cards'); let nCards = 0, nLooked = 0;
+  const slugOfName = n => slugify(n);
+  try {
+    for (const cl of fs.readdirSync(vroot)) {
+      const dir = path.join(vroot, cl); if (!fs.statSync(dir).isDirectory()) continue;
+      const cards = [];
+      for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.json'))) {
+        try { const k = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); nCards++; if (k.state !== 'to_look') nLooked++;
+          const ct = k.content || {}, v = k.verdict || {}, m = k.machine || {};
+          cards.push({ id: k.id, kind: k.kind || '', state: k.state, file: k.file, made: (k.date || {}).made || (k.date || {}).sent_to_client || '', type: m.type, shape: (m.orientation || '') + (m.duration_s ? ', ' + Math.round(m.duration_s) + 's' : ''),
+            shows: (ct.what_it_shows || '').slice(0, 320), words: (ct.words_on_it || []).slice(0, 6), languages: ct.languages || [], ai: ct.ai_made || '', hook: ((k.video || {}).hook_first_3s || '').slice(0, 200),
+            verdict: { status: v.status || 'unknown', state: v.state || 'none', by: v.by || '', date: v.date || '', quote: (v.quote || '').slice(0, 300), changes: (v.changes_requested || []).slice(0, 4) },
+            broken: (k.rules || []).filter(r => r.kept === 'no').map(r => r.rule), lessons: (k.lessons || []).slice(0, 3), where: (k.original || {}).where || '' }); } catch (e) {}
+      }
+      const c = (out.clients || []).find(x => slugOfName(x.name) === cl || (x.key || '') === cl || slugOfName(x.name).startsWith(cl));
+      if (c && cards.length) c.visuals = cards.sort((a, b) => String(b.made).localeCompare(String(a.made)));
+      else if (cards.length) console.log('WARNING: ' + cards.length + ' visual cards under "' + cl + '" match no client');
+    }
+  } catch (e) {}
+  out.visualTotals = { cards: nCards, looked: nLooked };
+  console.log('visual memory: ' + nCards + ' cards, ' + nLooked + ' looked at');
+}
+
+/* ── PLAN DRAFTS (2026-09-18, Fable mould): every client's next quarter, prefilled nightly by
+   ~/bb-consultancy/q4-2026/prefill_all.py with a source on every field. The Brain only REVIEWS: it
+   reads data.provenance.json and the draft's values. Client words ride inside (quotes from chats),
+   so the whole draft is Tier B and leaves this machine only in the vault. The public file carries
+   counts. ── */
+{
+  let drafts = 0;
+  const peek = (data, p) => { let n = data; for (const k of p.replace(/\[\]/g, '').split('/')) { if (n == null) return null; n = n[k]; } return n; };
+  /* A person reads this on a phone. Never show them brackets (caught by eye on the first render, 2026-09-18). */
+  const human = v => {
+    if (v == null || v === '' || v === 'UNKNOWN') return null;
+    if (typeof v !== 'object') return String(v);
+    if (Array.isArray(v)) { const xs = v.map(x => typeof x === 'object' && x ? (x.name || x.moment && (x.date + ' ' + x.moment) || x.date || x.metric || x.persona || x.move || null) : x).filter(Boolean); return xs.length ? xs.join(', ') : null; }
+    const parts = Object.entries(v).filter(([k]) => !k.startsWith('_')).map(([k, x]) => { const h = (x && typeof x === 'object' && !Array.isArray(x)) ? Object.entries(x).filter(([, y]) => y !== '' && y !== 0 && y != null && typeof y !== 'object').map(([a, b]) => b + ' ' + a).join(', ') : human(x); return h ? k + ': ' + h : null; }).filter(Boolean);
+    return parts.length ? parts.join(' · ') : null;
+  };
+  const short = (v, state) => { if (!['filled', 'derived', 'carried'].includes(state)) return null; const h = human(v); return h ? h.slice(0, 240) : null; };
+  for (const c of out.clients || []) {
+    const key = c.key || Object.keys(ROSTER).find(k => ROSTER[k] === c.name); if (!key) continue;
+    let newest = null;
+    try { for (const q of fs.readdirSync(path.join(HOME, 'bb-consultancy', key))) { const f = path.join(HOME, 'bb-consultancy', key, q, 'data.provenance.json'); if (/^q\d/i.test(q) && fs.existsSync(f)) { const m = fs.statSync(f).mtimeMs; if (!newest || m > newest.m) newest = { f, m, dir: path.dirname(f) }; } } } catch (e) {}
+    if (!newest) continue;
+    try {
+      const P = JSON.parse(fs.readFileSync(newest.f, 'utf8')), data = JSON.parse(fs.readFileSync(path.join(newest.dir, 'data.draft.json'), 'utf8'));
+      const fields = Object.entries(P.fields).map(([p, v]) => ({ path: p, state: v.state, value: short(peek(data, p), v.state), note: (v.note || '').slice(0, 260),
+        source: v.source ? { kind: v.source.kind, date: v.source.date || '', where: (v.source.file || '').split('/').pop() + (v.source.where ? ', ' + v.source.where : ''), quote: (v.source.quote || '').slice(0, 240) } : null,
+        options: (v.options || []).slice(0, 6).map(o => ({ value: human(o.value), kind: (o.source || {}).kind || '', date: (o.source || {}).date || '', quote: ((o.source || {}).quote || '').slice(0, 160) })) }));
+      c.planDraft = { quarter: P.meta.quarter, built: P.meta.built, chatLines: P.meta.chat_lines, filesRead: (P.meta.files_read || []).length, carried: P.meta.carried || [], counts: P.meta.counts, fields };
+      drafts++;
+    } catch (e) { console.log('WARNING: plan draft unreadable for', c.name, e.message); }
+  }
+  console.log('plan drafts: ' + drafts + ' clients have a prefilled next quarter');
+}
+
 /* plaintext stays LOCAL ONLY (gitignored) - the published artifact is encrypted */
 fs.writeFileSync(path.join(__dirname, 'brain-data.js'),
   '/* AUTO-GENERATED by build-brain-data.js on ' + now.toISOString() + ' - never hand-edit. LOCAL ONLY - never commit. */\n' +
@@ -1279,7 +1340,9 @@ try {
   const pub = JSON.parse(JSON.stringify(out));
   let heldLines = 0;
   for (const c of pub.clients || []) {
-    if ((c.whatsapp || []).length || c.waCheck) vault.clients[c.name] = { whatsapp: c.whatsapp || [], waCheck: c.waCheck || null };
+    if ((c.whatsapp || []).length || c.waCheck || c.planDraft || c.visuals) vault.clients[c.name] = { whatsapp: c.whatsapp || [], waCheck: c.waCheck || null, planDraft: c.planDraft || null, visuals: c.visuals || null };
+    if (c.visuals) { c.visualCount = c.visuals.length; c.visuals = null; }
+    if (c.planDraft) { c.planState = { quarter: c.planDraft.quarter, built: c.planDraft.built, counts: c.planDraft.counts }; c.planDraft = null; }
     heldLines += (c.whatsapp || []).length; c.whatsapp = []; c.waCheck = null;   // waCount stays: a count is not a quote
   }
   pub.waCrosscheck = null; if (pub.systems) pub.systems.crosscheck = null;

@@ -33,3 +33,11 @@ The card, one JSON beside each file: client, date, kind (post, story, reel, deck
 Shape of the lane: drop zone `~/bb-brain-inbox/<client>/visuals/`, a bb-visual-intake skill where Claude looks at each file and writes the card, the Brain builder reads cards only, a Visuals shelf on the client dossier with the small sheet, a check that fails on a card with no client or no verdict field.
 
 Rules: originals never go in the public Brain file or a git repo. They stay in Google Drive where the team already shares them. The Brain holds the card, a small sheet and the link. No speech to text tool is installed, so spoken words come from the script until one is added. Settle the passcode before any client creative goes in.
+
+## Done on 18 September 2026, evening (Fable sitting)
+Steps 1 and 2 are built, plus the visual lane and the security design. Reading moved from 76 to 84.
+- PREFILL: `q4-2026/prefill.py`, nightly `prefill_all.py`, blind `backtest.py --gate` at 0 wrong of 69. 24 clients drafted.
+- REVIEW SCREEN: More menu, Plan drafts. Four worded states. 77 of 77 at phone width.
+- VISUAL CARDS: `~/bb-brain-visuals`, skill bb-visual-intake, 12 of 12 self test, first real card.
+- SECURITY: SECURITY.md, the vault, lock policy. Client words left the public file the same day.
+Left for 84 to 100: brain.json for every client, an export parser so measured blocks fill, a Claude pass that drafts judgement from DRAFT-BRIEF.md, write-back from the phone, the January grade.

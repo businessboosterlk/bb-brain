@@ -231,6 +231,32 @@ body.present .coach{display:none}
 /* ── timeline ── */
 .tl{max-width:860px;margin:0 auto;padding:22px}
 .tl-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
+/* ═══ THE REVIEW SCREEN (2026-09-18, Fable mould). One design language for every screen where a
+   person approves what the machine drafted. Four states, each one a WORD plus a colour, never
+   colour alone: Needs you, Check, From a source, To draft. Order on the page is order of work. ═══ */
+.rv-pill{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;letter-spacing:.01em;border-radius:99px;padding:2px 9px;white-space:nowrap;border:1px solid}
+.rv-need{color:#ff8a8a;border-color:rgba(255,107,107,.4);background:rgba(255,107,107,.08)}
+.rv-check{color:#f2b84b;border-color:rgba(242,184,75,.4);background:rgba(242,184,75,.08)}
+.rv-src{color:#4ade80;border-color:rgba(74,222,128,.35);background:rgba(74,222,128,.07)}
+.rv-draft{color:var(--text-2);border-color:var(--line-2);background:transparent}
+.rv-you{color:var(--blue);border-color:rgba(91,157,255,.45);background:rgba(91,157,255,.09)}
+.rv-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--surface-2);gap:2px}
+.rv-bar i{display:block;height:100%;min-width:3px}
+.rv-row{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;margin-bottom:8px;color:var(--text);font:inherit;cursor:pointer;min-height:44px}
+.rv-row:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.rv-row.open{border-color:var(--line-2)}
+.rv-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.rv-label{font-size:13px;font-weight:600;line-height:1.35}
+.rv-val{font-size:12.5px;color:var(--text-2);line-height:1.5;margin-top:4px;word-break:break-word}
+.rv-from{font-size:11px;color:var(--text-3);margin-top:5px;line-height:1.45}
+.rv-quote{font-size:12px;color:var(--text-2);line-height:1.55;border-left:2px solid var(--line-2);padding-left:10px;margin:10px 0}
+.rv-opt{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;margin-top:8px}
+.rv-opt .btn-p{min-height:40px;padding:8px 14px;white-space:nowrap}
+.rv-quiet{background:transparent;border:1px solid var(--line-2);color:var(--text-2);border-radius:var(--r-sm);padding:9px 14px;font-size:12.5px;font-weight:600;min-height:40px}
+.rv-actions{position:sticky;bottom:calc(10px + var(--sab));display:grid;gap:8px;margin-top:16px;padding:10px;background:color-mix(in srgb,var(--bg) 88%,transparent);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.rv-actions .btn-p{width:100%;min-height:46px;font-size:14px}
+.rv-h{font-size:14px;margin:22px 0 4px}
+.rv-sub{font-size:11.5px;color:var(--text-3);margin-bottom:10px;line-height:1.55}
 .fchip{font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--line);border-radius:99px;padding:5px 13px;transition:all .15s}
 .fchip.on{color:var(--text);border-color:var(--line-2);background:var(--surface)}
 .fchip .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
@@ -452,6 +478,7 @@ table.r-tbl td b{color:#0e1830}
       <button role="menuitem" onclick="closeMore();setView('pillars')">Pillars</button>
       <button role="menuitem" onclick="closeMore();setView('growth')">Growth</button>
       <button role="menuitem" onclick="closeMore();setView('library')">Library</button>
+      <button role="menuitem" onclick="closeMore();setView('plans')">Plan drafts</button>
       <button role="menuitem" onclick="closeMore();openReport()">Weekly report</button>
       <button role="menuitem" onclick="closeMore();openBYS()">Before you start a task</button>
       <button role="menuitem" onclick="closeMore();togglePresent(true)">Present mode</button>
@@ -505,6 +532,7 @@ table.r-tbl td b{color:#0e1830}
 <div class="tl" id="growth-view" style="display:none"></div>
 <div class="tl" id="pillars-view" style="display:none"></div>
 <div class="tl" id="library-view" style="display:none"></div>
+<div class="tl" id="plans-view" style="display:none"></div>
 <div class="tl" id="dossier-view" style="display:none;max-width:960px"></div>
 <div class="tl" id="explore-view" style="display:none;max-width:none">
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px" id="x3d-chips"></div>
@@ -636,8 +664,8 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1789729486747"></script>
-<script src="brain-vault.enc.js?v=1789729486747"></script>
+<script src="brain-data.enc.js?v=1789731026611"></script>
+<script src="brain-vault.enc.js?v=1789731026611"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2245,6 +2273,92 @@ function pushSkillNudge(name){ copyText(skillNudgeText(name),'Nudge copied. Past
 
 /* ═══ STEP 5: the client dossier - a full page, not a side panel ═══ */
 let DOSSIER=null;
+/* ═══ THE REVIEW SCREEN (2026-09-18, Fable mould, SECURITY.md Tier B). The machine drafts every
+   client's next quarter each night (q4-2026/prefill_all.py). This screen is where a person
+   approves it. RULES OF THE LANGUAGE: (1) four states, a word and a colour each, in the order a
+   person works: Needs you, Check, From a source, To draft. (2) every filled value shows where it
+   came from, one tap shows the quote. (3) the machine never picks between two sources, the person
+   does, here. (4) nothing is written back from a public page: decisions are copied out as text for
+   the Claude session that owns the file. (5) no overlay, rows open in place, one at a time. ═══ */
+const PLN={client:null,q:'',filter:'all',open:null};
+const RV_GROUPS=[['need','Needs you','rv-need','Only a person can settle these. Two records disagree, or nothing on file says it.'],
+  ['check','Check','rv-check','Worked out or carried from last quarter. Probably right, not yet confirmed.'],
+  ['src','From a source','rv-src','Copied from a record with its source, or computed by a stated rule.'],
+  ['draft','To draft','rv-draft','A strategist\'s call. The evidence is packed in DRAFT-BRIEF.md beside the draft.']];
+const rvGroup=s=>s==='unknown'||s==='conflict'?'need':s==='suggested'||s==='carried'?'check':s==='filled'||s==='derived'?'src':'draft';
+const RV_LABEL={'client/name':'Name on the deck','client/folder':'Client folder','client/category':'What the business is','client/stage':'Client type','client/accent_hex':'Brand accent colour','client/ground_hex':'Page ground colour',
+  'client/package':'Monthly package','client/package_by_month':'Package month by month','client/phone':'Phone every video asks for','window/months':'Months in the plan','window/range_label':'Range label','window/footer_label':'Footer label','window/year':'Year',
+  'window/cover_sub':'Theme line on the cover','meeting/signer':'Who signs the plan','meeting/date':'Meeting date','rules/ask':'What every video asks the viewer to do','platforms[]/name':'Platforms in the plan','spine_moments[]':'Calendar moments in the window',
+  'locks/other_phones':'Phone numbers banned from the deck','locks/forbidden_hex':'Other clients\' colours, banned','locks/rail_forbidden':'Names banned from the deck','locks/forbidden':'Words banned from the deck','locks/required':'Words the deck must carry','locks/footer_words':'Footer words','locks/sources':'Files this draft read',
+  'q3_numbers':'Numbers for the period just ended','paid':'Paid results so far','question_map':'Buyer questions with sources','shoots':'Shoot days','offers':'Offers','owner_sheet':'What we need from the owner','buyer':'Who buys','worked':'What worked and what did not',
+  'pillars':'Content pillars','pillar_notes':'Pillar notes','months':'Month by month content','missions':'Monthly missions','goals':'Monthly goals','measure':'What we measure','cannot_measure':'What we cannot measure yet','decision':'Decisions for the room',
+  'offline':'Offline moves','modules':'Extra modules','cover_tiles':'Cover tiles','who_does_what':'Who does what','on_camera':'Who is on camera','creators':'Creators','q1_sketch':'Sketch of the quarter after','text':'Every sentence on the deck','cards':'Idea cards'};
+const rvSwatch=v=>/^#[0-9a-f]{6}$/i.test(String(v||'').trim())?`<span aria-hidden="true" style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${String(v).trim()};border:1px solid var(--line-2);vertical-align:-2px;margin-right:7px"></span>`:'';
+const rvLabel=p=>RV_LABEL[p]||p.replace(/[\/_\[\]]+/g,' ').trim();
+const rvKey=()=>'bb_plan_decisions:'+PLN.client;
+function rvDecisions(){ try{ return JSON.parse(localStorage.getItem(rvKey())||'{}'); }catch(e){ return {}; } }
+function rvDecide(path,value){ const d=rvDecisions(); if(value===null) delete d[path]; else d[path]=value; try{ localStorage.setItem(rvKey(),JSON.stringify(d)); }catch(e){} PLN.open=null; renderPlans(); }
+function plnSet(k,v){ PLN[k]=v; if(k==='client'){ PLN.open=null; window.scrollTo(0,0); } renderPlans(); if(k==='q'){ const i=document.getElementById('pln-q'); if(i){ i.focus(); i.setSelectionRange(v.length,v.length); } } }
+function rvCounts(c){ const k=(c.planDraft?null:(c.planState||{}).counts)||null; const o={need:0,check:0,src:0,draft:0};
+  if(c.planDraft) c.planDraft.fields.forEach(f=>o[rvGroup(f.state)]++); else if(k) Object.entries(k).forEach(([s,n])=>o[rvGroup(s)]+=n); return o; }
+const rvBar=o=>{ const t=o.need+o.check+o.src+o.draft||1; return `<div class="rv-bar" role="img" aria-label="${o.src} from a source, ${o.check} to check, ${o.need} need you, ${o.draft} to draft"><i style="width:${100*o.src/t}%;background:#4ade80"></i><i style="width:${100*o.check/t}%;background:#f2b84b"></i><i style="width:${100*o.need/t}%;background:#ff6b6b"></i><i style="width:${100*o.draft/t}%;background:var(--line-2)"></i></div>`; };
+function rvCopy(){
+  const c=CLIENTS_DATA.find(x=>x.name===PLN.client); if(!c||!c.planDraft) return; const d=rvDecisions(); const keys=Object.keys(d);
+  if(!keys.length){ toast('Nothing decided yet'); return; }
+  copyText('PLAN DECISIONS\n'+c.name+' · '+c.planDraft.quarter+' · decided in the Brain\nApply to data.draft.json, source tag THULAIB with today\'s date.\n\n'+keys.map(k=>k+' = '+d[k]).join('\n'), keys.length+' decision'+(keys.length===1?'':'s')+' copied. Paste to Claude.');
+}
+function plnOpen(name){ const c=CLIENTS_DATA.find(x=>x.name===name); PLN.client=c&&c.planDraft?name:null; PLN.open=null; setView('plans'); }
+function renderPlans(){
+  const el=document.getElementById('plans-view'); const vs=(D.vault||{}).state;
+  const all=CLIENTS_DATA.filter(c=>c.planDraft||c.planState);
+  const head=`<h2 style="font-size:20px;margin-bottom:3px">Plan drafts</h2>`;
+  if(!all.length){ el.innerHTML=head+'<p class="rv-sub">No drafts yet. They are written each night by prefill_all.py and arrive with the next feed.</p>'; return; }
+  if(!PLN.client){
+    const q=PLN.q.trim().toLowerCase();
+    let rows=all.map(c=>({c,o:rvCounts(c)})).filter(r=>!q||r.c.name.toLowerCase().includes(q));
+    if(PLN.filter==='close') rows=rows.filter(r=>r.o.need<=6); if(PLN.filter==='far') rows=rows.filter(r=>r.o.need>6);
+    rows.sort((a,b)=>a.o.need-b.o.need||b.o.src-a.o.src);
+    const chip=(k,t,n)=>`<button class="fchip${PLN.filter===k?' on':''}" onclick="plnSet('filter','${k}')">${t} <span style="color:var(--text-3)">${n}</span></button>`;
+    const held=vs!=='open'?`<div class="latest" data-plans="held" style="margin-bottom:12px">${vs==='locked'?'The drafts are sealed under the long passphrase. Open any client page and enter it once.':'The drafts are written and kept on the BB Mac. They open here once the team lock is a long passphrase, because a draft quotes what clients said. Counts are shown below.'}</div>`:'';
+    el.innerHTML=head+`<p class="rv-sub">Every client's next quarter, filled overnight from what BB already holds. A source on every fact, a choice wherever two records disagree, and nothing guessed. ${all.length} drafts.</p>${held}
+      <input id="pln-q" type="search" enterkeyhint="search" placeholder="Find a client" value="${esc(PLN.q)}" oninput="plnSet('q',this.value)" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);margin-bottom:10px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">${chip('all','All',all.length)}${chip('close','Six or fewer to settle',all.filter(c=>rvCounts(c).need<=6).length)}${chip('far','More to settle',all.filter(c=>rvCounts(c).need>6).length)}</div>
+      ${rows.map(r=>`<button class="rv-row" data-plan-client="${esc(r.c.name)}" onclick="plnSet('client',this.getAttribute('data-plan-client'))" ${r.c.planDraft?'':'disabled style="cursor:default;opacity:.85"'}>
+        <div class="rv-top"><span class="rv-label">${esc(r.c.name)}</span><span class="rv-pill ${r.o.need?'rv-need':'rv-src'}">${r.o.need?r.o.need+' need you':'Ready to check'}</span></div>
+        <div class="rv-from" style="margin:2px 0 8px">${esc((r.c.planDraft||r.c.planState).quarter.replace('-',' '))} · ${r.o.src} from a source · ${r.o.check} to check · ${r.o.draft} to draft</div>${rvBar(r.o)}</button>`).join('')||'<div class="latest">No client matches that search.</div>'}`;
+    return;
+  }
+  const c=CLIENTS_DATA.find(x=>x.name===PLN.client); if(!c||!c.planDraft){ PLN.client=null; return renderPlans(); }
+  const P=c.planDraft, dec=rvDecisions(), o=rvCounts(c), done=Object.keys(dec).length;
+  const row=f=>{ const g=rvGroup(f.state), G=RV_GROUPS.find(x=>x[0]===g), mine=dec[f.path], open=PLN.open===f.path;
+    const val=mine!=null?mine:(f.value&&f.value!=='UNKNOWN'&&f.value!=='""'?f.value:'');
+    const from=f.source?`${esc(f.source.kind)}${f.source.date?' · '+esc(f.source.date):''}${f.source.where?' · '+esc(f.source.where):''}`:'';
+    const body=open?`${f.note?`<div class="rv-from" style="color:var(--text-2)">${esc(f.note)}</div>`:''}${f.source&&f.source.quote?`<div class="rv-quote">${esc(f.source.quote)}</div>`:''}
+      ${f.options.filter(x=>x.value).map((x,i)=>`<div class="rv-opt"><div style="min-width:0"><div style="font-size:13px;font-weight:600;word-break:break-word">${rvSwatch(x.value)}${esc(x.value)}</div><div class="rv-from" style="margin-top:2px">${esc([x.kind,x.date].filter(Boolean).join(' · '))}${x.quote?' · '+esc(x.quote):''}</div></div><span class="btn-p" role="button" tabindex="0" data-rv-use="${i}" data-rv-path="${esc(f.path)}">Use this</span></div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">${mine!=null?`<span class="rv-quiet" role="button" tabindex="0" data-rv-clear="${esc(f.path)}" style="text-align:center">Undo my choice</span>`:`<span class="rv-quiet" role="button" tabindex="0" data-rv-unknown="${esc(f.path)}" style="text-align:center">Leave unknown</span>`}<span class="rv-quiet" role="button" tabindex="0" data-rv-close="1" style="text-align:center">Close</span></div>`:'';
+    return `<div class="rv-row${open?' open':''}" data-rv-row="${esc(f.path)}" data-rv-state="${g}" role="button" tabindex="0" aria-expanded="${open}">
+      <div class="rv-top"><span class="rv-label">${esc(rvLabel(f.path))}</span><span class="rv-pill ${mine!=null?'rv-you':G[2]}">${mine!=null?'Decided by you':G[1]}</span></div>
+      ${val?`<div class="rv-val">${rvSwatch(val)}${esc(val)}</div>`:''}${from&&!open?`<div class="rv-from">${from}</div>`:''}${!val&&!open&&f.note?`<div class="rv-from">${esc(f.note.slice(0,120))}${f.note.length>120?' ...':''}</div>`:''}${body}</div>`; };
+  el.innerHTML=head+`<button class="fchip" onclick="plnSet('client',null)" style="margin-bottom:12px">All drafts</button>
+    <h3 style="font-size:17px;margin:0 0 3px">${esc(c.name)} · ${esc(P.quarter.replace('-',' '))}</h3>
+    <p class="rv-sub">Drafted ${esc((P.built||'').replace('T',' at '))} from ${P.filesRead} files and ${P.chatLines} chat lines${P.carried.length?'. '+P.carried.length+' sections carried from the last approved plan':''}.</p>
+    ${rvBar(o)}<p class="rv-from" style="margin:8px 0 0">${o.need} need you · ${o.check} to check · ${o.src} from a source · ${o.draft} to draft${done?' · '+done+' decided by you':''}</p>
+    ${RV_GROUPS.map(G=>{ const fs=P.fields.filter(f=>rvGroup(f.state)===G[0]); return fs.length?`<h3 class="rv-h">${G[1]} · ${fs.length}</h3><p class="rv-sub">${G[3]}</p>${fs.map(row).join('')}`:''; }).join('')}
+    <div class="rv-actions"><button class="btn-p" id="rv-copy" onclick="rvCopy()">Copy ${done||'my'} decision${done===1?'':'s'} for Claude</button></div>`;
+}
+/* rows open in place. Delegated, because the list re-renders on every choice. */
+document.addEventListener('click',e=>{
+  const t=e.target.closest&&e.target.closest('[data-rv-use],[data-rv-clear],[data-rv-unknown],[data-rv-close],[data-rv-row]'); if(!t||!PLN.client) return;
+  const c=CLIENTS_DATA.find(x=>x.name===PLN.client); if(!c||!c.planDraft) return;
+  if(t.hasAttribute('data-rv-use')){ const f=c.planDraft.fields.find(x=>x.path===t.getAttribute('data-rv-path')); rvDecide(f.path,f.options.filter(x=>x.value)[+t.getAttribute('data-rv-use')].value); e.stopPropagation(); return; }
+  if(t.hasAttribute('data-rv-clear')){ rvDecide(t.getAttribute('data-rv-clear'),null); return; }
+  if(t.hasAttribute('data-rv-unknown')){ rvDecide(t.getAttribute('data-rv-unknown'),'UNKNOWN, confirmed by a person'); return; }
+  if(t.hasAttribute('data-rv-close')){ PLN.open=null; renderPlans(); return; }
+  const path=t.getAttribute('data-rv-row'); PLN.open=PLN.open===path?null:path; renderPlans();
+  const r=document.querySelector('[data-rv-row="'+CSS.escape(path)+'"]'); if(r&&PLN.open) r.scrollIntoView({block:'nearest'});
+});
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[data-rv-row],[data-rv-use],[data-rv-clear],[data-rv-unknown],[data-rv-close]')){ e.preventDefault(); e.target.click(); } });
+
 /* vault unlock from a dossier: delegated, so it survives every re-render */
 document.addEventListener('click',async e=>{
   if(!e.target||e.target.id!=='vault-btn') return;
@@ -2281,7 +2395,7 @@ function openDossier(name){
   const vaultNote=(cl,name)=>{
     const st=(D.vault||{}).state;
     if(cl.waCount&&st==='held') return `<div class="latest" data-vault="held">${cl.waCount} chat lines for this client are kept on the BB Mac. They publish here once the team lock is a long passphrase. Counts are shown, quotes are not.</div>`;
-    if(cl.waCount&&st==='locked') return `<div class="latest" data-vault="locked">${cl.waCount} chat lines are sealed under the long passphrase.<div style="display:flex;gap:8px;margin-top:8px"><input class="fin" id="vault-pass" type="password" placeholder="Long passphrase" autocomplete="off" style="flex:1;font-size:16px"><button class="btn" id="vault-btn" style="white-space:nowrap">Open</button></div><div id="vault-err" style="color:var(--danger,#ff6b6b);font-size:12px;margin-top:6px"></div></div>`;
+    if(cl.waCount&&st==='locked') return `<div class="latest" data-vault="locked">${cl.waCount} chat lines are sealed under the long passphrase.<div style="display:flex;gap:8px;margin-top:8px"><input class="fin" id="vault-pass" type="password" placeholder="Long passphrase" autocomplete="off" style="flex:1;font-size:16px"><button class="btn-p" id="vault-btn" style="white-space:nowrap">Open</button></div><div id="vault-err" style="color:var(--danger,#ff6b6b);font-size:12px;margin-top:6px"></div></div>`;
     return '<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>';
   };
   const fact=(pre,txt,extra)=>`<div class="latest" style="margin-bottom:6px"><b>${pre}</b> · ${txt}${extra||''}</div>`;
@@ -2304,6 +2418,12 @@ function openDossier(name){
      ${cl.lessons.slice(0,14).map(l=>fact(l.date,esc(l.summary)+' <span style="color:'+(C[l.cluster]?C[l.cluster].color:'#889')+'">'+esc(l.skill)+'</span>',l.outcome?` <span class="cf ${l.outcome}">${l.outcome}</span>`:'')).join('')||'<div class="latest">none yet - log the first one</div>'}
      ${secH('Discussed on Claude · '+cl.chatCount)}
      ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
+     ${(cl.visuals||cl.visualCount)?secH('Visuals · '+(cl.visuals?cl.visuals.length:cl.visualCount))+(cl.visuals?cl.visuals.slice(0,12).map(v=>{ const vp={approved:['Approved','rv-src'],changes_asked:['Changes asked','rv-check'],rejected:['Rejected','rv-need'],posted_no_reply:['Posted, no reply','rv-draft'],unknown:['No verdict on record','rv-draft']}[v.verdict.status]||['No verdict on record','rv-draft'];
+        return `<div class="latest" data-visual="${esc(v.id)}" style="margin-bottom:8px"><div class="rv-top"><b>${esc((v.kind||v.type||'visual').replace('_',' '))}${v.made?' · '+esc(v.made):''}${v.shape?' · '+esc(v.shape):''}</b><span class="rv-pill ${vp[1]}">${vp[0]}${v.verdict.state==='suggested'?', to confirm':''}</span></div>
+          ${v.shows?`<div class="rv-val">${esc(v.shows)}</div>`:'<div class="rv-from">Measured and waiting for a look.</div>'}${v.verdict.quote?`<div class="rv-quote">${esc(v.verdict.by)}${v.verdict.date?', '+esc(v.verdict.date):''}: ${esc(v.verdict.quote)}</div>`:''}
+          ${v.broken.length?`<div class="rv-from" style="color:#ff8a8a">Broke a client rule: ${v.broken.map(esc).join(', ')}</div>`:''}${v.lessons.length?`<div class="rv-from" style="color:var(--text-2)">${v.lessons.map(esc).join(' ')}</div>`:''}
+          <div class="rv-from">${v.words.length?'On it: '+v.words.map(esc).join(' · ')+'. ':''}${v.where?'Original: '+esc(v.where):'Original location not recorded yet'}</div></div>`; }).join(''):`<div class="latest" data-visual="held">${cl.visualCount} visual card${cl.visualCount===1?'':'s'} kept on the BB Mac until the team lock is a long passphrase.</div>`):''}
+     ${(cl.planDraft||cl.planState)?(()=>{ const o=rvCounts(cl), P=cl.planDraft||cl.planState; return secH('Next quarter, drafted · '+esc(P.quarter.replace('-',' ')))+`<div class="latest" data-dossier-plan="1">${o.src} facts from a source, ${o.check} to check, ${o.need} need you, ${o.draft} sections to draft.<div style="margin:9px 0 10px">${rvBar(o)}</div><button class="fchip on" data-c="${esc(name)}" onclick="plnOpen(this.dataset.c)">${cl.planDraft?'Review the draft':'See all drafts'}</button></div>`; })():''}
      ${secH('From WhatsApp · '+(cl.waCount||0))}
      ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||vaultNote(cl,name)}
      ${cl.waCheck?secH('WhatsApp asks vs the task book')+`<div class="latest" style="margin-bottom:6px">${cl.waCheck.asks} asks in the exports · ${cl.waCheck.matched} became tasks · ${cl.waCheck.matchedDone} of those done</div>`+cl.waCheck.open.map(o=>`<div class="latest" style="margin-bottom:6px;color:#c9a15a"><b>${esc(o.date)}</b> · no task found: ${esc(o.snippet)}</div>`).join(''):''}
@@ -2319,7 +2439,7 @@ function openDossier(name){
 
 /* ═══ views + present mode (cross-fade between lenses) ═══ */
 let VIEW='brain', viewT=null;
-const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',pillars:'pillars-view',library:'library-view',dossier:'dossier-view',explore:'explore-view'};
+const VIEW_EL={brain:'brain-view',clients:'brain-view',tl:'tl-view',gaps:'gaps-view',today:'today-view',growth:'growth-view',pillars:'pillars-view',library:'library-view',plans:'plans-view',dossier:'dossier-view',explore:'explore-view'};
 function setView(v){
   /* 2026-08-30, the merge: Brain and Clients ARE the 3D now. The constellation
      stays as the Present-mode surface and the automatic fallback when the 3D
@@ -2368,7 +2488,8 @@ function applyView(v,prev){
   document.getElementById('today-view').style.display = v==='today'?'block':'none';
   document.getElementById('growth-view').style.display = v==='growth'?'block':'none';
   document.getElementById('pillars-view').style.display = v==='pillars'?'block':'none';
-  document.getElementById('library-view').style.display = v==='library'?'block':'none';   /* 2026-09-11: the first cut rendered into a box this list never showed */
+  document.getElementById('library-view').style.display = v==='library'?'block':'none';
+  document.getElementById('plans-view').style.display = v==='plans'?'block':'none';   /* the five places: container, VIEW_EL, this line, the render branch, the menu (L-BRAIN-026) */   /* 2026-09-11: the first cut rendered into a box this list never showed */
   document.getElementById('dossier-view').style.display = v==='dossier'?'block':'none';
   document.getElementById('v-today').classList.toggle('on',v==='today');
   document.getElementById('v-brain').classList.toggle('on',v==='brain'||(v==='explore'&&BBX.getMode()==='brain'));
@@ -2381,6 +2502,7 @@ function applyView(v,prev){
   if(v==='growth'){ renderGrowth(); return; }
   if(v==='pillars'){ renderPillars(); return; }
   if(v==='library'){ renderLibrary(); return; }
+  if(v==='plans'){ renderPlans(); return; }
   if(v==='today'){ renderToday(); return; }
   if(v==='tl'){ renderTL(); return; }
   // switching between the two stage modes - fade the constellation through, no blink
@@ -3395,6 +3517,33 @@ async function runSelfTest(){
   const names=(D.clients||[]).map(c=>c.name); const hit=PH.filter(x=>names.includes(x));
   ok('Clients: no phantom rows', !hit.length, names.length+' records, phantoms: '+(hit.join(', ')||'none'));
   ok('Landing: plain load is the front desk', startView==='today', 'landed on '+startView);
+  /* THE REVIEW SCREEN (2026-09-18): on screen, four worded states, a choice sticks, a copy carries it out. */
+  { const pc=(D.clients||[]).filter(c=>c.planDraft||c.planState), full=pc.filter(c=>c.planDraft), vs=(D.vault||{}).state;
+    ok('Plans: drafts arrive', pc.length>=5, pc.length+' clients drafted, '+full.length+' readable on this device while the vault is '+vs);
+    const keepV=VIEW, keepC=PLN.client; PLN.client=null; setView('plans'); await new Promise(r=>setTimeout(r,350));
+    const box=document.getElementById('plans-view');
+    ok('Plans: the page is on screen', box.offsetHeight>200&&getComputedStyle(box).display!=='none', box.offsetHeight+'px tall, '+box.querySelectorAll('[data-plan-client]').length+' rows');
+    ok('Plans: held or locked says so', vs==='open'||!!box.querySelector('[data-plans]'), vs==='open'?'vault open':'note shown');
+    if(full.length){ const c=full.slice().sort((a,b)=>rvCounts(b).need-rvCounts(a).need)[0]; const saved=localStorage.getItem('bb_plan_decisions:'+c.name);
+      PLN.client=c.name; renderPlans(); await new Promise(r=>setTimeout(r,60));
+      const rows=[...box.querySelectorAll('[data-rv-row]')], states=new Set(rows.map(r=>r.getAttribute('data-rv-state')));
+      ok('Plans: every field is a row', rows.length===c.planDraft.fields.length, rows.length+' rows for '+c.planDraft.fields.length+' fields, states '+[...states].join(' '));
+      const pills=[...box.querySelectorAll('.rv-pill')].map(x=>x.textContent.trim()); ok('Plans: every state is a word', pills.length>=rows.length&&pills.every(t=>t.length>3), pills.length+' pills, none blank');
+      const srcRows=rows.filter(r=>r.getAttribute('data-rv-state')==='src'), withFrom=srcRows.filter(r=>r.querySelector('.rv-from'));
+      ok('Plans: a filled fact names its source', srcRows.length>0&&withFrom.length===srcRows.length, withFrom.length+' of '+srcRows.length+' carry a source line');
+      const f=c.planDraft.fields.find(x=>x.options.filter(o=>o.value).length); 
+      if(f){ PLN.open=f.path; renderPlans(); await new Promise(r=>setTimeout(r,40)); const use=box.querySelector('[data-rv-use]'); ok('Plans: an open row offers its options', !!use, f.path+' shows '+box.querySelectorAll('[data-rv-use]').length+' options');
+        if(use){ use.click(); await new Promise(r=>setTimeout(r,40)); const d=rvDecisions(); ok('Plans: a choice sticks and is marked', d[f.path]!=null&&/Decided by you/.test(box.textContent), f.path+' = '+String(d[f.path]).slice(0,40)); rvDecide(f.path,null); } }
+      if(saved===null) localStorage.removeItem('bb_plan_decisions:'+c.name); else localStorage.setItem('bb_plan_decisions:'+c.name,saved); }
+    PLN.client=keepC; setView(keepV); await new Promise(r=>setTimeout(r,350)); }
+  /* VISUAL MEMORY (2026-09-18): a client with cards shows the shelf, each card a worded verdict, never a picture. */
+  { const vc=(D.clients||[]).filter(c=>c.visuals||c.visualCount);
+    if(vc.length){ const keep=DOSSIER; openDossier(vc[0].name); await new Promise(r=>setTimeout(r,60)); const box=document.getElementById('dossier-view'), cards=box.querySelectorAll('[data-visual]');
+      ok('Visuals: the dossier shows the shelf', cards.length>0, vc[0].name+': '+cards.length+' shown');
+      ok('Visuals: every card carries a worded verdict', vc[0].visuals?[...cards].every(x=>x.querySelector('.rv-pill')&&x.querySelector('.rv-pill').textContent.trim().length>5):true, vc[0].visuals?'pills read':'held note');
+      ok('Visuals: words only, no image is loaded from the Brain file', !box.querySelector('[data-visual] img'), 'no img tags');
+      if(keep) openDossier(keep); }
+    else ok('Visuals: shelf waits for the first card', true, 'no cards yet'); }
   /* THE VAULT (2026-09-18): a client with counted chat lines must show the lines or say where they are. */
   { const vs=(D.vault||{}).state, wc=(D.clients||[]).filter(c=>c.waCount>0), withLines=wc.filter(c=>(c.whatsapp||[]).length);
     ok('Vault: state is named', ['held','locked','open','sealed'].includes(vs), 'state '+vs+', '+wc.length+' clients with counted lines');
@@ -3594,7 +3743,7 @@ if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
       const key=await crypto.subtle.importKey('raw',b64(rawB64),'AES-GCM',false,['decrypt']);
       const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(v.iv)},key,b64(v.ct));
       const V=JSON.parse(new TextDecoder().decode(pt));
-      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.waCheck=x.waCheck||null; } }
+      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.waCheck=x.waCheck||null; c.planDraft=x.planDraft||null; c.visuals=x.visuals||null; } }
       D.waCrosscheck=V.waCrosscheck||null; if(D.systems) D.systems.crosscheck=V.crosscheck||null;
       D.vault=Object.assign({},D.vault,{state:'open'}); return true;
     }catch(e){ if(D.vault) D.vault.state='locked'; return false; }
