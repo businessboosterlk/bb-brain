@@ -764,6 +764,7 @@ const INDUSTRY = {
   'Seven Summits Rwanda': 'Tea and coffee',
   'Auto Museum': 'Automotive', 'Show Car Detailers': 'Automotive', 'Maruichi': 'Automotive',
   'Cherry Kitchen': 'Food', 'Pot Biriyani': 'Food', 'Cherry Fish': 'Food',
+  'Hire Panther': 'Software and marketplaces',
   'Waverley': 'Commercial equipment and repairs', 'Bellvantage': 'Call centre and BPO', 'Fusion Media': 'Events and equipment rental',
 };
 {
