@@ -7,6 +7,34 @@ const fs = require('fs'), path = require('path'), cp = require('child_process');
 const HERE = __dirname, R = [];
 const ok = (n, p, d) => R.push({ n, p: !!p, d: String(d == null ? '' : d).slice(0, 200) });
 let d = null;
+
+/* THE VAULT GATE (2026-09-18, SECURITY.md). Reads the PUBLISHED files, not the local plaintext,
+   because the local file is complete by design and would pass while the public one leaked. */
+(function vaultGate() {
+  const crypto = require('crypto');
+  let strength; try { strength = require('./lock-policy.js').strength; } catch (e) { ok('lock policy loads', false, e.message); return; }
+  try { const o = cp.execSync('"' + process.execPath + '" "' + path.join(HERE, 'lock-policy.js') + '" --selftest', { encoding: 'utf8' }); ok('lock policy selftest', /(\d+) of \1/.test(o), o.trim()); }
+  catch (e) { ok('lock policy selftest', false, (e.stdout || e.message || '').toString().trim().slice(0, 150)); }
+  const HOME = process.env.BB_HOME || process.env.HOME;
+  const rd = f => { try { return fs.readFileSync(f, 'utf8').trim(); } catch (e) { return ''; } };
+  const pass = (process.env.BB_PASS || rd(path.join(HOME, '.bb-brain-pass')));
+  const open = (file, global, phrase) => {
+    const raw = fs.readFileSync(path.join(HERE, file), 'utf8'); const j = raw.slice(raw.indexOf(global + '=') + global.length + 1, raw.lastIndexOf(';'));
+    const e = JSON.parse(j); if (e === null) return null;
+    const key = crypto.pbkdf2Sync(phrase, Buffer.from(e.salt, 'base64'), e.iter, 32, 'sha256');
+    const ct = Buffer.from(e.ct, 'base64'), dc = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(e.iv, 'base64'));
+    dc.setAuthTag(ct.subarray(ct.length - 16)); return JSON.parse(Buffer.concat([dc.update(ct.subarray(0, ct.length - 16)), dc.final()]).toString('utf8'));
+  };
+  let pub = null; try { pub = open('brain-data.enc.js', 'window.BRAIN_ENC', pass); } catch (e) { ok('public file opens with the team lock', false, e.message); return; }
+  ok('public file opens with the team lock', !!pub, (pub.clients || []).length + ' clients inside');
+  let quotes = 0, counted = 0; for (const c of pub.clients || []) { quotes += (c.whatsapp || []).length + (c.waCheck ? 1 : 0); counted += c.waCount || 0; }
+  const cross = (pub.waCrosscheck ? 1 : 0) + ((pub.systems || {}).crosscheck ? 1 : 0);
+  ok('public file carries no client chat lines', quotes === 0 && cross === 0, quotes + ' quotes and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' counted');
+  const s = strength(pass); let vp = s.strong ? pass : (process.env.BB_VAULT_PASS || rd(path.join(HOME, '.bb-brain-vault-pass'))); if (!strength(vp).strong) vp = null;
+  let vault; try { vault = open('brain-vault.enc.js', 'window.BRAIN_VAULT', vp || 'x'); } catch (e) { ok('vault is sealed strong or held', false, 'vault file does not open under the strong phrase: ' + e.message); return; }
+  if (vault === null) ok('vault is sealed strong or held', !vp && (pub.vault || {}).state === 'held', 'held on this machine, team lock is ' + s.klass + ', ' + ((pub.vault || {}).lines || 0) + ' lines waiting');
+  else ok('vault is sealed strong or held', !!vp && (pub.vault || {}).state === 'sealed', Object.keys(vault.clients || {}).length + ' clients sealed under a strong phrase');
+})();
 try { const raw = fs.readFileSync(path.join(HERE, 'brain-data.js'), 'utf8'); d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf(';'))); ok('brain-data.js parses', true, 'ok'); }
 catch (e) { ok('brain-data.js parses', false, e.message); }
 if (d) {

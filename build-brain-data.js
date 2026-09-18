@@ -1257,17 +1257,41 @@ try {
   const pass = (process.env.BB_PASS || fs.readFileSync(path.join(HOME, '.bb-brain-pass'), 'utf8')).trim();
   if (!pass) throw new Error('the passcode is empty, refusing to publish an unlockable brain');
   if (pass.length < 8) throw new Error('passcode too short');
-  // salt is DERIVED from the passcode, not random: stable across nightly rebuilds so
-  // remembered device keys keep working. IV stays random per build (GCM requirement).
-  const salt = crypto.createHash('sha256').update('bb-brain-salt:' + pass).digest().subarray(0, 16);
-  const iv = crypto.randomBytes(12);
-  const key = crypto.pbkdf2Sync(pass, salt, 310000, 32, 'sha256');
-  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-  const ct = Buffer.concat([cipher.update(JSON.stringify(out), 'utf8'), cipher.final(), cipher.getAuthTag()]);
+  /* THE VAULT (2026-09-18, Fable mould, SECURITY.md). This file ships on a public address, so it
+     can be downloaded and guessed at offline for ever. Anything a client said or sent is held to a
+     higher bar than BB's own know-how: it leaves this machine ONLY under a passphrase lock-policy.js
+     calls strong. While the team lock is weak the client lines are HELD here, the public file
+     carries counts only, and the app says so. One strong phrase in ~/.bb-brain-pass opens both. */
+  const { strength } = require('./lock-policy.js');
+  const seal = (obj, phrase) => {
+    // salt is DERIVED from the phrase, not random: stable across nightly rebuilds so remembered
+    // device keys keep working. IV stays random per build (GCM requirement).
+    const salt = crypto.createHash('sha256').update('bb-brain-salt:' + phrase).digest().subarray(0, 16);
+    const iv = crypto.randomBytes(12);
+    const key = crypto.pbkdf2Sync(phrase, salt, 310000, 32, 'sha256');
+    const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+    const ct = Buffer.concat([cipher.update(JSON.stringify(obj), 'utf8'), cipher.final(), cipher.getAuthTag()]);
+    return { v: 1, salt: salt.toString('base64'), iv: iv.toString('base64'), ct: ct.toString('base64'), iter: 310000 };
+  };
+  let vaultPhrase = strength(pass).strong ? pass : null;
+  if (!vaultPhrase) { try { const vp = (process.env.BB_VAULT_PASS || fs.readFileSync(path.join(HOME, '.bb-brain-vault-pass'), 'utf8')).trim(); if (strength(vp).strong) vaultPhrase = vp; } catch (e) {} }
+  const vault = { v: 1, clients: {}, waCrosscheck: out.waCrosscheck || null, crosscheck: (out.systems || {}).crosscheck || null };
+  const pub = JSON.parse(JSON.stringify(out));
+  let heldLines = 0;
+  for (const c of pub.clients || []) {
+    if ((c.whatsapp || []).length || c.waCheck) vault.clients[c.name] = { whatsapp: c.whatsapp || [], waCheck: c.waCheck || null };
+    heldLines += (c.whatsapp || []).length; c.whatsapp = []; c.waCheck = null;   // waCount stays: a count is not a quote
+  }
+  pub.waCrosscheck = null; if (pub.systems) pub.systems.crosscheck = null;
+  pub.vault = { state: vaultPhrase ? 'sealed' : 'held', lines: heldLines, clients: Object.keys(vault.clients).length, lock: strength(pass).klass };
+  (pub.sources = pub.sources || []).push({ name: 'Client chat lock', detail: vaultPhrase ? heldLines + ' client lines sealed under the long passphrase' : heldLines + ' client lines kept on the BB Mac, the team lock is ' + pub.vault.lock + ' and too short for client words', newest: null, ok: vaultPhrase ? true : null });
   fs.writeFileSync(path.join(__dirname, 'brain-data.enc.js'),
     '/* AUTO-GENERATED encrypted brain data - useless without the team passcode */\n' +
-    'window.BRAIN_ENC=' + JSON.stringify({ v: 1, salt: salt.toString('base64'), iv: iv.toString('base64'), ct: ct.toString('base64'), iter: 310000 }) + ';\n');
-  console.log('encrypted artifact written (brain-data.enc.js,', Math.round(ct.length / 1024) + 'KB)');
+    'window.BRAIN_ENC=' + JSON.stringify(seal(pub, pass)) + ';\n');
+  fs.writeFileSync(path.join(__dirname, 'brain-vault.enc.js'),
+    '/* AUTO-GENERATED. Client chat lines. Written ONLY under a strong passphrase, null while held on the Mac. */\n' +
+    'window.BRAIN_VAULT=' + (vaultPhrase ? JSON.stringify(seal(vault, vaultPhrase)) : 'null') + ';\n');
+  console.log('encrypted artifact written (brain-data.enc.js, ' + Math.round(fs.statSync(path.join(__dirname, 'brain-data.enc.js')).size / 1024) + 'KB) · vault ' + pub.vault.state + ': ' + heldLines + ' client lines from ' + pub.vault.clients + ' clients' + (vaultPhrase ? '' : ' kept on this machine, team lock is ' + pub.vault.lock));
   /* CACHE-BUST (2026-08-31): GitHub Pages caches files for 10 minutes and a
      browser can hold them longer, which is how a fresh deploy kept showing old
      data. Every build stamps the data reference, so a fresh document always
@@ -1275,6 +1299,7 @@ try {
   const ihPath = path.join(__dirname, 'index.html');
   let ih = fs.readFileSync(ihPath, 'utf8');
   ih = ih.replace(/brain-data\.enc\.js(\?v=\d+)?/, 'brain-data.enc.js?v=' + Date.now());
+  ih = ih.replace(/brain-vault\.enc\.js(\?v=\d+)?/, 'brain-vault.enc.js?v=' + Date.now());
   fs.writeFileSync(ihPath, ih);
   console.log('data reference stamped in index.html');
 } catch (e) {

@@ -216,3 +216,11 @@ FIVE places (container, VIEW_EL, the applyView display line, the applyView rende
 the menu) and every page check must first assert display block and offsetHeight over 200.
 Sibling: a switch within 200ms of a switch left the old box with 'vout' for ever, because
 clearTimeout skipped the removal; applyView now strips 'vout' from every box on entry.
+
+## L-BRAIN-027 (2026-09-18): a lock on a public file is only the phrase
+32 client chat exports were published inside the Brain file behind an 8 digit passcode. The file
+sits on a public address, so it can be guessed offline with no lockout: 100 million tries is an
+afternoon on one card. Fix: `lock-policy.js` defines strong once, client words go in a VAULT file
+that is written only under a strong phrase and is null otherwise, and the gate decrypts the
+PUBLISHED file and fails on a single client quote. Lesson: grade data by whose words they are,
+and let the weakest tier's lock never decide the strongest tier's fate. See SECURITY.md.

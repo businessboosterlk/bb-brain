@@ -636,7 +636,8 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1789704011477"></script>
+<script src="brain-data.enc.js?v=1789729486747"></script>
+<script src="brain-vault.enc.js?v=1789729486747"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -2244,6 +2245,14 @@ function pushSkillNudge(name){ copyText(skillNudgeText(name),'Nudge copied. Past
 
 /* ═══ STEP 5: the client dossier - a full page, not a side panel ═══ */
 let DOSSIER=null;
+/* vault unlock from a dossier: delegated, so it survives every re-render */
+document.addEventListener('click',async e=>{
+  if(!e.target||e.target.id!=='vault-btn') return;
+  const inp=document.getElementById('vault-pass'), err=document.getElementById('vault-err'); if(!inp) return;
+  e.target.disabled=true; e.target.textContent='Opening...';
+  let ok=false; try{ ok=await window.BBVault.unlock(inp.value.trim()); }catch(x){}
+  if(ok&&DOSSIER) openDossier(DOSSIER); else { e.target.disabled=false; e.target.textContent='Open'; if(err) err.textContent='That phrase did not open it.'; }
+});
 function openDossier(name){
   const cl=CLIENTS_DATA.find(c=>c.name===name); if(!cl) return;
   DOSSIER=name;
@@ -2267,6 +2276,14 @@ function openDossier(name){
     .filter(x=>x.ov>0).sort((a,b)=>b.ov-a.ov).slice(0,3);
   const gq=(D.gaps||[]).filter(g=>g.question.toLowerCase().includes(name.toLowerCase()));
   const secH=t=>`<h3 style="font-size:14px;margin:24px 0 10px">${t}</h3>`;
+  /* THE VAULT (2026-09-18): say WHERE the chat lines are, never an empty box. held = on the Mac until
+     the team lock is a long passphrase. locked = published, this device has not opened it yet. */
+  const vaultNote=(cl,name)=>{
+    const st=(D.vault||{}).state;
+    if(cl.waCount&&st==='held') return `<div class="latest" data-vault="held">${cl.waCount} chat lines for this client are kept on the BB Mac. They publish here once the team lock is a long passphrase. Counts are shown, quotes are not.</div>`;
+    if(cl.waCount&&st==='locked') return `<div class="latest" data-vault="locked">${cl.waCount} chat lines are sealed under the long passphrase.<div style="display:flex;gap:8px;margin-top:8px"><input class="fin" id="vault-pass" type="password" placeholder="Long passphrase" autocomplete="off" style="flex:1;font-size:16px"><button class="btn" id="vault-btn" style="white-space:nowrap">Open</button></div><div id="vault-err" style="color:var(--danger,#ff6b6b);font-size:12px;margin-top:6px"></div></div>`;
+    return '<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>';
+  };
   const fact=(pre,txt,extra)=>`<div class="latest" style="margin-bottom:6px"><b>${pre}</b> · ${txt}${extra||''}</div>`;
   document.getElementById('dossier-view').innerHTML=
     `<button class="tbtn" onclick="setView('clients')" style="margin-bottom:16px">← All clients</button>
@@ -2288,7 +2305,7 @@ function openDossier(name){
      ${secH('Discussed on Claude · '+cl.chatCount)}
      ${cl.discussed.slice(0,10).map(d=>fact(d.date,esc(d.snippet))).join('')||'<div class="latest">nothing captured yet</div>'}
      ${secH('From WhatsApp · '+(cl.waCount||0))}
-     ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||'<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>'}
+     ${(cl.whatsapp||[]).slice(0,12).map(x=>fact(x.date,'<span style="color:var(--text-3)">'+esc(x.sender)+':</span> '+esc(x.snippet),x.kind==='decision'?' <span class="cf confirmed" style="font-size:9px">decision</span>':'')).join('')||vaultNote(cl,name)}
      ${cl.waCheck?secH('WhatsApp asks vs the task book')+`<div class="latest" style="margin-bottom:6px">${cl.waCheck.asks} asks in the exports · ${cl.waCheck.matched} became tasks · ${cl.waCheck.matchedDone} of those done</div>`+cl.waCheck.open.map(o=>`<div class="latest" style="margin-bottom:6px;color:#c9a15a"><b>${esc(o.date)}</b> · no task found: ${esc(o.snippet)}</div>`).join(''):''}
      ${secH('From the systems · '+((cl.systems||[]).length))}
      ${(cl.systems||[]).slice(0,8).map(x=>fact(x.date,esc(x.text))).join('')||'<div class="latest">no recent system activity recorded for them</div>'}
@@ -3378,6 +3395,14 @@ async function runSelfTest(){
   const names=(D.clients||[]).map(c=>c.name); const hit=PH.filter(x=>names.includes(x));
   ok('Clients: no phantom rows', !hit.length, names.length+' records, phantoms: '+(hit.join(', ')||'none'));
   ok('Landing: plain load is the front desk', startView==='today', 'landed on '+startView);
+  /* THE VAULT (2026-09-18): a client with counted chat lines must show the lines or say where they are. */
+  { const vs=(D.vault||{}).state, wc=(D.clients||[]).filter(c=>c.waCount>0), withLines=wc.filter(c=>(c.whatsapp||[]).length);
+    ok('Vault: state is named', ['held','locked','open','sealed'].includes(vs), 'state '+vs+', '+wc.length+' clients with counted lines');
+    ok('Vault: lines shown only when open', vs==='open'? withLines.length===wc.length : withLines.length===0, withLines.length+' of '+wc.length+' clients carry quotes while '+vs);
+    if(wc.length){ const keep=DOSSIER; openDossier(wc[0].name); await new Promise(r=>setTimeout(r,60));
+      const box=document.getElementById('dossier-view'), note=box&&box.querySelector('[data-vault]'), txt=box?box.textContent:'';
+      ok('Vault: dossier never says no exports when lines are counted', !/No chat exports yet/.test(txt)&&(vs==='open'||!!note), wc[0].name+': '+(note?note.getAttribute('data-vault')+' note shown':'lines shown'));
+      if(keep) openDossier(keep); } }
   ok('Nav: no Explore tab', !document.getElementById('v-explore'), 'clean');
   const roster=[{name:'Thulaib'},{name:'Shiara'}].concat((D.systems&&D.systems.team)||[]);
   ok('Person: picker roster has people', roster.length>=3, roster.length+' names');
@@ -3560,8 +3585,29 @@ if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
       return true;
     }catch(e){ return false; }
   }
+  /* THE VAULT (2026-09-18): client chat lines ride in their own file, sealed only under a strong
+     passphrase. Same phrase opens both once the team lock is strong. Until then the file is null
+     and BRAIN_DATA.vault.state says 'held', so the app can say where the lines are. */
+  async function openVault(rawB64){
+    const v=window.BRAIN_VAULT, D=window.BRAIN_DATA; if(!v||!D) return false;
+    try{
+      const key=await crypto.subtle.importKey('raw',b64(rawB64),'AES-GCM',false,['decrypt']);
+      const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(v.iv)},key,b64(v.ct));
+      const V=JSON.parse(new TextDecoder().decode(pt));
+      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.waCheck=x.waCheck||null; } }
+      D.waCrosscheck=V.waCrosscheck||null; if(D.systems) D.systems.crosscheck=V.crosscheck||null;
+      D.vault=Object.assign({},D.vault,{state:'open'}); return true;
+    }catch(e){ if(D.vault) D.vault.state='locked'; return false; }
+  }
+  async function vaultKeyFrom(pass){
+    const v=window.BRAIN_VAULT; if(!v) return null;
+    const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveBits']);
+    const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64(v.salt),iterations:v.iter,hash:'SHA-256'},km,256);
+    return btoa(String.fromCharCode(...new Uint8Array(bits)));
+  }
+  window.BBVault={ unlock: async pass=>{ const raw=await vaultKeyFrom(pass); if(raw&&await openVault(raw)){ try{localStorage.setItem('bb_vaultkey',raw);}catch(e){} return true; } return false; } };
   let stored=null; try{stored=localStorage.getItem('bb_brainkey');}catch(e){}
-  if(enc&&stored&&await tryKey(stored)){ boot(); return; }
+  if(enc&&stored&&await tryKey(stored)){ let vk=null; try{vk=localStorage.getItem('bb_vaultkey');}catch(e){} if(vk) await openVault(vk); boot(); return; }
   lock.style.display='flex';
   if(!enc){ document.getElementById('lk-err').textContent='No encrypted data published yet.'; return; }
   setTimeout(()=>document.getElementById('lk-pass').focus(),100);
@@ -3573,7 +3619,7 @@ if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
       const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveBits']);
       const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64(enc.salt),iterations:enc.iter,hash:'SHA-256'},km,256);
       const raw=btoa(String.fromCharCode(...new Uint8Array(bits)));
-      if(await tryKey(raw)){ try{localStorage.setItem('bb_brainkey',raw);}catch(e){} boot(); return; }
+      if(await tryKey(raw)){ try{localStorage.setItem('bb_brainkey',raw);}catch(e){} try{ await window.BBVault.unlock(pass); }catch(e){} boot(); return; }
       document.getElementById('lk-err').textContent='Wrong passcode.';
     }catch(e){ document.getElementById('lk-err').textContent='Could not unlock: '+e.message; }
     btn.disabled=false; btn.textContent='Unlock';
