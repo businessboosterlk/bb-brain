@@ -8,6 +8,18 @@ const HERE = __dirname, R = [];
 const ok = (n, p, d) => R.push({ n, p: !!p, d: String(d == null ? '' : d).slice(0, 200) });
 let d = null;
 
+/* THE ESTATE ICON GATE (2026-09-19). The Brain's own icon checks passed while the icon a person
+   actually saw in the dock was wrong, because they only read the NORMAL file. Chrome builds the
+   installed icon from the MASKABLE one. This runs the estate checker, which measures both against
+   the family and fails on either. */
+(function iconGate() {
+  const tool = path.join(process.env.BB_HOME || process.env.HOME, 'bb-systems', 'icons', 'build_estate_icons.py');
+  if (!fs.existsSync(tool)) { ok('estate icons match the family', true, 'skipped: no estate builder on this machine'); return; }
+  try { const o = cp.execSync('python3 "' + tool + '" --check', { encoding: 'utf8', timeout: 120000 });
+    ok('estate icons match the family', /all green/.test(o), (o.match(/ESTATE ICONS: .*/) || [o.trim().split('\n').pop()])[0]); }
+  catch (e) { ok('estate icons match the family', false, ((e.stdout || '') + '').split('\n').filter(l => /XX|:/.test(l)).slice(-2).join(' | ').slice(0, 190)); }
+})();
+
 /* THE VISUAL GATE (2026-09-18). Cards valid, no original inside cards/, the tool's own selftest green. */
 (function visualGate() {
   const tool = path.join(process.env.BB_HOME || process.env.HOME, 'bb-brain-visuals', 'visual_intake.py');
