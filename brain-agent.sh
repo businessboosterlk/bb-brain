@@ -52,6 +52,16 @@ fi
 if ! BUILD_OUT="$(node build-brain-data.js 2>&1)"; then
   shout "build failed: $(printf '%s' "$BUILD_OUT" | tail -1 | cut -c1-160)"
 fi
+# 1b. chat-to-task bridge (moved here 2026-09-21). It used to run AFTER the publish, while the
+#     verifier failed the publish when the bridge was over 26 hours old. That is a circle: no
+#     publish, no bridge; no bridge, no publish. Three offline nights walked the Brain straight
+#     into it and it sat there for two days. It now runs on the FRESH build, before the gate reads
+#     its timestamp, and its exit code is deliberately ignored so a bridge fault still cannot block
+#     the brain. It keeps its own flag so the fault SHOUTS on its own.
+BFLAG="$HOME/bb-brain/BRIDGE-FAILING.txt"
+if BRIDGE_OUT="$(node bridge-chat-asks.js 2>&1)"; then rm -f "$BFLAG"; echo "[$STAMP] ok $BRIDGE_OUT" >> "$LOG"
+else printf '%s\n%s\n' "[$STAMP] chat-ask bridge FAILED" "$BRIDGE_OUT" > "$BFLAG"; echo "[$STAMP] XX bridge failed: $(printf '%s' "$BRIDGE_OUT" | tail -1)" >> "$LOG"; fi
+
 # 2. verify. Every invariant, with its denominator. Red means stop.
 if ! VERIFY_OUT="$(node verify-brain.js 2>&1)"; then
   shout "$(printf '%s' "$VERIFY_OUT" | grep VERIFY-BRAIN | cut -c1-220)"
@@ -72,7 +82,7 @@ else
 fi
 rm -f "$FLAG"
 SUMMARY="$(printf '%s' "$VERIFY_OUT" | grep VERIFY-BRAIN)"
-echo "[$STAMP] ok $SUMMARY · $PUB" >> "$LOG"
+# (the line that logged the result moved to the end, so it can name upstream warnings)
 # 3b. heartbeat (2026-09-06). A green publish tells the database it happened, so a pg_cron
 #     watcher can shout to a PHONE when a morning feed dies (a file and a Mac notification went
 #     unread for thirteen hours on 2026-09-06, L-BRAIN-014). Installed by migrations/
@@ -85,9 +95,13 @@ if [ -n "$SB_KEY_HB" ]; then
     https://yyviiwnqgphyklcoijyd.supabase.co/rest/v1/rpc/bb_brain_heartbeat 2>/dev/null || echo 000)"
   case "$HB" in 200|204) echo "[$STAMP] ok heartbeat recorded" >> "$LOG";; 404) : ;; *) echo "[$STAMP] note heartbeat not recorded (http $HB), the watcher will assume a missed feed only once installed" >> "$LOG";; esac
 fi
-# 4. chat-to-task bridge (2026-09-05). After publish so a bridge fault never blocks the
-#    brain. Its own flag file so the fault SHOUTS the same way the brain does.
-BFLAG="$HOME/bb-brain/BRIDGE-FAILING.txt"
-if BRIDGE_OUT="$(node bridge-chat-asks.js 2>&1)"; then rm -f "$BFLAG"; echo "[$STAMP] ok $BRIDGE_OUT" >> "$LOG"
-else printf '%s\n%s\n' "[$STAMP] chat-ask bridge FAILED" "$BRIDGE_OUT" > "$BFLAG"; echo "[$STAMP] XX bridge failed: $(printf '%s' "$BRIDGE_OUT" | tail -1)" >> "$LOG"; fi
-echo "[$STAMP] ok $SUMMARY · $PUB"
+# A publish that carried warnings must SAY SO, or an upstream feed can rot for weeks behind a line
+# that reads "ok". Silence is not health (2026-09-21).
+WARNS="$(printf '%s' "$VERIFY_OUT" | grep '^!! ' | sed 's/^!! //;s/ · .*//' | paste -sd, - )"
+if [ -n "$WARNS" ]; then
+  echo "[$STAMP] ok $SUMMARY · $PUB · UPSTREAM WARNING: $WARNS" >> "$LOG"
+  echo "[$STAMP] ok $SUMMARY · $PUB · UPSTREAM WARNING: $WARNS"
+else
+  echo "[$STAMP] ok $SUMMARY · $PUB" >> "$LOG"
+  echo "[$STAMP] ok $SUMMARY · $PUB"
+fi

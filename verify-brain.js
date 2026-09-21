@@ -5,7 +5,20 @@
    every build and BEFORE any publish, so a broken brain can never publish itself. */
 const fs = require('fs'), path = require('path'), cp = require('child_process');
 const HERE = __dirname, R = [];
+/* TWO KINDS OF FAULT (2026-09-21). Until today every check could stop the publish, and that trapped
+   the Brain for two days. Three runs found no network, so four live-read checks went red and the
+   publish was blocked. The chat-ask bridge only runs AFTER a publish, so it aged past its 26 hour
+   check, and from then on the gate failed on the bridge whether the network came back or not. A
+   circular trap: no publish means no bridge, and no bridge means no publish.
+
+   BLOCKING is for a fault that would put something WRONG in front of a person: data that will not
+   parse, encryption that did not happen, a client's words in the public file, a broken icon.
+   ADVISORY is for a fault UPSTREAM of the Brain, where yesterday's brain is worse than today's
+   honest one: a feed that was offline, a downstream job that has not run. Advisory never blocks and
+   is never hidden. It prints, it goes in the log, and the app already shows an offline feed in red
+   on Today. The separate feed-watch cron still raises a phone alert if the heartbeat stops. */
 const ok = (n, p, d) => R.push({ n, p: !!p, d: String(d == null ? '' : d).slice(0, 200) });
+const advise = (n, p, d) => R.push({ n, p: !!p, d: String(d == null ? '' : d).slice(0, 200), advisory: true });
 let d = null;
 
 /* THE ESTATE ICON GATE (2026-09-19). The Brain's own icon checks passed while the icon a person
@@ -76,10 +89,10 @@ if (d) {
     ok('plan drafts feeding', pd.length >= 5 || !fs.existsSync(path.join(process.env.BB_HOME || process.env.HOME, 'bb-consultancy', 'q4-2026', 'prefill.py')), pd.length + ' clients drafted, ' + need + ' fields need a person'); }
   ok('learning entries', d.totals.entries > 500, d.totals.entries + ' entries');
   const src = d.sources || [], bad = src.filter(s => s.ok === false);
-  ok('sources feeding', src.length >= 9 && !bad.length, src.length + ' sources, ' + bad.length + ' red' + (bad.length ? ': ' + bad.map(s => s.name).join(', ') : ''));
+  advise('sources feeding', src.length >= 9 && !bad.length, src.length + ' sources, ' + bad.length + ' red' + (bad.length ? ': ' + bad.map(s => s.name).join(', ') : ''));
   const mem = src.find(s => s.name === 'Chat memories');
   const memAge = mem && mem.newest ? (Date.now() - new Date(mem.newest)) / 864e5 : 99;
-  ok('memory source alive', memAge <= 7, mem ? mem.detail + ', newest ' + mem.newest : 'missing');
+  advise('memory source alive', memAge <= 7, mem ? mem.detail + ', newest ' + mem.newest : 'missing');
   const PHANTOMS = ['Cards', 'Contracts', 'Proof Spine', 'Client Brain Schema', 'Video Plan', 'Bb Growth Plan', 'Business Booster', 'Pycache', 'Design Test', 'Questionnaire', 'Fable Upgrade', 'Beacon Backups', 'Sun Zapper'];
   const names = (d.clients || []).map(c => c.name), hit = PHANTOMS.filter(p => names.includes(p));
   { const SEC = /(password|passcode|passwd|pwd|credential|login details|\botp\b|\bpin\s*[:=]|\b\d{6}\b)/i;
@@ -90,14 +103,14 @@ if (d) {
     const wa = d.wa || {}; ok('WhatsApp inbox fed', (wa.files || 0) >= 12 && (wa.kept || 0) > 100, (wa.files || 0) + ' files, ' + (wa.kept || 0) + ' lines kept, ' + (wa.redacted || 0) + ' redacted, ' + (wa.clients || 0) + ' clients'); }
   { const BBS = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana/i; let opens = 0, bb = 0;
     for (const cc of Object.values(((d.systems || {}).crosscheck || {}).perClient || {})) for (const o of (cc.open || [])) { opens++; if (BBS.test(o.sender || '')) bb++; }
-    ok('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }
+    advise('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }
   { let b = null; try { b = JSON.parse(fs.readFileSync(path.join(HERE, 'bridge-last.json'), 'utf8')); } catch (e) {}
     const age = b ? (Date.now() - Date.parse(b.at)) / 36e5 : 999;
-    ok('chat-ask bridge ran', !!b && b.ok && age < 26, b ? (b.sent + ' asks sent, ' + b.inserted + ' new, ' + b.skipped + ' known, ' + b.rejected + ' rejected, ' + age.toFixed(1) + 'h ago' + (b.error ? ', ' + b.error : '')) : 'bridge-last.json missing'); }
+    advise('chat-ask bridge ran', !!b && b.ok && age < 26, b ? (b.sent + ' asks sent, ' + b.inserted + ' new, ' + b.skipped + ' known, ' + b.rejected + ' rejected, ' + age.toFixed(1) + 'h ago' + (b.error ? ', ' + b.error : '')) : 'bridge-last.json missing'); }
   ok('no phantom clients', !hit.length, names.length + ' clients, phantoms: ' + (hit.join(', ') || 'none'));
   ok('client count sane', names.length >= 15 && names.length <= 60, names.length + ' records');
-  ok('systems feed online', d.systems && d.systems.online, d.systems ? (d.systems.online ? d.systems.events.length + ' events' : 'OFFLINE ' + d.systems.error) : 'missing');
-  ok('team roster present', d.systems && d.systems.team && d.systems.team.length >= 5, d.systems && d.systems.team ? d.systems.team.length + ' people' : 'none');
+  advise('systems feed online', d.systems && d.systems.online, d.systems ? (d.systems.online ? d.systems.events.length + ' events' : 'OFFLINE ' + d.systems.error) : 'missing');
+  advise('team roster present', d.systems && d.systems.team && d.systems.team.length >= 5, d.systems && d.systems.team ? d.systems.team.length + ' people' : 'none');
   ok('metrics canon present', d.metrics && d.metrics.count > 20, d.metrics ? d.metrics.count + ' metrics' : 'none');
   ok('agent trace present', !!d.agent, d.agent ? (d.agent.delta ? 'deltas computed' : 'first run') : 'none');
 }
@@ -176,7 +189,10 @@ ok('3D: no emoji in stage copy', !/[\u{1F300}-\u{1FAFF}]/u.test(html.slice(html.
   ok('icons: the manifest declares only files that exist', !gone.length, man.icons.length + ' declared, missing: ' + (gone.join(', ') || 'none'));
   ok('icons: the canonical source ships with them', fs.existsSync(path.join(HERE, 'icon.svg')) && fs.existsSync(path.join(HERE, 'build-icons.py')), 'icon.svg plus the builder');
 }
-const fails = R.filter(r => !r.p);
-for (const r of R) console.log((r.p ? 'ok ' : 'XX ') + r.n + ' · ' + r.d);
-console.log('VERIFY-BRAIN: ' + (R.length - fails.length) + ' of ' + R.length + ' green' + (fails.length ? ' · FAILED: ' + fails.map(f => f.n).join(', ') : ''));
+const fails = R.filter(r => !r.p && !r.advisory);      // these stop the publish
+const warns = R.filter(r => !r.p && r.advisory);       // these are shouted, never hidden, never blocking
+for (const r of R) console.log((r.p ? 'ok ' : r.advisory ? '!! ' : 'XX ') + r.n + ' · ' + r.d);
+console.log('VERIFY-BRAIN: ' + (R.length - fails.length - warns.length) + ' of ' + R.length + ' green'
+  + (warns.length ? ' · ' + warns.length + ' WARNING: ' + warns.map(w => w.n).join(', ') : '')
+  + (fails.length ? ' · FAILED: ' + fails.map(f => f.n).join(', ') : ''));
 process.exit(fails.length ? 1 : 0);
