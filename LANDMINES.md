@@ -224,3 +224,32 @@ afternoon on one card. Fix: `lock-policy.js` defines strong once, client words g
 that is written only under a strong phrase and is null otherwise, and the gate decrypts the
 PUBLISHED file and fails on a single client quote. Lesson: grade data by whose words they are,
 and let the weakest tier's lock never decide the strongest tier's fate. See SECURITY.md.
+
+## L-BRAIN-028 (2026-09-21): the gate trapped the Brain in a circle and it starved for two days
+The Brain went unfed from 19 to 21 September while every job ran on time. Three runs woke to no
+network, so four live-read checks went red and the gate blocked the publish, which is what a gate
+is for. But the chat-ask bridge only ran AFTER a publish, and the gate failed the publish whenever
+the bridge was over 26 hours old. Once the third offline night pushed the bridge past 26 hours the
+two facts locked together: no publish meant no bridge, and no bridge meant no publish. Network came
+back and the Brain still could not feed itself. Only a person reading the red banner broke it.
+
+**Root cause, stated plainly: every check could stop the publish.** A check on something UPSTREAM of
+the Brain, a feed that was offline or a downstream job that had not run, was given the same power as
+a check on the Brain itself being wrong.
+
+**Fix.** `verify-brain.js` now has two kinds of check. `ok()` BLOCKS: data that will not parse,
+encryption that did not happen, a client's words in the public file, a broken icon. `advise()` WARNS
+and never blocks: sources feeding, memory source alive, open asks, systems feed online, team roster,
+chat-ask bridge ran. Advisory failures print with `!!`, are counted separately in the summary line,
+and are named in the agent log on the publish line, so they can never rot quietly. The bridge also
+moved to run BEFORE the gate on the fresh build, with its exit code ignored, so it is normally fresh
+and can still never block.
+
+**Proved, not assumed.** Bridge aged to 40 hours: 1 warning, exit 0, publishes. Mac forced offline:
+3 warnings, exit 0, publishes. A client's chat lines injected into the published file: 2 red, exit 1,
+blocked. The teeth are still there.
+
+**The rule for any gate from here.** Before a check can stop a release, ask what it is protecting
+against. If the answer is "something the release would get WRONG", it blocks. If it is "something
+else is unwell", it warns loudly and gets out of the way. And never let a step that runs after the
+gate be a thing the gate depends on.
