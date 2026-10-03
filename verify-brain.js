@@ -71,13 +71,23 @@ let d = null;
   };
   let pub = null; try { pub = open('brain-data.enc.js', 'window.BRAIN_ENC', pass); } catch (e) { ok('public file opens with the team lock', false, e.message); return; }
   ok('public file opens with the team lock', !!pub, (pub.clients || []).length + ' clients inside');
-  let quotes = 0, counted = 0; for (const c of pub.clients || []) { quotes += (c.whatsapp || []).length + (c.waCheck ? 1 : 0) + (c.planDraft ? 1 : 0) + (c.visuals ? 1 : 0); counted += c.waCount || 0; }
+  let quotes = 0, counted = 0, discussedCount = 0; for (const c of pub.clients || []) {
+    quotes += (c.whatsapp || []).length + (c.discussed || []).length + (c.waCheck ? 1 : 0) + (c.planDraft ? 1 : 0) + (c.visuals ? 1 : 0);
+    counted += c.waCount || 0; discussedCount += c.chatCount || 0;
+  }
+  const publicDecisions = (pub.decisions || []).length;
   const cross = (pub.waCrosscheck ? 1 : 0) + ((pub.systems || {}).crosscheck ? 1 : 0);
-  ok('public file carries no client words, drafts or visual cards', quotes === 0 && cross === 0, quotes + ' tier B items and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' counted');
+  ok('public file carries no client words, decisions, drafts or visual cards', quotes === 0 && publicDecisions === 0 && cross === 0,
+    quotes + ' tier B items, ' + publicDecisions + ' decisions and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' WhatsApp and ' + discussedCount + ' Claude lines counted');
   const s = strength(pass); let vp = s.strong ? pass : (process.env.BB_VAULT_PASS || rd(path.join(HOME, '.bb-brain-vault-pass'))); if (!strength(vp).strong) vp = null;
   let vault; try { vault = open('brain-vault.enc.js', 'window.BRAIN_VAULT', vp || 'x'); } catch (e) { ok('vault is sealed strong or held', false, 'vault file does not open under the strong phrase: ' + e.message); return; }
   if (vault === null) ok('vault is sealed strong or held', !vp && (pub.vault || {}).state === 'held', 'held on this machine, team lock is ' + s.klass + ', ' + ((pub.vault || {}).lines || 0) + ' lines waiting');
-  else ok('vault is sealed strong or held', !!vp && (pub.vault || {}).state === 'sealed', Object.keys(vault.clients || {}).length + ' clients sealed under a strong phrase');
+  else {
+    ok('vault is sealed strong or held', !!vp && (pub.vault || {}).state === 'sealed', Object.keys(vault.clients || {}).length + ' clients sealed under a strong phrase');
+    const vaultedDiscussed = Object.values(vault.clients || {}).reduce((n, c) => n + (c.discussed || []).length, 0);
+    ok('strong vault carries every Claude line and decision', vaultedDiscussed === discussedCount && (vault.decisions || []).length === (pub.decisionsCount || 0),
+      vaultedDiscussed + ' of ' + discussedCount + ' Claude lines, ' + (vault.decisions || []).length + ' of ' + (pub.decisionsCount || 0) + ' decisions');
+  }
 })();
 try { const raw = fs.readFileSync(path.join(HERE, 'brain-data.js'), 'utf8'); d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf(';'))); ok('brain-data.js parses', true, 'ok'); }
 catch (e) { ok('brain-data.js parses', false, e.message); }
@@ -90,6 +100,28 @@ if (d) {
   ok('learning entries', d.totals.entries > 500, d.totals.entries + ' entries');
   const src = d.sources || [], bad = src.filter(s => s.ok === false);
   advise('sources feeding', src.length >= 9 && !bad.length, src.length + ' sources, ' + bad.length + ' red' + (bad.length ? ': ' + bad.map(s => s.name).join(', ') : ''));
+  { const c = d.codex, HEX = /^[a-f0-9]{64}$/, ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+    const exact = (o, keys) => !!o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).sort().join('|') === keys.slice().sort().join('|');
+    const nums = o => Object.values(o).every(v => Number.isInteger(v) && v >= 0);
+    const hashes = a => Array.isArray(a) && a.every(x => typeof x === 'string' && HEX.test(x));
+    const relKinds = ['client', 'market', 'skill', 'decision', 'result', 'question', 'contradiction'];
+    let safe = exact(c, ['version', 'generated', 'available', 'files', 'messages', 'newest', 'redactions', 'relationships'])
+      && c.version === 1 && typeof c.available === 'boolean' && ISO.test(c.generated) && (c.newest === null || ISO.test(c.newest))
+      && exact(c.files, ['scanned', 'eligible', 'rejectedThreadSource', 'malformedMeta', 'unreadable', 'hashes'])
+      && nums({ scanned: c.files.scanned, eligible: c.files.eligible, rejected: c.files.rejectedThreadSource, malformed: c.files.malformedMeta, unreadable: c.files.unreadable }) && hashes(c.files.hashes)
+      && exact(c.messages, ['seen', 'accepted', 'duplicate', 'ambient', 'nonText', 'missingId', 'malformed', 'oversized', 'hashes'])
+      && nums({ seen: c.messages.seen, accepted: c.messages.accepted, duplicate: c.messages.duplicate, ambient: c.messages.ambient, nonText: c.messages.nonText, missingId: c.messages.missingId, malformed: c.messages.malformed, oversized: c.messages.oversized })
+      && hashes(c.messages.hashes) && c.messages.accepted === c.messages.hashes.length
+      && exact(c.redactions, ['messages', 'email', 'phone', 'password', 'token', 'dataUrl']) && nums(c.redactions)
+      && exact(c.relationships, relKinds);
+    if (safe) for (const kind of relKinds) {
+      const r = c.relationships[kind];
+      if (!exact(r, ['count', 'messageHashes']) || !Number.isInteger(r.count) || r.count < 0 || !hashes(r.messageHashes)
+        || r.count !== r.messageHashes.length || r.messageHashes.some(x => !c.messages.hashes.includes(x))) { safe = false; break; }
+    }
+    ok('Codex intake carries metadata only', safe, c ? c.messages.accepted + ' user messages, ' + c.files.eligible + ' top-level tasks, no text fields' : 'missing');
+    advise('Codex conversations feeding', !!(c && (!c.available || c.files.eligible > 0)), c ? (c.available ? c.files.eligible + ' top-level tasks, newest ' + (c.newest || 'none') : 'not present in this build') : 'missing');
+  }
   const mem = src.find(s => s.name === 'Chat memories');
   const memAge = mem && mem.newest ? (Date.now() - new Date(mem.newest)) / 864e5 : 99;
   advise('memory source alive', memAge <= 7, mem ? mem.detail + ', newest ' + mem.newest : 'missing');

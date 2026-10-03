@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { ingestCodexSessions } = require('./codex-ingest.js');
 /* HOME IS A KNOB (2026-09-09, Thulaib: "even if I close my laptop would work happen").
    Every path below hangs off it, so a cloud run assembles a folder that looks like
    this Mac's home out of the two private backup repos and points BB_HOME at it.
@@ -96,6 +97,8 @@ function buildRoster() {
   return roster;
 }
 const ROSTER = buildRoster();
+const CODEX_CLIENT_NEEDLES = [...new Set(Object.entries(ROSTER).flatMap(([key, display]) =>
+  [display.toLowerCase(), ...(CLIENT_ALIASES[key] || []).map(x => x.toLowerCase())]))];
 function clientsIn(text) {
   const t = (text || '').toLowerCase(); const hits = [];
   for (const [key, display] of Object.entries(ROSTER)) {
@@ -1056,7 +1059,23 @@ Promise.all([
   sbGet('/brain_reviews?select=entry_key,verdict&order=created_at.asc').catch(e => ({ err: String(e.message) })),
   sbGet('/brain_gaps?select=id,question,asked_by,status,created_at&status=eq.open&order=created_at.desc&limit=50').catch(e => ({ err: String(e.message) })),
   ingestSystems(),
-]).then(([feed, reviews, gaps, systems]) => {
+  ingestCodexSessions({ home: HOME, cloud: CLOUD, clientNeedles: CODEX_CLIENT_NEEDLES }),
+]).then(([feed, reviews, gaps, systems, codex]) => {
+  out.codex = codex;
+  out.totals.codexMessages = codex.messages.accepted;
+  out.totals.codexRelationships = Object.values(codex.relationships).reduce((n, r) => n + r.count, 0);
+  fs.writeFileSync(path.join(HERE, 'codex-ingest-last.json'), JSON.stringify(codex));
+  out.sources.push({
+    name: 'Codex conversations',
+    detail: !codex.available
+      ? 'not reachable in this build: raw sessions remain on the BB Mac'
+      : codex.files.eligible + ' top-level tasks, ' + codex.messages.accepted + ' user messages counted, text held on the Mac',
+    newest: codex.newest ? codex.newest.slice(0, 10) : null,
+    ok: !codex.available ? null : codex.files.eligible > 0,
+  });
+  console.log('codex intake:', codex.available
+    ? codex.files.eligible + ' top-level tasks, ' + codex.messages.accepted + ' user messages, metadata only'
+    : 'not available in this build');
   out.systems = systems;
   console.log('system exhaust:', systems.online ? systems.events.length + ' events (' + JSON.stringify(systems.counts) + ')' : 'OFFLINE (' + systems.error + ')');
   out.sources.push({ name: 'System exhaust', detail: systems.online ? systems.events.length + ' events from team, tasks and shoots' : 'OFFLINE: ' + systems.error, newest: systems.events[0] ? systems.events[0].date : null, ok: systems.online });
@@ -1091,10 +1110,13 @@ Promise.all([
   let prev = null; try { prev = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch (e) {}
   const unused = out.skills.filter(s => s.depth === 0);
   const dayPick = unused.length ? unused[Math.floor(Date.now() / 86400000) % unused.length] : null;
-  const cur = { generated: out.generated, entries: out.totals.entries, memories: chatMem.length, clients: out.clients.length, unused: unused.length, systemsEvents: (out.systems && out.systems.events) ? out.systems.events.length : 0 };
+  const cur = { generated: out.generated, entries: out.totals.entries, memories: chatMem.length, clients: out.clients.length, unused: unused.length,
+    systemsEvents: (out.systems && out.systems.events) ? out.systems.events.length : 0,
+    codexMessages: (out.codex && out.codex.messages) ? out.codex.messages.accepted : 0 };
   out.agent = {
     lastRun: prev ? prev.generated : null,
-    delta: prev ? { entries: cur.entries - prev.entries, memories: cur.memories - prev.memories, clients: cur.clients - prev.clients, unused: cur.unused - prev.unused, systemsEvents: cur.systemsEvents - prev.systemsEvents } : null,
+    delta: prev ? { entries: cur.entries - prev.entries, memories: cur.memories - prev.memories, clients: cur.clients - prev.clients, unused: cur.unused - prev.unused,
+      systemsEvents: cur.systemsEvents - (prev.systemsEvents || 0), codexMessages: cur.codexMessages - (prev.codexMessages || 0) } : null,
     pushToday: dayPick ? dayPick.name : null,
     sourcesRed: (out.sources || []).filter(s => s.ok === false).map(s => s.name),
   };
@@ -1173,6 +1195,10 @@ Promise.all([
   if (cloudReview) out.growth.review = cloudReview;
   console.log('growth ledger:', row.rungs + ' of ' + row.total + ' rungs (' + row.pct + '%)', '· levels', counts.slice(1).join('/'), '· ' + ledger.length + ' day' + (ledger.length === 1 ? '' : 's') + ' kept', '· this week', out.growth.week.rungsClimbed == null ? 'first week' : (out.growth.week.rungsClimbed >= 0 ? '+' : '') + out.growth.week.rungsClimbed + ' rungs');
 }
+
+/* Some source rows are added after the agent trace. Recompute here so the summary and
+   the detailed table can never disagree about a late red source such as Laptop safety. */
+if (out.agent) out.agent.sourcesRed = (out.sources || []).filter(s => s.ok === false).map(s => s.name);
 
 /* ── THE PILLARS (2026-09-07, Thulaib: "when we want to open a new business we have
    certain pillars in place"). The pattern banks already hold what BB has learned across
@@ -1336,15 +1362,20 @@ try {
   };
   let vaultPhrase = strength(pass).strong ? pass : null;
   if (!vaultPhrase) { try { const vp = (process.env.BB_VAULT_PASS || fs.readFileSync(path.join(HOME, '.bb-brain-vault-pass'), 'utf8')).trim(); if (strength(vp).strong) vaultPhrase = vp; } catch (e) {} }
-  const vault = { v: 1, clients: {}, waCrosscheck: out.waCrosscheck || null, crosscheck: (out.systems || {}).crosscheck || null };
+  const vault = { v: 1, clients: {}, decisions: out.decisions || [], waCrosscheck: out.waCrosscheck || null, crosscheck: (out.systems || {}).crosscheck || null };
   const pub = JSON.parse(JSON.stringify(out));
   let heldLines = 0;
   for (const c of pub.clients || []) {
-    if ((c.whatsapp || []).length || c.waCheck || c.planDraft || c.visuals) vault.clients[c.name] = { whatsapp: c.whatsapp || [], waCheck: c.waCheck || null, planDraft: c.planDraft || null, visuals: c.visuals || null };
+    if ((c.whatsapp || []).length || (c.discussed || []).length || c.waCheck || c.planDraft || c.visuals) vault.clients[c.name] = {
+      whatsapp: c.whatsapp || [], discussed: c.discussed || [], waCheck: c.waCheck || null,
+      planDraft: c.planDraft || null, visuals: c.visuals || null,
+    };
     if (c.visuals) { c.visualCount = c.visuals.length; c.visuals = null; }
     if (c.planDraft) { c.planState = { quarter: c.planDraft.quarter, built: c.planDraft.built, counts: c.planDraft.counts }; c.planDraft = null; }
-    heldLines += (c.whatsapp || []).length; c.whatsapp = []; c.waCheck = null;   // waCount stays: a count is not a quote
+    heldLines += (c.whatsapp || []).length + (c.discussed || []).length;
+    c.whatsapp = []; c.discussed = []; c.waCheck = null;   // counts stay: a count is not a quote
   }
+  pub.decisionsCount = (pub.decisions || []).length; pub.decisions = [];
   pub.waCrosscheck = null; if (pub.systems) pub.systems.crosscheck = null;
   pub.vault = { state: vaultPhrase ? 'sealed' : 'held', lines: heldLines, clients: Object.keys(vault.clients).length, lock: strength(pass).klass };
   (pub.sources = pub.sources || []).push({ name: 'Client chat lock', detail: vaultPhrase ? heldLines + ' client lines sealed under the long passphrase' : heldLines + ' client lines kept on the BB Mac, the team lock is ' + pub.vault.lock + ' and too short for client words', newest: null, ok: vaultPhrase ? true : null });

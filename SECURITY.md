@@ -19,7 +19,7 @@ client who finds the address. The realistic loss is a client reading what anothe
 | Tier | What | Rule |
 |---|---|---|
 | A, BB know-how | skills, lessons, pillars, rules, scores | public file, team lock |
-| B, client words | chat lines, asks, later visuals and plan drafts | the VAULT, strong phrase or it stays on the Mac |
+| B, client words | Claude chat lines and decisions, asks, later reviewed Codex extracts, visuals and plan drafts | the VAULT, strong phrase or it stays on the Mac |
 | C, originals | videos, images, contracts, anything with money | never in the Brain file or a git repo, a link only |
 
 ## The rules the code enforces
@@ -33,6 +33,21 @@ client who finds the address. The realistic loss is a client reading what anothe
 5. The derived key is remembered per device, never the phrase. Changing the phrase signs every
    device out, which is the off switch when someone leaves.
 6. Nothing prints, logs or commits a phrase. Claude never types one. Thulaib sets it himself.
+7. Claude `discussed` lines and extracted decisions are Tier B. The public Brain carries their counts only. The lines live in `brain-vault.enc.js` only when a strong phrase is active, otherwise they remain in the local ignored build.
+8. Codex Phase 1 is metadata only. It accepts only a session whose `session_meta.thread_source` is `user`, then only `response_item` records whose role is `user`. Developer, system, ambient, tool, guardian and sub-agent traffic is rejected.
+9. Codex message text, file paths, email addresses, telephone numbers, passwords, tokens, data URLs and attachment content never enter either Brain artifact in Phase 1. Only counts, timestamps and one-way hashes of rollout and message identifiers leave the reader.
+10. A question is not a fact. Codex relationship flags show that a user message may concern a client, market, skill, decision, result, question or contradiction. They do not promote the message into BB knowledge. Promotion requires a reviewed Tier B intake in a later phase.
+
+## Codex Phase 1 gate
+`codex-ingest.js` reads `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` locally. The live session files remain Tier C and are never copied into this repository. `tests/test-codex-ingest.js` proves the following before the Brain builds:
+
+1. Only top-level user threads are eligible.
+2. Duplicate `payload.id` values count once.
+3. Ambient context, developer and assistant records, non-text attachments and sub-agent threads are rejected.
+4. Synthetic email, telephone, password, token and data URL values increase redaction counters but never appear in the report.
+5. Relationship links contain hashed message identifiers only.
+
+The verifier opens the published Brain and requires the Codex object to match this counts-only schema. An unexpected field, non-hash identifier or raw value blocks publication.
 
 ## How Thulaib switches to the long phrase (5 minutes, his hands only)
 1. Pick five random words. Write them on paper first.

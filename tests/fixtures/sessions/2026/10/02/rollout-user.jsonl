@@ -1,0 +1,9 @@
+{"timestamp":"2026-10-02T08:00:00.000Z","type":"session_meta","payload":{"id":"session-user-1","thread_source":"user"}}
+{"timestamp":"2026-10-02T08:01:00.000Z","type":"response_item","payload":{"id":"msg-ambient","type":"message","role":"user","content":[{"type":"input_text","text":"<environment_context>generated context only</environment_context>"}]}}
+{"timestamp":"2026-10-02T08:02:00.000Z","type":"response_item","payload":{"id":"msg-1","type":"message","role":"user","content":[{"type":"input_text","text":"Can we decide the Home Depot social media strategy for this market?"}]}}
+{"timestamp":"2026-10-02T08:03:00.000Z","type":"response_item","payload":{"id":"msg-2","type":"message","role":"user","content":[{"type":"input_text","text":"My password is TEST-ONLY. Email alice@example.invalid, call +94 77 123 4567, token: sk-FAKEFAKEFAKEFAKE and data:image/png;base64,FAKE."}]}}
+{"timestamp":"2026-10-02T08:04:00.000Z","type":"response_item","payload":{"id":"msg-1","type":"message","role":"user","content":[{"type":"input_text","text":"Duplicate content must not count."}]}}
+{"timestamp":"2026-10-02T08:05:00.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Missing identifier must not count."}]}}
+{"timestamp":"2026-10-02T08:06:00.000Z","type":"response_item","payload":{"id":"msg-image","type":"message","role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,SHOULDNEVERLEAVE"}]}}
+{"timestamp":"2026-10-02T08:07:00.000Z","type":"response_item","payload":{"id":"developer-1","type":"message","role":"developer","content":[{"type":"input_text","text":"Developer content must not count."}]}}
+{"timestamp":"2026-10-02T08:08:00.000Z","type":"response_item","payload":{"id":"assistant-1","type":"message","role":"assistant","content":[{"type":"output_text","text":"Assistant content must not count."}]}}

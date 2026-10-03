@@ -1,4 +1,7 @@
 brain-data.js
 .agent-state.json
 agent.log
+codex-ingest-last.json
+.codex-ingest-last.tmp.*
+codex-intake-watch.log
 BRAIN-AGENT-FAILING.txt

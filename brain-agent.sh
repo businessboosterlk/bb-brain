@@ -12,8 +12,22 @@ export PATH="$HOME/.local/node/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 set -u
 DIR="$HOME/bb-brain"; LOG="$DIR/agent.log"; FLAG="$DIR/BRAIN-AGENT-FAILING.txt"
 STAMP="$(date '+%Y-%m-%d %H:%M')"
+SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 cd "$DIR" || { echo "[$STAMP] XX cannot reach $DIR" >> "$LOG"; exit 1; }
+
+# ONE WRITER (2026-10-03). A dot, launchd and bb-end may all ask the Brain to run.
+# lockf lets exactly one own the build and publish rail. A second request leaves cleanly
+# instead of editing the same generated files or racing a git push.
+if [ "${BB_AGENT_LOCKED:-0}" != "1" ]; then
+  BB_AGENT_LOCKED=1 /usr/bin/lockf -t 0 "${TMPDIR:-/tmp}/bb-brain-agent-${UID}.lock" "$SELF" "$@"
+  RC=$?
+  if [ "$RC" -eq 75 ]; then
+    echo "[$STAMP] note another Brain Agent run already owns the single-writer lock" >> "$LOG"
+    exit 0
+  fi
+  exit "$RC"
+fi
 shout(){
   {
     echo "BRAIN AGENT FAILED - $STAMP"
@@ -48,6 +62,14 @@ if [ -f "$HOME/bb-consultancy/q4-2026/prefill_all.py" ]; then
   echo "[$STAMP] note $PF" >> "$LOG"
 fi
 
+# 0c. CODEX INTAKE SAFETY (Phase 1). The intake may count top-level user tasks, but it must
+#     never copy conversation text, attachments, system context, tool output or sub-agent traffic.
+#     This fixture gate runs before the live 2.1GB session store is touched. A failed safety test
+#     stops the build, so unsafe intake code can never reach the encrypted public artifacts.
+if ! CODEX_TEST_OUT="$(node tests/test-codex-ingest.js 2>&1)"; then
+  shout "Codex intake safety test failed: $(printf '%s' "$CODEX_TEST_OUT" | tail -1 | cut -c1-160)"
+fi
+
 # 1. build. A failed build never reaches the public.
 if ! BUILD_OUT="$(node build-brain-data.js 2>&1)"; then
   shout "build failed: $(printf '%s' "$BUILD_OUT" | tail -1 | cut -c1-160)"
@@ -66,8 +88,9 @@ else printf '%s\n%s\n' "[$STAMP] chat-ask bridge FAILED" "$BRIDGE_OUT" > "$BFLAG
 if ! VERIFY_OUT="$(node verify-brain.js 2>&1)"; then
   shout "$(printf '%s' "$VERIFY_OUT" | grep VERIFY-BRAIN | cut -c1-220)"
 fi
-# 3. publish. Only green builds get here.
-git add -A 2>/dev/null
+# 3. publish. Only green builds get here. The allowlist is deliberate: a transcript,
+# sqlite file, cache or private intake file can never be swept into git by accident.
+git add -- brain-data.enc.js brain-vault.enc.js bridge-last.json growth-ledger.json index.html 2>/dev/null
 if ! git diff --cached --quiet; then git commit -q -m "brain agent $STAMP" || true; fi
 git pull --rebase --autostash -q origin main 2>/dev/null || true
 if git push -q 2>/dev/null; then

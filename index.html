@@ -664,8 +664,8 @@ table.r-tbl td b{color:#0e1830}
   </div>
 </div>
 
-<script src="brain-data.enc.js?v=1790997151194"></script>
-<script src="brain-vault.enc.js?v=1790997151194"></script>
+<script src="brain-data.enc.js?v=1790999792741"></script>
+<script src="brain-vault.enc.js?v=1790999792741"></script>
 <script type="text/plain" id="app-src">
 const D = window.BRAIN_DATA;
 const C = Object.fromEntries(D.clusters.map(c=>[c.id,c]));
@@ -3743,7 +3743,8 @@ if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
       const key=await crypto.subtle.importKey('raw',b64(rawB64),'AES-GCM',false,['decrypt']);
       const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(v.iv)},key,b64(v.ct));
       const V=JSON.parse(new TextDecoder().decode(pt));
-      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.waCheck=x.waCheck||null; c.planDraft=x.planDraft||null; c.visuals=x.visuals||null; } }
+      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.discussed=x.discussed||[]; c.waCheck=x.waCheck||null; c.planDraft=x.planDraft||null; c.visuals=x.visuals||null; } }
+      D.decisions=V.decisions||[];
       D.waCrosscheck=V.waCrosscheck||null; if(D.systems) D.systems.crosscheck=V.crosscheck||null;
       D.vault=Object.assign({},D.vault,{state:'open'}); return true;
     }catch(e){ if(D.vault) D.vault.state='locked'; return false; }
