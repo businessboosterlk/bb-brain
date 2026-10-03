@@ -53,7 +53,8 @@ The verifier opens the published Brain and requires the Codex object to match th
 1. Pick five random words. Write them on paper first.
 2. In Terminal: `printf '%s' 'your five words here' > ~/.bb-brain-pass && chmod 600 ~/.bb-brain-pass`
 3. Same phrase into the GitHub secret: `gh secret set BB_PASS --repo businessboosterlk/bb-intelligence-backup`
-4. Run `bash ~/bb-brain/brain-agent.sh`. The gate must say vault sealed and 50 of 50.
+4. Run `bash ~/bb-brain/brain-agent.sh`. The gate must say the vault is sealed and exit with no
+   blocking failure. Any upstream warning, including Laptop safety, must still be shown and dealt with.
 5. Tell the team the phrase by voice or in person, never in a chat group.
 
 ## Known and not yet fixed
