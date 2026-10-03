@@ -133,6 +133,12 @@ if (d) {
     const leaks = snips.filter(x => SEC.test(x));
     ok('no credential in WhatsApp lines', snips.length > 0 && !leaks.length, snips.length + ' lines scanned, ' + leaks.length + ' credential-like');
     const wa = d.wa || {}; ok('WhatsApp inbox fed', (wa.files || 0) >= 12 && (wa.kept || 0) > 100, (wa.files || 0) + ' files, ' + (wa.kept || 0) + ' lines kept, ' + (wa.redacted || 0) + ' redacted, ' + (wa.clients || 0) + ' clients'); }
+  { const PRIVATE = /(?:\b(?:password|passcode|passwd|pwd|credential|login details?|otp|pin)\b|\bsk-[A-Za-z0-9_-]{10,}|\bgh[pousr]_[A-Za-z0-9_]{20,}|\bBearer\s+[A-Za-z0-9._~-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|\b(?:api[_ -]?key|secret|token)\s*[:=]\s*\S{6,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|data:[^;,\s]+(?:;base64)?,|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b)/i;
+    const phoneLike = t => { const m = String(t).match(/(?:\+?\d[\d\s().-]{7,}\d)/); if (!m) return false; const n = m[0].replace(/\D/g, '').length; return n >= 9 && n <= 15; };
+    const snips = []; for (const c of d.clients || []) for (const x of (c.discussed || [])) snips.push(x.snippet || '');
+    for (const x of d.decisions || []) snips.push(x.snippet || '');
+    const leaks = snips.filter(x => PRIVATE.test(x) || phoneLike(x));
+    ok('no credential or personal contact in Claude lines', snips.length > 0 && !leaks.length, snips.length + ' lines scanned, ' + leaks.length + ' private-like'); }
   { const BBS = /\bBB\b|thulaib|shiara|ushane|rukshan|nirvana|tiana|kenuli|gayani|suhana/i; let opens = 0, bb = 0;
     for (const cc of Object.values(((d.systems || {}).crosscheck || {}).perClient || {})) for (const o of (cc.open || [])) { opens++; if (BBS.test(o.sender || '')) bb++; }
     advise('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }

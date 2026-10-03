@@ -473,6 +473,15 @@ function harvestChat() {
   const ANY = new RegExp(allNeedles.map(esc).join('|'), 'i'); // one case-insensitive prefilter
   // a line is a DECISION/FACT (not just a name-drop) when it carries commitment/number/constraint language
   const DECISION = /\b(decided|decision|we('| a)?re going|let'?s go with|final|locked|confirm(ed)?|agreed|the price is|priced at|charge|charging|budget is|deadline|due (on|by)|launch(es|ing)? on|the problem is|the issue is|the goal is|must not|never (say|mention|do)|always|do not|the plan is|next step|rule:|note that|remember (that|to)|the fee is|rev.?share|per month|\/month|lkr\s?[\d,]|rs\.?\s?[\d,]|\$[\d,]|\b\d+%)/i;
+  const QUERY = /\?|^\s*(what|why|how|when|where|which|who|can|could|should|would|is|are|do|does|did)\b/i;
+  /* Claude stores tool returns and injected control messages as user records too. Only a record
+     explicitly marked as human can teach the Brain. Sensitive text is omitted, not masked into a
+     misleading fragment. The count remains visible so the omission can be audited. */
+  const PRIVATE = /(?:\b(?:password|passcode|passwd|pwd|credential|login details?|otp|pin)\b|\bsk-[A-Za-z0-9_-]{10,}|\bgh[pousr]_[A-Za-z0-9_]{20,}|\bBearer\s+[A-Za-z0-9._~-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|\b(?:api[_ -]?key|secret|token)\s*[:=]\s*\S{6,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|data:[^;,\s]+(?:;base64)?,|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b)/i;
+  const phoneLike = t => {
+    const m = String(t).match(/(?:\+?\d[\d\s().-]{7,}\d)/); if (!m) return false;
+    const n = m[0].replace(/\D/g, '').length; return n >= 9 && n <= 15;
+  };
   let files = [];
   try {
     const cutoff = Date.now() - 120 * 86400000; // last ~120 days, newest first (bounds cost as history grows)
@@ -481,9 +490,10 @@ function harvestChat() {
     files = dirs.flatMap(d => { try { return fs.readdirSync(d).filter(f => f.endsWith('.jsonl')).map(f => path.join(d, f)); } catch (e) { return []; } })
       .map(p => ({ p, m: fs.statSync(p).mtimeMs })).filter(x => x.m >= cutoff)
       .sort((a, b) => b.m - a.m).map(x => x.p);
-  } catch (e) { return { perClient, discussed: 0, decisions: [], filesScanned: 0 }; }
+  } catch (e) { return { perClient, discussed: 0, decisions: [], filesScanned: 0, redacted: 0, duplicates: 0, newest: null }; }
   const seen = new Set();
-  let discussed = 0;
+  const seenMessages = new Set();
+  let discussed = 0, redacted = 0, duplicates = 0, newest = null;
   for (const f of files) {
     let raw; try { raw = fs.readFileSync(f, 'utf8'); } catch (e) { continue; }
     if (!ANY.test(raw)) continue;                            // whole-file skip: no client mentioned at all
@@ -493,8 +503,12 @@ function harvestChat() {
       if (ln.indexOf('"type":"user"') === -1) continue;
       if (!ANY.test(ln)) continue;
       let o; try { o = JSON.parse(ln); } catch (e) { continue; }
-      if (o.type !== 'user') continue;
+      if (o.type !== 'user' || o.isMeta || o.isSidechain || o.toolUseResult || o.sourceToolUseID || o.sourceToolAssistantUUID) continue;
+      if (!o.origin || o.origin.kind !== 'human' || !o.uuid) continue;
+      if (seenMessages.has(o.uuid)) { duplicates++; continue; }
+      seenMessages.add(o.uuid);
       const m = o.message || {}; const c = m.content;
+      if (m.role && m.role !== 'user') continue;
       let txt = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(b => b && b.type === 'text').map(b => b.text).join(' ') : '';
       txt = txt.trim();
       if (!txt || txt.length < 12) continue;
@@ -502,12 +516,14 @@ function harvestChat() {
       // skip harness-injected messages (session summaries, tool results, command output) - not real user speech
       if (/^(This session is being continued|The user|Analysis:|Summary:|\[Request interrupted|Result of|Contents of|Command|Tool ran)/.test(txt)) continue;
       if (txt.indexOf('"tool_use_id"') !== -1 || txt.indexOf('system-reminder') !== -1) continue;
+      if (PRIVATE.test(txt) || phoneLike(txt)) { redacted++; continue; }
       const date = (o.timestamp || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      if (!newest || date > newest) newest = date;
       const low = txt.toLowerCase();
       const hitClients = aliasIndex.filter(([d, needles]) => needles.some(n => low.includes(n))).map(a => a[0]);
       const snippet = txt.replace(/\s+/g, ' ').slice(0, 150);
-      const kind = DECISION.test(txt) ? 'decision' : 'mention';   // item 1: is this a real fact/decision?
+      const kind = DECISION.test(txt) && !QUERY.test(txt) ? 'decision' : 'mention';   // a question or hypothetical is never a fact
       const cluster = clusterFor('', snippet);                     // item 3: auto-tag topic even without a client title
       for (const cl of hitClients) {
         const k = cl + '|' + date + '|' + snippet.slice(0, 40).toLowerCase();
@@ -524,11 +540,11 @@ function harvestChat() {
     perClient[cl] = perClient[cl].slice(0, 25);
   }
   decisions.sort((a, b) => b.date.localeCompare(a.date));
-  return { perClient, discussed, decisions: decisions.slice(0, 60), filesScanned: files.length };
+  return { perClient, discussed, decisions: decisions.slice(0, 60), filesScanned: files.length, redacted, duplicates, newest };
 }
 const decisions = [];
-const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions, filesScanned: chatFilesScanned } = harvestChat();
-console.log('chat harvest:', chatFilesScanned || 0, 'transcript files swept,', chatDiscussed, 'client mentions kept');
+const { perClient: chatByClient, discussed: chatDiscussed, decisions: chatDecisions, filesScanned: chatFilesScanned, redacted: chatRedacted, duplicates: chatDuplicates, newest: chatNewest } = harvestChat();
+console.log('chat harvest:', chatFilesScanned || 0, 'transcript files swept,', chatDiscussed, 'human client lines kept,', chatRedacted, 'private omitted,', chatDuplicates, 'duplicate turns omitted');
 
 /* ══ WHATSAPP PIPE (v1, text only): ~/bb-brain-inbox/<client-slug>/ holds WhatsApp
    chat exports (.txt, or .zip containing one). Folder name = the client. Nightly,
@@ -800,8 +816,8 @@ out.metrics = metricsCanon;      // the numbers canon, with per-metric status
     { name: 'Chat memories', detail: chatMem.length + ' facts', newest: newestOf(chatMem), ok: chatMem.length > 0 },
     { name: 'Chat transcripts', detail: CLOUD && !(chatFilesScanned || 0)
       ? 'not reachable from the cloud: the session logs are 1.4GB and live only on the Mac'
-      : (chatFilesScanned || 0) + ' sessions swept, ' + chatDiscussed + ' client mentions',
-      newest: newestOf(chatDecisions), ok: CLOUD && !(chatFilesScanned || 0) ? null : (chatFilesScanned || 0) > 0 },
+      : (chatFilesScanned || 0) + ' sessions swept, ' + chatDiscussed + ' human client lines, ' + chatRedacted + ' private omitted, ' + chatDuplicates + ' duplicate turns omitted',
+      newest: chatNewest, ok: CLOUD && !(chatFilesScanned || 0) ? null : (chatFilesScanned || 0) > 0 },
     { name: 'WhatsApp inbox', detail: wa.files ? wa.files + ' exports, ' + wa.kept + ' lines kept' : 'no exports yet - a habit, not a fault', newest: null, ok: null },
     { name: 'Pattern banks', detail: (learningsBySkill['bb-mother-brain'] || []).filter(e => /^P-\d/.test(e.summary)).length + ' market + ' + (learningsBySkill['bb-meta-ads-expert-plus'] || []).filter(e => /^AP-\d/.test(e.summary)).length + ' ad patterns', newest: null, ok: true },
     { name: 'Client folders', detail: Object.keys(clientDocs.perClient).length + ' clients, ' + clientDocs.filesRead + ' docs', newest: null, ok: clientDocs.filesRead > 0 },
