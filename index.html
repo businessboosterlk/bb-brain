@@ -1776,6 +1776,18 @@ async function dismissConflict(key,btn){
     toast('Dismissed - it disappears at the next nightly build');
   }catch(e){ toast('Could not dismiss: '+e.message); }
 }
+async function ruleClientContradiction(key,verdict,btn){
+  if(!key){toast('This item has no review key - rebuild the data first');return;}
+  if(!/^client-(?:position-\d+|keep-open)$/.test(verdict)){toast('That ruling is not recognised');return;}
+  if(!await pinOK()) return;
+  try{
+    const r=await fetch(SB_URL+'/brain_reviews',{method:'POST',headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json',Prefer:'return=minimal'},
+      body:JSON.stringify({entry_key:key,verdict,reviewed_by:getPerson()||'brain-ui'})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(btn){const row=btn.closest('.client-ruling'); if(row) row.innerHTML='<span style="font-size:10px;color:#4ADE80;font-weight:700">ruling recorded - shown after the next build</span>';}
+    toast('Ruling recorded for the next Brain build');
+  }catch(e){ toast('Could not record the ruling: '+e.message); }
+}
 async function resolveGap(id,status,btn){
   if(!await pinOK()) return;
   try{
@@ -1800,6 +1812,26 @@ function renderGaps(){
   const noSkill=SERVICE_LINES.filter(([label,pat])=>{const re=new RegExp(pat,'i');return !D.skills.some(s=>re.test(s.name+' '+s.desc));});
   const chip=(s,col)=>`<span class="pill" style="cursor:pointer;margin:0 6px 6px 0" onclick="setView('brain');focusCluster('${s.cluster}');openSkill('${esc(s.name)}')"><span style="width:7px;height:7px;border-radius:50%;background:${col||C[s.cluster].color}"></span>${esc(s.name)}</span>`;
   const sec=(title,sub,body)=>`<div style="margin-bottom:26px"><h3 style="font-size:14px">${title}</h3><p style="font-size:12px;color:var(--text-3);margin:2px 0 10px">${sub}</p>${body}</div>`;
+  const contradictionSummary=D.clientContradictionSummary||{open:0,total:0,clients:[],available:false};
+  const clientContradictions=D.clientContradictions&&Array.isArray(D.clientContradictions.items)?D.clientContradictions.items:null;
+  const clientCounts=`<div style="display:flex;flex-wrap:wrap;gap:6px">${(contradictionSummary.clients||[]).filter(c=>c.open).map(c=>`<span class="pill">${esc(c.client)} · ${c.open} open${c.ruled?' · '+c.ruled+' ruled':''}</span>`).join('')||'<span class="latest">No open client contradictions in the export.</span>'}</div>`;
+  const grouped={}; for(const item of (clientContradictions||[])) (grouped[item.client]=grouped[item.client]||[]).push(item);
+  const clientDesk=clientContradictions?Object.entries(grouped).sort((a,b)=>a[0].localeCompare(b[0])).map(([name,items])=>`<details class="latest" style="margin-bottom:8px">
+      <summary style="cursor:pointer;font-weight:800">${esc(name)} · ${items.length} open</summary>
+      ${items.map(item=>`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+        <div style="font-size:11px;color:#c9a15a;font-weight:800">${esc(item.topic||'Untitled contradiction')}</div>
+        <div style="font-size:10px;color:var(--text-3);margin:3px 0 8px">${esc(item.where||'Source location not recorded')}</div>
+        ${(item.positions||[]).map((p,i)=>`<div style="padding:8px 0${i+1<(item.positions||[]).length?';border-bottom:1px dashed var(--line)':''}"><b>Position ${i+1}</b> · ${esc(p.claim)}<div style="font-size:10px;color:var(--text-3);margin-top:3px">Held by ${esc(p.holder||'UNKNOWN')}${p.source?' · '+esc(p.source):''}</div></div>`).join('')}
+        ${item.handling?`<div style="font-size:11px;color:var(--text-2);margin-top:8px"><b>Handling on file</b> · ${esc(item.handling)}</div>`:''}
+        ${item.ruling?`<div style="font-size:10px;color:#4ADE80;font-weight:800;margin-top:8px">Recorded ${esc(item.ruling.at||'')} · ${item.ruling.verdict==='client-keep-open'?'kept open':'position '+esc(item.ruling.verdict.split('-').pop())+' selected'}</div>`:''}
+        <div class="client-ruling rvw" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:5px">${(item.positions||[]).map((p,i)=>`<button onclick='ruleClientContradiction(${JSON.stringify(item.key||'')},"client-position-${i+1}",this)'>use position ${i+1}</button>`).join('')}<button onclick='ruleClientContradiction(${JSON.stringify(item.key||'')},"client-keep-open",this)'>keep open</button></div>
+      </div>`).join('')}
+    </details>`).join(''):`<div class="latest"><b>Client wording is held on this Mac.</b><br>The team lock is not strong enough for Tier B client positions. Counts remain visible and the wording appears here only after the strong vault opens.</div>${clientCounts}`;
+  const lessonDesk=(D.conflicts||[]).map(c=>`<div class="latest" style="margin-bottom:7px">
+      <div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px;flex:1">topic: ${(c.topic||[]).map(esc).join(', ')}</div><span class="rvw"><button onclick='dismissConflict(${JSON.stringify(c.key||'')},this)'>not a conflict</button></span></div>
+      <div><b>${esc(c.skillA)}</b>${c.dateA?' · '+esc(c.dateA):''} - ${esc(c.textA)}</div>
+      <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line)"><b>${esc(c.skillB)}</b>${c.dateB?' · '+esc(c.dateB):''} - ${esc(c.textB)}</div>
+    </div>`).join('')||'<div class="latest">None flagged in the current lesson scan.</div>';
   document.getElementById('gaps-view').innerHTML=
     `<h2 style="font-size:19px;margin-bottom:4px">Gap radar</h2>
      <p style="font-size:12.5px;color:var(--text-2);margin-bottom:22px">Where the machine is not learning. Honest scan output: ${D.totals.skills} skills, ${D.totals.entries} entries, ${(D.clients||[]).length} clients on record.</p>`
@@ -1815,12 +1847,8 @@ function renderGaps(){
       'Logged from searches that found nothing. Each one is a precise instruction on what to learn next. Answer it anywhere (a lesson, a chat, a memory) and dismiss it here.',
       D.gaps===null?'<div class="latest">The gaps feed was OFFLINE at the last build - open questions exist but are not shown, not absent.</div>'
       :(D.gaps||[]).map(g=>`<div class="latest" style="margin-bottom:6px;display:flex;gap:10px;align-items:baseline"><span style="flex:1"><b>${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</span><span class="rvw"><button onclick="resolveGap(${g.id},'answered',this)">answered</button><button onclick="resolveGap(${g.id},'dismissed',this)">dismiss</button></span></div>`).join('')||'<div class="latest">none open - every question asked so far had an answer</div>')
-    +sec(`Possible contradictions · ${(D.conflicts||[]).length} flagged`,'Same-topic entries where one side negates what the other states. A dumb keyword heuristic flags these for YOUR eye - most will be echoes, the real ones are gold. Nothing is ever auto-resolved.',
-      (D.conflicts||[]).map(c=>`<div class="latest" style="margin-bottom:7px">
-        <div style="display:flex;align-items:baseline;gap:10px"><div style="font-size:10.5px;color:#c9a15a;font-weight:700;margin-bottom:4px;flex:1">topic: ${(c.topic||[]).map(esc).join(', ')}</div><span class="rvw"><button onclick='dismissConflict(${JSON.stringify(c.key||'')},this)'>not a conflict</button></span></div>
-        <div><b>${esc(c.skillA)}</b>${c.dateA?' · '+esc(c.dateA):''} - ${esc(c.textA)}</div>
-        <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--line)"><b>${esc(c.skillB)}</b>${c.dateB?' · '+esc(c.dateB):''} - ${esc(c.textB)}</div>
-      </div>`).join('')||'<div class="latest">none flagged in the current scan</div>');
+    +sec(`Contradiction desk · ${contradictionSummary.open||0} client items · ${(D.conflicts||[]).length} lesson flags`,'Client contradictions come from the client brain export. Lesson flags come from the Brain\'s keyword scan. The Brain never picks a winner. Thulaib records the ruling.',
+      `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px"><div><h4 style="font-size:12px;margin:0 0 8px">Client records</h4>${clientDesk}</div><div><h4 style="font-size:12px;margin:0 0 8px">BB lessons</h4>${lessonDesk}</div></div>`);
 }
 
 /* ═══ STEP 6: before-you-start cards - distilled from real learnings files ═══ */
@@ -2399,6 +2427,10 @@ function openDossier(name){
     return '<div class="latest">No chat exports yet - drop one in ~/bb-brain-inbox/'+slugOf(name)+'/</div>';
   };
   const fact=(pre,txt,extra)=>`<div class="latest" style="margin-bottom:6px"><b>${pre}</b> · ${txt}${extra||''}</div>`;
+  const stale=cl.freshness||{facts:0,results:0,total:0,items:[]};
+  const freshnessBlock=stale.total?secH('May be out of date · '+stale.total)+((stale.items||[]).length
+    ?stale.items.map(item=>`<div class="latest" style="margin-bottom:6px"><b>${esc(item.label)}</b> · checked ${esc(item.date)} · ${item.ageDays} days ago<div style="font-size:10.5px;color:var(--text-3);margin-top:3px">${esc(item.kind==='result'?'Result row':'Client fact')} · ${esc(item.value)} · ${esc(item.source)}</div></div>`).join('')
+    :`<div class="latest">${stale.facts} client fact${stale.facts===1?'':'s'} and ${stale.results} result row${stale.results===1?'':'s'} may be out of date. The wording stays on the BB Mac until the strong vault opens.</div>`):'';
   document.getElementById('dossier-view').innerHTML=
     `<button class="tbtn" onclick="setView('clients')" style="margin-bottom:16px">← All clients</button>
      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;border-left:3px solid ${col};padding-left:18px">
@@ -2413,6 +2445,7 @@ function openDossier(name){
        <button class="fchip" onclick="waBrief('${esc(name)}')">Send brief on WhatsApp</button>
        <button class="fchip" onclick="setView('clients');setTimeout(()=>focusClient('${esc(name)}'),400)">See in the brain</button>
      </div>
+     ${freshnessBlock}
      ${gq.length?secH('Open questions about them')+gq.map(g=>`<div class="latest" style="margin-bottom:6px;display:flex;gap:10px;align-items:baseline"><span style="flex:1"><b>${esc(g.created_at.slice(0,10))}</b> · ${esc(g.question)}</span><span class="rvw"><button onclick="resolveGap(${g.id},'answered',this)">answered</button><button onclick="resolveGap(${g.id},'dismissed',this)">dismiss</button></span></div>`).join(''):''}
      ${secH('Lessons we logged · '+cl.lessonCount)}
      ${cl.lessons.slice(0,14).map(l=>fact(l.date,esc(l.summary)+' <span style="color:'+(C[l.cluster]?C[l.cluster].color:'#889')+'">'+esc(l.skill)+'</span>',l.outcome?` <span class="cf ${l.outcome}">${l.outcome}</span>`:'')).join('')||'<div class="latest">none yet - log the first one</div>'}
@@ -3513,6 +3546,12 @@ async function runSelfTest(){
   ok('Data: build under 48h old', (Date.now()-new Date(D.generated))/36e5<48, ((Date.now()-new Date(D.generated))/36e5).toFixed(1)+'h');
   const src=D.sources||[]; const red=src.filter(s=>s.ok===false);
   ok('Sources: nine mouths, none red', src.length>=9&&!red.length, src.length+' sources, red: '+(red.map(s=>s.name).join(', ')||'none'));
+  { const cs=D.clientContradictionSummary, cc=D.clientContradictions;
+    const summed=cs&&Array.isArray(cs.clients)?cs.clients.reduce((n,c)=>n+(c.open||0),0):-1;
+    const full=!cc||!Array.isArray(cc.items)||cc.items.length===cs.open;
+    ok('CONTRADICTION DESK: exported open items counted', !!cs&&cs.available&&cs.open===summed&&full,
+      cs?cs.open+' open items across '+cs.clients.filter(c=>c.open).length+' clients'+(cc&&cc.items?' and '+cc.items.length+' positions loaded locally':' with wording held'):'missing');
+  }
   const PH=['Cards','Contracts','Proof Spine','Client Brain Schema','Video Plan','Business Booster'];
   const names=(D.clients||[]).map(c=>c.name); const hit=PH.filter(x=>names.includes(x));
   ok('Clients: no phantom rows', !hit.length, names.length+' records, phantoms: '+(hit.join(', ')||'none'));
@@ -3743,8 +3782,9 @@ if(location.search.indexOf('selftest')>-1) setTimeout(()=>runSelfTest(),1500);
       const key=await crypto.subtle.importKey('raw',b64(rawB64),'AES-GCM',false,['decrypt']);
       const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(v.iv)},key,b64(v.ct));
       const V=JSON.parse(new TextDecoder().decode(pt));
-      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.discussed=x.discussed||[]; c.waCheck=x.waCheck||null; c.planDraft=x.planDraft||null; c.visuals=x.visuals||null; } }
+      for(const c of D.clients||[]){ const x=V.clients[c.name]; if(x){ c.whatsapp=x.whatsapp||[]; c.discussed=x.discussed||[]; c.waCheck=x.waCheck||null; c.planDraft=x.planDraft||null; c.visuals=x.visuals||null; c.freshness=x.freshness||c.freshness||null; } }
       D.decisions=V.decisions||[];
+      D.clientContradictions=V.clientContradictions||null;
       D.waCrosscheck=V.waCrosscheck||null; if(D.systems) D.systems.crosscheck=V.crosscheck||null;
       D.vault=Object.assign({},D.vault,{state:'open'}); return true;
     }catch(e){ if(D.vault) D.vault.state='locked'; return false; }

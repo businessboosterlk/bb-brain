@@ -10,6 +10,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { ingestCodexSessions } = require('./codex-ingest.js');
+const { runClientHealth } = require('./client-health.js');
+const { scanClientFreshness } = require('./client-freshness.js');
+const { refreshPrivateIntake } = require('./private-intake.js');
 /* HOME IS A KNOB (2026-09-09, Thulaib: "even if I close my laptop would work happen").
    Every path below hangs off it, so a cloud run assembles a folder that looks like
    this Mac's home out of the two private backup repos and points BB_HOME at it.
@@ -717,6 +720,13 @@ function buildClients() {
   return list;
 }
 out.clients = buildClients();
+const clientFreshness = scanClientFreshness({ home: HOME, now });
+for (const row of clientFreshness.clients) {
+  const client = out.clients.find(c => c.name === row.name || ROSTER[row.key] === c.name);
+  if (client) client.freshness = { facts: row.facts, results: row.results, total: row.total, items: row.items };
+  console.log('client freshness ' + row.name + ': ' + row.facts + ' client facts, ' + row.results + ' result rows may be out of date');
+}
+console.log('client freshness total:', clientFreshness.totals.facts + ' facts, ' + clientFreshness.totals.results + ' result rows across ' + clientFreshness.totals.clients + ' clients may be out of date');
 
 /* ═══ THE LIBRARY (2026-09-11). Thulaib: "is there a section to see these MD files on the
    brain?" There was not: the Brain read 149 skills and 32 learnings files and never the 23
@@ -804,6 +814,8 @@ const INDUSTRY = {
 out.decisions = chatDecisions;   // recent decisions/facts pulled from chat (item 1)
 out.metrics = metricsCanon;      // the numbers canon, with per-metric status
 
+const clientHealth = runClientHealth({ home: HOME });
+
 /* ── SOURCE HEALTH (2026-08-30): every feeding mouth reports what it read and how
    fresh it is, so a frozen channel is VISIBLE in the app instead of silently green.
    A single "refreshed" date cannot reveal that a source went dark; this can. ── */
@@ -822,6 +834,8 @@ out.metrics = metricsCanon;      // the numbers canon, with per-metric status
     { name: 'Pattern banks', detail: (learningsBySkill['bb-mother-brain'] || []).filter(e => /^P-\d/.test(e.summary)).length + ' market + ' + (learningsBySkill['bb-meta-ads-expert-plus'] || []).filter(e => /^AP-\d/.test(e.summary)).length + ' ad patterns', newest: null, ok: true },
     { name: 'Client folders', detail: Object.keys(clientDocs.perClient).length + ' clients, ' + clientDocs.filesRead + ' docs', newest: null, ok: clientDocs.filesRead > 0 },
     { name: 'Numbers canon', detail: metricsCanon ? metricsCanon.count + ' metrics' : 'BB-METRICS.md missing', newest: metricsCanon ? metricsCanon.updated : null, ok: !!metricsCanon },
+    clientHealth.brains,
+    clientHealth.results,
   ];
   console.log('source health:'); for (const s of out.sources) console.log(' ', (s.ok === false ? 'XX' : s.ok === null ? '--' : 'ok'), s.name + ':', s.detail + (s.newest ? ', newest ' + s.newest : ''));
   const unknownSkills = Object.keys(learningsBySkill).filter(k => !skills.some(s => s.name === k));
@@ -866,6 +880,74 @@ function detectConflicts() {
   return conflicts.slice(0, 30);
 }
 out.conflicts = detectConflicts();
+
+/* ── CLIENT CONTRADICTION DESK (2026-10-04). Claude owns the client brain files
+   and exports a Tier B contradiction register. The Brain reads it, gives every
+   item a stable review key and keeps every word local or in the strong vault.
+   The public payload receives counts by client only. A review records Thulaib's
+   ruling for the next build and never writes back into brain.json. ── */
+function clientContradictionKey(item) {
+  const raw = [item.client || '', item.where || '', item.topic || ''].join('|').toLowerCase();
+  return 'client-contradiction:' + require('crypto').createHash('sha256').update(raw).digest('hex').slice(0, 24);
+}
+function ingestClientContradictions() {
+  const file = path.join(HOME, 'bb-consultancy/brain-exports/contradictions.json');
+  const empty = { built: null, tier: 'B', total: 0, open: 0, items: [], clients: [], available: false, error: null };
+  let raw;
+  try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { empty.error = e.message; return empty; }
+  if (raw.tier !== 'B' || !Array.isArray(raw.items)) {
+    empty.error = 'export must declare tier B and carry an items array';
+    return empty;
+  }
+  const clean = raw.items.filter(x => x && typeof x === 'object').map(x => {
+    const clientKey = String(x.client || '').slice(0, 80);
+    const display = ROSTER[clientKey] || clientKey.replace(/-lk$/, '').split('-').filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Unknown client';
+    const item = {
+      client: display,
+      clientKey,
+      where: String(x.where || '').slice(0, 240),
+      topic: String(x.topic || '').slice(0, 240),
+      status: String(x.status || '').slice(0, 40),
+      positions: Array.isArray(x.positions) ? x.positions.map(p => ({
+        claim: String((p || {}).claim || '').slice(0, 800),
+        holder: String((p || {}).holder || '').slice(0, 160),
+        source: String((p || {}).source || '').slice(0, 320),
+      })) : [],
+      handling: String(x.handling || '').slice(0, 1200),
+      ruling: null,
+    };
+    item.key = clientContradictionKey(item);
+    return item;
+  });
+  const open = clean.filter(x => x.status === 'open');
+  const counts = {};
+  for (const x of clean) {
+    const c = counts[x.client] = counts[x.client] || { client: x.client, open: 0, total: 0, ruled: 0 };
+    c.total++; if (x.status === 'open') c.open++;
+  }
+  return {
+    built: raw.built || null,
+    tier: 'B',
+    total: clean.length,
+    open: open.length,
+    items: open,
+    clients: Object.values(counts).sort((a, b) => b.open - a.open || a.client.localeCompare(b.client)),
+    available: true,
+    error: null,
+  };
+}
+out.clientContradictions = ingestClientContradictions();
+out.clientContradictionSummary = {
+  built: out.clientContradictions.built,
+  total: out.clientContradictions.total,
+  open: out.clientContradictions.open,
+  available: out.clientContradictions.available,
+  clients: out.clientContradictions.clients.map(c => ({ client: c.client, open: c.open, total: c.total, ruled: 0 })),
+};
+console.log('client contradictions:', out.clientContradictions.available
+  ? out.clientContradictions.open + ' open of ' + out.clientContradictions.total + ' across ' + out.clientContradictions.clients.length + ' clients (Tier B)'
+  : 'unavailable: ' + out.clientContradictions.error);
 
 /* ── STEP 7: agent learnings intake - what the MACHINE agents learned, from Supabase.
    Read-only at build time. If the fetch fails, the brain says "agent feed offline"
@@ -1072,11 +1154,14 @@ async function ingestSystems() {
 
 Promise.all([
   fetchAgentLearnings(),
-  sbGet('/brain_reviews?select=entry_key,verdict&order=created_at.asc').catch(e => ({ err: String(e.message) })),
+  sbGet('/brain_reviews?select=entry_key,verdict,reviewed_by,created_at&order=created_at.asc').catch(e => ({ err: String(e.message) })),
   sbGet('/brain_gaps?select=id,question,asked_by,status,created_at&status=eq.open&order=created_at.desc&limit=50').catch(e => ({ err: String(e.message) })),
   ingestSystems(),
   ingestCodexSessions({ home: HOME, cloud: CLOUD, clientNeedles: CODEX_CLIENT_NEEDLES }),
-]).then(([feed, reviews, gaps, systems, codex]) => {
+  CLOUD ? Promise.resolve({ available: false, updated: null, total: 0, pending: 0, notAFact: 0, sendToClaude: 0, lesson: 0, claude: 0, codex: 0, redacted: 0 })
+    : refreshPrivateIntake({ home: HOME, file: path.join(HERE, '.private-intake.json'), clients: Object.entries(ROSTER).map(([key, display]) => ({ display, needles: [display.toLowerCase(), key.toLowerCase(), ...(CLIENT_ALIASES[key] || []).map(x => x.toLowerCase())] })) })
+      .catch(() => ({ available: false, updated: null, total: 0, pending: 0, notAFact: 0, sendToClaude: 0, lesson: 0, claude: 0, codex: 0, redacted: 0 })),
+]).then(([feed, reviews, gaps, systems, codex, privateIntake]) => {
   out.codex = codex;
   out.totals.codexMessages = codex.messages.accepted;
   out.totals.codexRelationships = Object.values(codex.relationships).reduce((n, r) => n + r.count, 0);
@@ -1092,6 +1177,14 @@ Promise.all([
   console.log('codex intake:', codex.available
     ? codex.files.eligible + ' top-level tasks, ' + codex.messages.accepted + ' user messages, metadata only'
     : 'not available in this build');
+  out.privateIntake = privateIntake;
+  out.sources.push({
+    name: 'Private intake',
+    detail: privateIntake.available ? privateIntake.pending + ' pending of ' + privateIntake.total + ' candidates, ' + privateIntake.redacted + ' private messages omitted' : 'local review list is not reachable in this build',
+    newest: privateIntake.updated ? privateIntake.updated.slice(0, 10) : null,
+    ok: privateIntake.available ? true : null,
+  });
+  console.log('private intake:', privateIntake.available ? privateIntake.pending + ' pending of ' + privateIntake.total + ' candidates, counts only published' : 'not available in this build');
   out.systems = systems;
   console.log('system exhaust:', systems.online ? systems.events.length + ' events (' + JSON.stringify(systems.counts) + ')' : 'OFFLINE (' + systems.error + ')');
   out.sources.push({ name: 'System exhaust', detail: systems.online ? systems.events.length + ' events from team, tasks and shoots' : 'OFFLINE: ' + systems.error, newest: systems.events[0] ? systems.events[0].date : null, ok: systems.online });
@@ -1107,11 +1200,21 @@ Promise.all([
   out.agentFeed = feed;
   console.log('agent feed:', feed.online ? feed.entries.length + ' machine learnings' : 'OFFLINE (' + feed.error + ')');
   if (Array.isArray(reviews)) {
-    out.reviews = applyReviews(reviews.filter(r => r.verdict !== 'dismiss-conflict'));
+    out.reviews = applyReviews(reviews.filter(r => r.verdict === 'keep' || r.verdict === 'retire'));
     const dismissed = new Set(reviews.filter(r => r.verdict === 'dismiss-conflict').map(r => String(r.entry_key).toLowerCase()));
     const before = out.conflicts.length;
     out.conflicts = out.conflicts.filter(c => !dismissed.has(c.key));
     out.reviews.conflictsDismissed = before - out.conflicts.length;
+    const clientRulings = new Map();
+    for (const r of reviews) if (String(r.entry_key || '').startsWith('client-contradiction:') && /^(client-position-\d+|client-keep-open)$/.test(String(r.verdict || '')))
+      clientRulings.set(String(r.entry_key), { verdict: String(r.verdict), reviewedBy: String(r.reviewed_by || 'brain-ui').slice(0, 80), at: String(r.created_at || '').slice(0, 10) });
+    let ruled = 0;
+    for (const item of out.clientContradictions.items) {
+      item.ruling = clientRulings.get(item.key) || null;
+      if (item.ruling && item.ruling.verdict !== 'client-keep-open') ruled++;
+    }
+    for (const c of out.clientContradictionSummary.clients) c.ruled = out.clientContradictions.items.filter(x => x.client === c.client && x.ruling && x.ruling.verdict !== 'client-keep-open').length;
+    out.reviews.clientContradictionsRuled = ruled;
     console.log('reviews applied:', JSON.stringify(out.reviews));
   }
   else { out.reviews = { offline: true }; console.log('reviews OFFLINE:', reviews.err); }
@@ -1378,21 +1481,24 @@ try {
   };
   let vaultPhrase = strength(pass).strong ? pass : null;
   if (!vaultPhrase) { try { const vp = (process.env.BB_VAULT_PASS || fs.readFileSync(path.join(HOME, '.bb-brain-vault-pass'), 'utf8')).trim(); if (strength(vp).strong) vaultPhrase = vp; } catch (e) {} }
-  const vault = { v: 1, clients: {}, decisions: out.decisions || [], waCrosscheck: out.waCrosscheck || null, crosscheck: (out.systems || {}).crosscheck || null };
+  const vault = { v: 1, clients: {}, decisions: out.decisions || [], waCrosscheck: out.waCrosscheck || null, crosscheck: (out.systems || {}).crosscheck || null,
+    clientContradictions: out.clientContradictions || null };
   const pub = JSON.parse(JSON.stringify(out));
   let heldLines = 0;
   for (const c of pub.clients || []) {
-    if ((c.whatsapp || []).length || (c.discussed || []).length || c.waCheck || c.planDraft || c.visuals) vault.clients[c.name] = {
+    if ((c.whatsapp || []).length || (c.discussed || []).length || c.waCheck || c.planDraft || c.visuals || (c.freshness && c.freshness.items && c.freshness.items.length)) vault.clients[c.name] = {
       whatsapp: c.whatsapp || [], discussed: c.discussed || [], waCheck: c.waCheck || null,
-      planDraft: c.planDraft || null, visuals: c.visuals || null,
+      planDraft: c.planDraft || null, visuals: c.visuals || null, freshness: c.freshness || null,
     };
     if (c.visuals) { c.visualCount = c.visuals.length; c.visuals = null; }
     if (c.planDraft) { c.planState = { quarter: c.planDraft.quarter, built: c.planDraft.built, counts: c.planDraft.counts }; c.planDraft = null; }
     heldLines += (c.whatsapp || []).length + (c.discussed || []).length;
     c.whatsapp = []; c.discussed = []; c.waCheck = null;   // counts stay: a count is not a quote
+    if (c.freshness) c.freshness = { facts: c.freshness.facts || 0, results: c.freshness.results || 0, total: c.freshness.total || 0, items: [] };
   }
   pub.decisionsCount = (pub.decisions || []).length; pub.decisions = [];
   pub.waCrosscheck = null; if (pub.systems) pub.systems.crosscheck = null;
+  pub.clientContradictions = null;
   pub.vault = { state: vaultPhrase ? 'sealed' : 'held', lines: heldLines, clients: Object.keys(vault.clients).length, lock: strength(pass).klass };
   (pub.sources = pub.sources || []).push({ name: 'Client chat lock', detail: vaultPhrase ? heldLines + ' client lines sealed under the long passphrase' : heldLines + ' client lines kept on the BB Mac, the team lock is ' + pub.vault.lock + ' and too short for client words', newest: null, ok: vaultPhrase ? true : null });
   fs.writeFileSync(path.join(__dirname, 'brain-data.enc.js'),

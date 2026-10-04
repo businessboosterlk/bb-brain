@@ -75,10 +75,20 @@ let d = null;
     quotes += (c.whatsapp || []).length + (c.discussed || []).length + (c.waCheck ? 1 : 0) + (c.planDraft ? 1 : 0) + (c.visuals ? 1 : 0);
     counted += c.waCount || 0; discussedCount += c.chatCount || 0;
   }
+  const publicFreshnessItems = (pub.clients || []).reduce((n, c) => n + (((c.freshness || {}).items || []).length), 0);
   const publicDecisions = (pub.decisions || []).length;
   const cross = (pub.waCrosscheck ? 1 : 0) + ((pub.systems || {}).crosscheck ? 1 : 0);
   ok('public file carries no client words, decisions, drafts or visual cards', quotes === 0 && publicDecisions === 0 && cross === 0,
     quotes + ' tier B items, ' + publicDecisions + ' decisions and ' + cross + ' cross-check blocks across ' + (pub.clients || []).length + ' clients, ' + counted + ' WhatsApp and ' + discussedCount + ' Claude lines counted');
+  ok('public file carries stale counts but no client fact wording', publicFreshnessItems === 0,
+    (pub.clients || []).reduce((n, c) => n + (((c.freshness || {}).total) || 0), 0) + ' stale records counted, ' + publicFreshnessItems + ' item details');
+  const cs = pub.clientContradictionSummary;
+  const publicClientWords = pub.clientContradictions ? JSON.stringify(pub.clientContradictions).length : 0;
+  const summarySafe = !!cs && Object.keys(cs).every(k => ['built','total','open','available','clients'].includes(k))
+    && Array.isArray(cs.clients) && cs.clients.every(c => Object.keys(c).every(k => ['client','open','total','ruled'].includes(k)))
+    && cs.open === cs.clients.reduce((n, c) => n + (c.open || 0), 0);
+  ok('public file carries client contradiction counts only', publicClientWords === 0 && summarySafe,
+    (cs ? cs.open : 0) + ' open counted across ' + (cs && cs.clients ? cs.clients.filter(c => c.open).length : 0) + ' clients, ' + publicClientWords + ' bytes of client positions');
   const s = strength(pass); let vp = s.strong ? pass : (process.env.BB_VAULT_PASS || rd(path.join(HOME, '.bb-brain-vault-pass'))); if (!strength(vp).strong) vp = null;
   let vault; try { vault = open('brain-vault.enc.js', 'window.BRAIN_VAULT', vp || 'x'); } catch (e) { ok('vault is sealed strong or held', false, 'vault file does not open under the strong phrase: ' + e.message); return; }
   if (vault === null) ok('vault is sealed strong or held', !vp && (pub.vault || {}).state === 'held', 'held on this machine, team lock is ' + s.klass + ', ' + ((pub.vault || {}).lines || 0) + ' lines waiting');
@@ -87,6 +97,8 @@ let d = null;
     const vaultedDiscussed = Object.values(vault.clients || {}).reduce((n, c) => n + (c.discussed || []).length, 0);
     ok('strong vault carries every Claude line and decision', vaultedDiscussed === discussedCount && (vault.decisions || []).length === (pub.decisionsCount || 0),
       vaultedDiscussed + ' of ' + discussedCount + ' Claude lines, ' + (vault.decisions || []).length + ' of ' + (pub.decisionsCount || 0) + ' decisions');
+    ok('strong vault carries every open client contradiction', !!vault.clientContradictions && vault.clientContradictions.items.length === cs.open,
+      (vault.clientContradictions ? vault.clientContradictions.items.length : 0) + ' of ' + (cs ? cs.open : 0) + ' open items');
   }
 })();
 try { const raw = fs.readFileSync(path.join(HERE, 'brain-data.js'), 'utf8'); d = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf(';'))); ok('brain-data.js parses', true, 'ok'); }
@@ -98,8 +110,15 @@ if (d) {
   { const pd = (d.clients || []).filter(c => c.planDraft); const need = pd.reduce((n, c) => n + c.planDraft.fields.filter(f => f.state === 'unknown' || f.state === 'conflict').length, 0);
     ok('plan drafts feeding', pd.length >= 5 || !fs.existsSync(path.join(process.env.BB_HOME || process.env.HOME, 'bb-consultancy', 'q4-2026', 'prefill.py')), pd.length + ' clients drafted, ' + need + ' fields need a person'); }
   ok('learning entries', d.totals.entries > 500, d.totals.entries + ' entries');
+  { const cc = d.clientContradictions, cs = d.clientContradictionSummary;
+    ok('client contradiction export loaded in full locally', !!(cc && cs && cc.available && cc.items.length === cc.open && cc.open === cs.open && cs.open === cs.clients.reduce((n, c) => n + c.open, 0)),
+      cc ? cc.open + ' open of ' + cc.total + ' across ' + cc.clients.length + ' clients' : 'missing'); }
+  { const stale = (d.clients || []).reduce((n, c) => n + (((c.freshness || {}).total) || 0), 0);
+    ok('client fact freshness scan present', stale >= 0 && (d.clients || []).some(c => c.freshness), stale + ' records may be out of date across ' + (d.clients || []).filter(c => c.freshness && c.freshness.total).length + ' clients'); }
   const src = d.sources || [], bad = src.filter(s => s.ok === false);
   advise('sources feeding', src.length >= 9 && !bad.length, src.length + ' sources, ' + bad.length + ' red' + (bad.length ? ': ' + bad.map(s => s.name).join(', ') : ''));
+  { const row = src.find(s => s.name === 'Client brains'); ok('client brains pass Claude\'s validator', !!row && row.ok === true, row ? row.detail : 'health row missing'); }
+  { const row = src.find(s => s.name === 'Client results'); ok('client results remain traceable', !!row && row.ok === true, row ? row.detail : 'health row missing'); }
   { const c = d.codex, HEX = /^[a-f0-9]{64}$/, ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
     const exact = (o, keys) => !!o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).sort().join('|') === keys.slice().sort().join('|');
     const nums = o => Object.values(o).every(v => Number.isInteger(v) && v >= 0);
@@ -121,6 +140,12 @@ if (d) {
     }
     ok('Codex intake carries metadata only', safe, c ? c.messages.accepted + ' user messages, ' + c.files.eligible + ' top-level tasks, no text fields' : 'missing');
     advise('Codex conversations feeding', !!(c && (!c.available || c.files.eligible > 0)), c ? (c.available ? c.files.eligible + ' top-level tasks, newest ' + (c.newest || 'none') : 'not present in this build') : 'missing');
+  }
+  { const p = d.privateIntake, keys = ['available','updated','total','pending','notAFact','sendToClaude','lesson','claude','codex','redacted'];
+    const exact = !!p && Object.keys(p).sort().join('|') === keys.sort().join('|');
+    const counts = exact && ['total','pending','notAFact','sendToClaude','lesson','claude','codex','redacted'].every(k => Number.isInteger(p[k]) && p[k] >= 0);
+    const safe = counts && p.total === p.pending + p.notAFact + p.sendToClaude + p.lesson && p.total === p.claude + p.codex;
+    ok('private intake publishes counts only', safe, p ? p.pending + ' pending of ' + p.total + ', ' + p.redacted + ' private omitted' : 'missing');
   }
   const mem = src.find(s => s.name === 'Chat memories');
   const memAge = mem && mem.newest ? (Date.now() - new Date(mem.newest)) / 864e5 : 99;

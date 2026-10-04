@@ -224,7 +224,7 @@ async function ingestCodexSessions(options) {
   return report;
 }
 
-module.exports = { ingestCodexSessions, stableHash, userAuthoredPart, relationshipKinds };
+module.exports = { ingestCodexSessions, stableHash, userAuthoredPart, relationshipKinds, listRollouts };
 
 if (require.main === module) {
   ingestCodexSessions({}).then(report => {

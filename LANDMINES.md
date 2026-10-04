@@ -253,3 +253,32 @@ blocked. The teeth are still there.
 against. If the answer is "something the release would get WRONG", it blocks. If it is "something
 else is unwell", it warns loudly and gets out of the way. And never let a step that runs after the
 gate be a thing the gate depends on.
+
+## L-BRAIN-029 (2026-10-04): a private export is still private after it becomes structured
+The client contradiction export made 109 open issues easy to render, but its claims, holders,
+sources and handling remain Tier B client knowledge. Putting the JSON into the ordinary encrypted
+payload would have moved all of that wording behind the weak team lock. Fix: the public payload
+carries client names and counts only, the full items stay local or enter the strong vault and the
+gate fails if the public file carries even one item detail. Rule: structure changes how data is
+used, never who is allowed to read it.
+
+## L-BRAIN-030 (2026-10-04): a validator can read the wrong home even when the build uses BB_HOME
+Claude's validators accept explicit brain.json paths, but their `--all` mode builds its path from
+Node's home directory. A sabotage run pointed at a temp BB_HOME would therefore have checked the
+live files and reported a false green. Fix: `client-health.js` enumerates the files under BB_HOME
+and passes every path explicitly. Rule: a test knob is only real when every child process receives
+the resolved targets, not merely the parent's environment variable.
+
+## L-BRAIN-031 (2026-10-04): an old reporting period is not a stale result if it was checked today
+Historic result rows naturally carry old period end dates. Marking from that date alone would call
+a result stale immediately after a fresh source check. Fix: use `source.read` first and the period
+end only when no read date exists. Client facts use their own fact date. The thresholds remain 45
+days for result rows and 90 days for client facts. Rule: freshness belongs to the evidence check,
+not automatically to the period the evidence describes.
+
+## L-BRAIN-032 (2026-10-04): a recently touched transcript can resurrect the whole archive
+The first private intake filtered transcript files by file modification time, then accepted every
+message inside them. One current write made old sessions re-enter and produced 825 candidates.
+Fix: the intake now checks each message timestamp as well as the file time and keeps a rolling
+14-day review window. Reviewed older items remain preserved. Rule: a file timestamp bounds the
+scan cost, never the age of the records inside it.

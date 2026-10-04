@@ -4,4 +4,5 @@ agent.log
 codex-ingest-last.json
 .codex-ingest-last.tmp.*
 codex-intake-watch.log
+.private-intake.json
 BRAIN-AGENT-FAILING.txt
