@@ -36,6 +36,12 @@ shout(){
     echo "Fix: open the BB Brain chat and say: brain agent failed"
   } > "$FLAG"
   osascript -e "display notification \"$1\" with title \"BB BRAIN AGENT FAILED\"" 2>/dev/null
+  # 2026-10-06: the flag and the Mac notification went unread twice in four days. Tell a phone at once
+  # through bb_brain_shout (anon-executable, rate limited in the database). 404 until the migration lands.
+  SH="$(curl -s --max-time 12 -o /dev/null -w '%{http_code}' -X POST -H "apikey: $SB_ANON" -H "Authorization: Bearer $SB_ANON" -H "Content-Type: application/json" \
+    -d "{\"p_message\": $(printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()[:300]))')}" \
+    https://yyviiwnqgphyklcoijyd.supabase.co/rest/v1/rpc/bb_brain_shout 2>/dev/null || echo 000)"
+  case "$SH" in 200|204) echo "[$STAMP] ok shout sent to a phone" >> "$LOG";; 404) echo "[$STAMP] note shout not installed yet (bb_brain_shout 404)" >> "$LOG";; *) echo "[$STAMP] note shout not sent (http $SH)" >> "$LOG";; esac
   echo "[$STAMP] XX $1" >> "$LOG"; echo "[$STAMP] XX $1"; exit 1
 }
 # 0. WAIT FOR THE NETWORK (2026-09-07). The 07:15 run fired while this Mac was still
@@ -60,6 +66,14 @@ done
 if [ -f "$HOME/bb-consultancy/q4-2026/prefill_all.py" ]; then
   PF="$(python3 "$HOME/bb-consultancy/q4-2026/prefill_all.py" 2>&1 | head -1)" || true
   echo "[$STAMP] note $PF" >> "$LOG"
+fi
+
+# 2c. THE THINKING SESSION, part one (2026-10-06). Findings from the client results: movements inside a
+#     client, same-industry comparisons, blind spots, decisions waiting. No model, every finding names its
+#     rows. Writes brain-exports/ideas.json and a note in Downloads. The daily cloud routine words the ideas.
+if [ -f "$DIR/think/think.js" ]; then
+  if TH="$(node "$DIR/think/think.js" --write 2>&1 | grep -E '^THINK:' )"; then echo "[$STAMP] ok ${TH}" >> "$LOG";
+  else echo "[$STAMP] note think.js did not finish (the build continues; ideas.json keeps yesterday)" >> "$LOG"; fi
 fi
 
 # 0c. CODEX INTAKE SAFETY (Phase 1). The intake may count top-level user tasks, but it must

@@ -6,3 +6,9 @@ codex-ingest-last.json
 codex-intake-watch.log
 .private-intake.json
 BRAIN-AGENT-FAILING.txt
+
+# internal, kept in the private backup by sync.sh, never on the public Pages repo (2026-10-06)
+usage/
+cloud-intake/
+INTAKE-RAIL.md
+intake-rail.json
