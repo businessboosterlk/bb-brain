@@ -1,9 +1,9 @@
 {
-  "at": "2026-11-06T12:45:13.606Z",
+  "at": "2026-11-06T16:03:44.665Z",
   "ok": true,
-  "sent": 0,
+  "sent": 199,
   "inserted": 0,
   "skipped": 0,
-  "rejected": 0,
-  "clients": 0
+  "rejected": 199,
+  "clients": 22
 }
