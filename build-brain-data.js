@@ -258,7 +258,11 @@ function parseLearnings(file) {
      3. "- YYYY-MM-DD Title" dated log bullets  (ditto style)
      Undated bullets ("(seed)" notes) are notes, NOT iterations - never counted. */
   const entries = []; let undated = 0;
-  for (const line of raw.split('\n')) {
+  /* FIXED 2026-11-10: "## 6 Nov 2026: title" (crew, motion style) was never counted, 0 of 37 crew
+     entries reached the brain. A heading that opens with a day-month-year date is read as format 2. */
+  const MON = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+  const iso = l => l.replace(/^(##\s+)(\d{1,2}) ([A-Za-z]{3})[a-z]* (\d{4})\b[,:]?\s*/, (all, h, d, m, y) => MON[m.toLowerCase()] ? `${h}${y}-${MON[m.toLowerCase()]}-${d.padStart(2, '0')} ` : all);
+  for (const line of raw.split('\n').map(iso)) {
     let t = null, requireDate = false;
     let m = line.match(/^###\s+(.*)/);
     if (m) t = m[1].trim();

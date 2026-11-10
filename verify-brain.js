@@ -169,7 +169,7 @@ if (d) {
     advise('open asks are the client\'s, not BB\'s', opens > 0 && bb === 0, opens + ' open asks, ' + bb + ' from a BB sender'); }
   { let b = null; try { b = JSON.parse(fs.readFileSync(path.join(HERE, 'bridge-last.json'), 'utf8')); } catch (e) {}
     const age = b ? (Date.now() - Date.parse(b.at)) / 36e5 : 999;
-    advise('chat-ask bridge ran', !!b && b.ok && age < 26, b ? (b.sent + ' asks sent, ' + b.inserted + ' new, ' + b.skipped + ' known, ' + b.rejected + ' rejected, ' + age.toFixed(1) + 'h ago' + (b.error ? ', ' + b.error : '')) : 'bridge-last.json missing'); }
+    advise('chat-ask bridge ran', !!b && b.ok && age < 26 && !(b.sent > 0 && b.rejected === b.sent), b ? ((b.sent > 0 && b.rejected === b.sent ? 'EVERY ask rejected (all older than 7 days: the WhatsApp exports are stale), ' : '') + b.sent + ' asks sent, ' + b.inserted + ' new, ' + b.skipped + ' known, ' + b.rejected + ' rejected, ' + age.toFixed(1) + 'h ago' + (b.error ? ', ' + b.error : '')) : 'bridge-last.json missing'); }
   ok('no phantom clients', !hit.length, names.length + ' clients, phantoms: ' + (hit.join(', ') || 'none'));
   ok('client count sane', names.length >= 15 && names.length <= 60, names.length + ' records');
   advise('systems feed online', d.systems && d.systems.online, d.systems ? (d.systems.online ? d.systems.events.length + ' events' : 'OFFLINE ' + d.systems.error) : 'missing');
